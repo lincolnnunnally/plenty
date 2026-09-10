@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
-import { availableThisWeek, getDefaultPantry, weNeedList } from "@/lib/db/queries";
+import { availableThisWeek, getDefaultPantry, listedAllies, weNeedList } from "@/lib/db/queries";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { HOME_DESCRIPTION, pageMeta } from "@/lib/seo";
 
@@ -14,6 +14,7 @@ export default async function HomePage() {
   const hours = pantry?.hours_text?.trim();
   const address = pantry?.address?.trim();
   const withPhotos = available.filter((item) => item.image_url);
+  const nearby = pantry ? await listedAllies(pantry.id).catch(() => []) : [];
 
   return (
     <main className="shell">
@@ -93,10 +94,25 @@ export default async function HomePage() {
           </article>
           <article className="card">
             <strong>If you can give</strong>
-            <p>Food, money, a storage space, or a vehicle. Every gift is recorded and put on a family's table — not in one person's pocket.</p>
+            <p>Food, money, a freezer, a storage space, or a vehicle. Every gift is recorded and put on a family's table — not in one person's pocket.</p>
             <a className="button" href="/donate">Donate</a>
           </article>
         </div>
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Toombs County</p>
+        <h2>We are meeting the pantries already here</h2>
+        <p>
+          United Under God means we show up as support, not as a takeover. If they want grocery food,
+          volunteers, or a pickup from a store, we help. If they are happy as they are, Plenty does its own thing.
+        </p>
+        {nearby.filter((a) => a.kind === "pantry").length ? (
+          <p className="note">{nearby.filter((a) => a.kind === "pantry").length} pantry(ies) confirmed for neighbors. <a href="/around">See them</a>.</p>
+        ) : (
+          <p className="empty">No other pantry is listed yet — we will not post hours we have not confirmed. The visit list is on the pantry desk.</p>
+        )}
+        <a className="button" href="/around">Around Vidalia and Lyons</a>
       </section>
 
       {needs.length ? (

@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
-import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listStoreVouchers } from "@/lib/db/queries";
+import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listedAllies, listStoreVouchers } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -19,6 +19,7 @@ export default async function NeedFoodPage() {
   const household = user && pantry ? await householdForUser(pantry.id, user.id) : null;
   const waiver = user && pantry ? await latestWaiverForUser(pantry.id, user.id) : null;
   const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
+  const nearby = pantry ? (await listedAllies(pantry.id).catch(() => [])).filter((a) => a.kind === "pantry") : [];
   const waiverOk =
     (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at)) ||
     waiver?.version === FOOD_WAIVER_VERSION;
@@ -57,6 +58,25 @@ export default async function NeedFoodPage() {
           <a className="button" href="/this-week">See pictures of this week's food</a>
         </article>
       </div>
+
+      <section className="panel">
+        <h2>Other pantries in Vidalia and Lyons</h2>
+        <p className="note">Plenty is getting established. If you need food today, these are pantries we have confirmed in person. We do not list hours we have not walked into.</p>
+        {nearby.length ? (
+          <div className="grid">
+            {nearby.map((a) => (
+              <article className="card" key={a.id}>
+                <span>{a.city}</span>
+                <strong>{a.name}</strong>
+                {a.hours_text ? <p>{a.hours_text}</p> : <p className="note">Call for hours.</p>}
+                {a.phone ? <p>{a.phone}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty">We have not confirmed another pantry in person yet. <a href="/around">Around Toombs</a> stays empty until we do.</p>
+        )}
+      </section>
 
       {photos.length ? (
         <section className="panel">

@@ -52,7 +52,7 @@ export default function ForStoresPage() {
           </section>
         </div>
         <p className="note" style={{ marginTop: 12 }}>
-          People who walk in tend to spend the money they saved — milk, soap, a birthday cake. That is proximity, not a condition. Federal Good Samaritan law still covers a good-faith gift, including food given straight to a family.
+          People who walk in tend to spend the money they saved — milk, soap, a birthday cake. That is proximity, not a condition. Federal Good Samaritan law still covers a good-faith gift, including food given straight to a family. If a pantry a mile away can take the food, we will introduce you. You did not know you could. You can.
         </p>
         <div className="action-row">
           <a className="button primary" href="/donate">We’ll pick it up</a>

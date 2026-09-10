@@ -1,6 +1,6 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, getTaxProfile, weNeedList } from "@/lib/db/queries";
+import { getDefaultPantrySafe, getTaxProfile, openOpsNeeds, weNeedList } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ export default async function DonatePage() {
   const pantry = await getDefaultPantrySafe();
   const needs = pantry ? await weNeedList(pantry.id) : [];
   const tax = pantry ? await getTaxProfile(pantry.id) : null;
+  const opsNeeds = pantry ? await openOpsNeeds(pantry.id).catch(() => []) : [];
 
   return (
     <main className="shell">
@@ -35,8 +36,8 @@ export default async function DonatePage() {
           <p>Buys what we are short on — milk, eggs, protein. A money gift is recorded. We do not charge cards in this app yet; we receive the gift with you and keep a receipt record.</p>
         </article>
         <article className="card">
-          <strong>Space or a vehicle</strong>
-          <p>A warehouse to hold food, a hall or lot to distribute, a van for pickups. Donated, loaned, leased, rented, or owned by the pantry — we record it so it is not lost in one person's pocket.</p>
+          <strong>Space, a freezer, or a vehicle</strong>
+          <p>A warehouse, a hall, an upright freezer, a cooler, shelves, a van. Donated, loaned, leased, rented, or owned by the pantry — we record it so it is not lost in one person's pocket.</p>
         </article>
         <article className="card">
           <strong>Grocery store or warehouse</strong>
@@ -45,6 +46,15 @@ export default async function DonatePage() {
         </article>
       </div>
 
+      {opsNeeds.length ? (
+        <section className="panel">
+          <p className="eyebrow">To run a pantry we also need</p>
+          <h2>Space, freezers, and the rest</h2>
+          <div className="chip-row">{opsNeeds.map((item) => <span className="chip" key={item.id}>{item.title}</span>)}</div>
+          <p className="note">Offer it below as space or equipment. We will come get it or meet you.</p>
+        </section>
+      ) : null}
+
       {needs.length ? (
         <section className="panel">
           <p className="eyebrow">Needed on the shelves right now</p>
@@ -52,7 +62,7 @@ export default async function DonatePage() {
           <div className="chip-row">{needs.map((item) => <span className="chip" key={item.id}>{item.name}</span>)}</div>
         </section>
       ) : (
-        <p className="empty">No short list posted this week. Food, money, space, and vehicles are still needed.</p>
+        <p className="empty">No food short list posted this week. Food, money, space, freezers, and vehicles are still needed.</p>
       )}
 
       <p className="note">
@@ -81,18 +91,24 @@ export default async function DonatePage() {
                   <option value="money">Money (we will contact you to receive it)</option>
                   <option value="space">Space (warehouse or a place to distribute)</option>
                   <option value="vehicle">Vehicle (pickup or delivery)</option>
+                  <option value="equipment">Equipment (freezer, cooler, shelves)</option>
                 </select>
               </label>
               <label className="field">
                 <span>If space, what kind</span>
                 <select className="input" name="assetKind" defaultValue="">
-                  <option value="">Not a building</option>
+                  <option value="">Not a building or equipment</option>
                   <option value="warehouse">Warehouse / storage</option>
                   <option value="distribution_site">Place to hand out food</option>
+                  <option value="freezer">Freezer</option>
+                  <option value="cooler">Cooler / refrigerator</option>
+                  <option value="shelves">Shelves</option>
+                  <option value="pallets">Pallets / carts</option>
+                  <option value="other">Other equipment</option>
                 </select>
               </label>
               <label className="field">
-                <span>If space or vehicle, how the pantry would have it</span>
+                <span>If space, vehicle, or equipment — how the pantry would have it</span>
                 <select className="input" name="tenure" defaultValue="donated">
                   <option value="donated">Donated</option>
                   <option value="loaned">Loaned for pantry use</option>

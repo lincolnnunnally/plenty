@@ -402,3 +402,50 @@ create index if not exists plenty_store_vouchers_pantry_idx on plenty_store_vouc
 create index if not exists plenty_store_vouchers_partner_idx on plenty_store_vouchers (partner_id, status);
 create index if not exists plenty_store_vouchers_household_idx on plenty_store_vouchers (household_id, status);
 create unique index if not exists plenty_store_vouchers_code_idx on plenty_store_vouchers (code);
+
+-- Local pantries, thrift stores, and churches. Meet first. List publicly only after a steward confirms.
+create table if not exists plenty_allies (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  kind text not null,
+  name text not null,
+  address text not null default '',
+  city text not null default '',
+  state text not null default 'GA',
+  zip text not null default '',
+  phone text not null default '',
+  contact_name text not null default '',
+  contact_email text not null default '',
+  hours_hint text not null default '',
+  hours_text text not null default '',
+  website text not null default '',
+  relationship text not null default 'to_meet',
+  listed_publicly boolean not null default false,
+  wants_food boolean not null default false,
+  can_host_distribution boolean not null default false,
+  can_pickup boolean not null default false,
+  wants_volunteers boolean not null default false,
+  has_freezer boolean not null default false,
+  has_space boolean not null default false,
+  visit_notes text not null default '',
+  last_visited_at timestamptz,
+  source_note text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists plenty_allies_pantry_idx on plenty_allies (pantry_id, kind, relationship);
+create unique index if not exists plenty_allies_pantry_name_city on plenty_allies (pantry_id, lower(name), lower(city));
+
+create table if not exists plenty_ops_needs (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  kind text not null,
+  title text not null,
+  details text not null default '',
+  status text not null default 'open',
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_ops_needs_pantry_idx on plenty_ops_needs (pantry_id, status);
+
+alter table plenty_pickups add column if not exists ally_id uuid;
+alter table plenty_donations add column if not exists ally_id uuid;

@@ -1885,3 +1885,275 @@ export async function redeemStoreCardWithPin(code: string, pin: string, note: st
   if (!updated) throw new Error("This card was already collected.");
   return updated as StoreVoucher;
 }
+
+const ALLY_COLS =
+  "id, pantry_id, kind, name, address, city, state, zip, phone, contact_name, contact_email, hours_hint, hours_text, website, relationship, listed_publicly, wants_food, can_host_distribution, can_pickup, wants_volunteers, has_freezer, has_space, visit_notes, last_visited_at, source_note, created_at";
+
+export type Ally = {
+  id: string;
+  pantry_id: string;
+  kind: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  contact_name: string;
+  contact_email: string;
+  hours_hint: string;
+  hours_text: string;
+  website: string;
+  relationship: string;
+  listed_publicly: boolean;
+  wants_food: boolean;
+  can_host_distribution: boolean;
+  can_pickup: boolean;
+  wants_volunteers: boolean;
+  has_freezer: boolean;
+  has_space: boolean;
+  visit_notes: string;
+  last_visited_at: string | null;
+  source_note: string;
+  created_at: string;
+};
+
+export type OpsNeed = {
+  id: string;
+  pantry_id: string;
+  kind: string;
+  title: string;
+  details: string;
+  status: string;
+  created_at: string;
+};
+
+export async function listAllies(pantryId: string): Promise<Ally[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_allies").select(ALLY_COLS).eq("pantry_id", pantryId).order("city").order("name");
+  fail(error);
+  return (data as Ally[]) || [];
+}
+
+export async function listedAllies(pantryId: string): Promise<Ally[]> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_allies")
+    .select(ALLY_COLS)
+    .eq("pantry_id", pantryId)
+    .eq("listed_publicly", true)
+    .order("city")
+    .order("name");
+  fail(error);
+  return (data as Ally[]) || [];
+}
+
+export async function addAlly(input: {
+  pantryId: string;
+  kind: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  contactName: string;
+  contactEmail: string;
+  hoursHint: string;
+  hoursText: string;
+  website: string;
+  relationship: string;
+  listedPublicly: boolean;
+  wantsFood: boolean;
+  canHostDistribution: boolean;
+  canPickup: boolean;
+  wantsVolunteers: boolean;
+  hasFreezer: boolean;
+  hasSpace: boolean;
+  visitNotes: string;
+  sourceNote: string;
+}): Promise<Ally> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_allies")
+    .insert({
+      pantry_id: input.pantryId,
+      kind: input.kind,
+      name: input.name,
+      address: input.address,
+      city: input.city,
+      state: input.state || "GA",
+      zip: input.zip,
+      phone: input.phone,
+      contact_name: input.contactName,
+      contact_email: input.contactEmail,
+      hours_hint: input.hoursHint,
+      hours_text: input.hoursText,
+      website: input.website,
+      relationship: input.relationship,
+      listed_publicly: Boolean(input.listedPublicly),
+      wants_food: Boolean(input.wantsFood),
+      can_host_distribution: Boolean(input.canHostDistribution),
+      can_pickup: Boolean(input.canPickup),
+      wants_volunteers: Boolean(input.wantsVolunteers),
+      has_freezer: Boolean(input.hasFreezer),
+      has_space: Boolean(input.hasSpace),
+      visit_notes: input.visitNotes,
+      source_note: input.sourceNote
+    })
+    .select(ALLY_COLS)
+    .single();
+  fail(error);
+  return data as Ally;
+}
+
+export async function updateAlly(
+  id: string,
+  pantryId: string,
+  patch: Partial<{
+    kind: string;
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    phone: string;
+    contactName: string;
+    contactEmail: string;
+    hoursHint: string;
+    hoursText: string;
+    website: string;
+    relationship: string;
+    listedPublicly: boolean;
+    wantsFood: boolean;
+    canHostDistribution: boolean;
+    canPickup: boolean;
+    wantsVolunteers: boolean;
+    hasFreezer: boolean;
+    hasSpace: boolean;
+    visitNotes: string;
+    lastVisitedAt: string | null;
+    sourceNote: string;
+  }>
+): Promise<Ally | null> {
+  const client = await sb();
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.kind != null) row.kind = patch.kind;
+  if (patch.name != null) row.name = patch.name;
+  if (patch.address != null) row.address = patch.address;
+  if (patch.city != null) row.city = patch.city;
+  if (patch.state != null) row.state = patch.state;
+  if (patch.zip != null) row.zip = patch.zip;
+  if (patch.phone != null) row.phone = patch.phone;
+  if (patch.contactName != null) row.contact_name = patch.contactName;
+  if (patch.contactEmail != null) row.contact_email = patch.contactEmail;
+  if (patch.hoursHint != null) row.hours_hint = patch.hoursHint;
+  if (patch.hoursText != null) row.hours_text = patch.hoursText;
+  if (patch.website != null) row.website = patch.website;
+  if (patch.relationship != null) row.relationship = patch.relationship;
+  if (patch.listedPublicly != null) row.listed_publicly = patch.listedPublicly;
+  if (patch.wantsFood != null) row.wants_food = patch.wantsFood;
+  if (patch.canHostDistribution != null) row.can_host_distribution = patch.canHostDistribution;
+  if (patch.canPickup != null) row.can_pickup = patch.canPickup;
+  if (patch.wantsVolunteers != null) row.wants_volunteers = patch.wantsVolunteers;
+  if (patch.hasFreezer != null) row.has_freezer = patch.hasFreezer;
+  if (patch.hasSpace != null) row.has_space = patch.hasSpace;
+  if (patch.visitNotes != null) row.visit_notes = patch.visitNotes;
+  if (patch.lastVisitedAt !== undefined) row.last_visited_at = patch.lastVisitedAt;
+  if (patch.sourceNote != null) row.source_note = patch.sourceNote;
+  const { data, error } = await client
+    .from("plenty_allies")
+    .update(row)
+    .eq("id", id)
+    .eq("pantry_id", pantryId)
+    .select(ALLY_COLS)
+    .maybeSingle();
+  fail(error);
+  return (data as Ally | null) ?? null;
+}
+
+export async function ensureToombsStartingPoints(pantryId: string): Promise<number> {
+  const { TOOMBS_STARTING_POINTS } = await import("@/lib/allies/toombs-starting-points");
+  const existing = await listAllies(pantryId);
+  const names = new Set(existing.map((a) => a.name.trim().toLowerCase()));
+  let added = 0;
+  for (const row of TOOMBS_STARTING_POINTS) {
+    if (names.has(row.name.trim().toLowerCase())) continue;
+    await addAlly({
+      pantryId,
+      kind: row.kind,
+      name: row.name,
+      address: row.address,
+      city: row.city,
+      state: "GA",
+      zip: row.zip,
+      phone: row.phone,
+      contactName: "",
+      contactEmail: "",
+      hoursHint: row.hoursHint,
+      hoursText: "",
+      website: "",
+      relationship: "to_meet",
+      listedPublicly: false,
+      wantsFood: false,
+      canHostDistribution: false,
+      canPickup: false,
+      wantsVolunteers: false,
+      hasFreezer: false,
+      hasSpace: false,
+      visitNotes: "",
+      sourceNote: row.sourceNote
+    });
+    added += 1;
+  }
+  return added;
+}
+
+export async function listOpsNeeds(pantryId: string): Promise<OpsNeed[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_ops_needs").select("id, pantry_id, kind, title, details, status, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as OpsNeed[]) || [];
+}
+
+export async function openOpsNeeds(pantryId: string): Promise<OpsNeed[]> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_ops_needs")
+    .select("id, pantry_id, kind, title, details, status, created_at")
+    .eq("pantry_id", pantryId)
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+  fail(error);
+  return (data as OpsNeed[]) || [];
+}
+
+export async function addOpsNeed(input: { pantryId: string; kind: string; title: string; details: string }): Promise<OpsNeed> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_ops_needs")
+    .insert({
+      pantry_id: input.pantryId,
+      kind: input.kind,
+      title: input.title,
+      details: input.details,
+      status: "open"
+    })
+    .select("id, pantry_id, kind, title, details, status, created_at")
+    .single();
+  fail(error);
+  return data as OpsNeed;
+}
+
+export async function setOpsNeedStatus(id: string, pantryId: string, status: string): Promise<OpsNeed | null> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_ops_needs")
+    .update({ status })
+    .eq("id", id)
+    .eq("pantry_id", pantryId)
+    .select("id, pantry_id, kind, title, details, status, created_at")
+    .maybeSingle();
+  fail(error);
+  return (data as OpsNeed | null) ?? null;
+}

@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { ShiftActions, SignupButton } from "@/components/signup-button";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listShifts, myShiftSignups, volunteerForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listedAllies, listShifts, myShiftSignups, volunteerForUser } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -20,15 +20,15 @@ export default async function VolunteerPage() {
   const covers = pantry ? await listCoverRequests(pantry.id) : [];
   const hours = user && pantry ? await hoursForUser(pantry.id, user.id) : [];
   const hourTotal = hours.reduce((sum, row) => sum + Number(row.hours), 0);
+  const allyHelp = pantry ? (await listedAllies(pantry.id).catch(() => [])).filter((a) => a.wants_volunteers) : [];
 
   return (
     <main className="shell">
       <p className="eyebrow">Volunteer · Vidalia food pantry</p>
       <h1>Help neighbors get groceries</h1>
       <p className="lede">
-        You are volunteering at Plenty, a food pantry in Vidalia, Georgia. The work is practical:
-        pick up donated food, set up tables, pack bags, welcome families, or drive food to someone
-        who cannot come. Confirm your shift, ask for cover if you cannot make it, and log your hours.
+        Help Plenty, or help a pantry already in Toombs County that asked for hands. Churches can send
+        people either place. We do not take over a pantry that is happy as it is.
       </p>
 
       <div className="grid">
@@ -113,6 +113,29 @@ export default async function VolunteerPage() {
           </PostForm>
         </section>
       ) : null}
+
+      <section className="panel">
+        <h2>Churches and existing pantries</h2>
+        <p>
+          If your church has people who want to serve, send them here. They can run a Plenty shift,
+          or — only if that pantry asked — help a pantry we have already met.
+        </p>
+        {allyHelp.length ? (
+          <div className="grid">
+            {allyHelp.map((a) => (
+              <article className="card" key={a.id}>
+                <span>{a.city} · asked for volunteers</span>
+                <strong>{a.name}</strong>
+                {a.hours_text ? <p>{a.hours_text}</p> : null}
+                {a.phone ? <p className="note">{a.phone}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty">No other pantry has asked us for volunteers yet. Meet them first. Until then, serve at Plenty.</p>
+        )}
+        <p className="note"><a href="/around">Other places in Vidalia and Lyons</a></p>
+      </section>
 
       <section className="panel">
         <p className="eyebrow">Open shifts at this pantry</p>

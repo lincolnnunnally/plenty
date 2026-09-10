@@ -29,6 +29,8 @@ export default async function DonationsAdminPage() {
               <option value="warehouse">Warehouse / storage</option>
               <option value="distribution_site">Distribution site</option>
               <option value="equipment">Equipment</option>
+              <option value="freezer">Freezer</option>
+              <option value="cooler">Cooler</option>
             </select>
           </label>
           <label className="field">
