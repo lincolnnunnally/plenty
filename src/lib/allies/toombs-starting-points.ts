@@ -249,6 +249,26 @@ export const FIELD_VISITS: FieldVisit[] = [
       "Visited in person 10 Sep 2026. Directory address 803 Reidsville Highway does not open in Maps. Searching the church name dropped Lincoln at a pin that was not the church; the church is around the corner. Building is at 455 Reidsville Highway (corner of Reidsville Highway and South 10th). Kevin said they distribute the second and fourth Friday, about 2:00 till 5:00.",
     sourceNote: "Hours from Kevin on site. Address from the church's own 455 Reidsville Hwy listing. Directories still print 803.",
     visitedOn: "2026-09-10"
+  },
+  {
+    names: [
+      "Oasis Church of God pantry",
+      "Oasis Church of God — food distribution",
+      "Oasis Church of God"
+    ],
+    kind: "pantry",
+    address: "1163 US Highway 1 South",
+    city: "Lyons",
+    zip: "30436",
+    phone: "(912) 526-5060",
+    hoursText: "Monday and Tuesday 3:30–5:00 p.m. Friday 8:00 a.m.–12:00 p.m. Pantry is in the back — five buildings.",
+    contactName: "",
+    relationship: "running_own",
+    listedPublicly: true,
+    visitNotes:
+      "Visited in person 10 Sep 2026. Sign: food bank Monday and Tuesday 3:30 to 5, Friday 8 a.m. to 12 p.m. Five buildings in the back — they run the food pantry out of there. Directories had said 3:00–5:00 and Friday until 2:00; the door is the one to trust. Lincoln wants to know more about how this church operates. No name on this visit.",
+    sourceNote: "Hours from the sign on the door. Address 1163 US Highway 1 South.",
+    visitedOn: "2026-09-10"
   }
 ];
 
