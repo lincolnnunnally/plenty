@@ -1,7 +1,7 @@
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
-import { addPickup, addShift, listAllies, listDistributions, listStorePartners, listVolunteers, patchPickup, patchShift, type Ally } from "@/lib/db/queries";
-import { notifyCrew } from "@/lib/notify";
+import { addPickup, addShift, getPantryById, listAllies, listDistributions, listStorePartners, listVolunteers, patchPickup, patchShift, type Ally } from "@/lib/db/queries";
+import { notifyCrew, notifyDesk } from "@/lib/notify";
 
 async function sb() {
   const ensured = await ensurePlentySchema();
@@ -291,12 +291,21 @@ export async function fulfillLoad(
   const dest = load.dest_note || "Plenty";
   const whenLabel = new Date(when).toLocaleString();
   const crew = await listVolunteers(pantryId);
+  const cats = (load.items || []).map((i) => i.category).filter(Boolean).join(", ");
   await notifyCrew({
     pantryId,
     crew,
     roles: ["pickup", "delivery", "store_meet"],
     subject: `Plenty pickup: ${store.partnerName}`,
-    text: `A food pickup is on the board.\nWhere: ${store.partnerAddress || store.partnerName}\nWhen: ${whenLabel}\nTake it to: ${dest}\n${load.route_reason}\nSign up: https://plenty.unitedundergod.org/volunteer`
+    text: `A food pickup is on the board.\nWhere: ${store.partnerAddress || store.partnerName}\nWhen: ${whenLabel}\nTake it to: ${dest}\nFood: ${cats || "see store"}\n${load.route_reason}\nSign up: https://plenty.unitedundergod.org/volunteer`
+  }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+  const pantry = await getPantryById(pantryId).catch(() => null);
+  await notifyDesk({
+    pantryId,
+    pantryEmail: pantry?.email,
+    pantryPhone: pantry?.phone,
+    subject: `Plenty load incoming: ${store.partnerName}`,
+    text: `A pickup posted.\nStore: ${store.partnerName}\nWhen: ${whenLabel}\nRoute to: ${dest}\nFood: ${cats || "see store"}\n${load.route_reason}\nDesk: https://plenty.unitedundergod.org/run/food`
   }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
   return updated;
 }

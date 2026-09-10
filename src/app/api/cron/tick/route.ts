@@ -3,6 +3,7 @@ import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listS
 import { offerFoodLoad } from "@/lib/db/food-loads";
 import { notifyCrew } from "@/lib/notify";
 import { nextEasternOccurrence } from "@/lib/schedule";
+import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
 
 export const dynamic = "force-dynamic";
 
@@ -47,16 +48,17 @@ export async function GET(request: Request) {
       if (!pantry) continue;
       const partners = await listStorePartners(job.pantry_id);
       const partner = partners.find((p) => p.id === job.partner_id);
-      if (!partner) continue;
+      if (!partner || partner.status === "paused") continue;
+      const foods = parseFoodNote([job.notes, partner.notes].filter(Boolean).join("\n"));
       await offerFoodLoad({
         pantryId: job.pantry_id,
         partnerId: partner.id,
         mode: partner.pickup_mode,
-        leftover: false,
+        leftover: true,
         pickupAt: when.toISOString(),
         holdUntil: null,
-        notes: job.notes || "Recurring dock pickup",
-        items: [{ category: "dry", title: "Recurring pickup — confirm what is on the dock", quantity: "see store", mustUseBy: null }],
+        notes: job.notes || "Recurring leftover pickup",
+        items: itemsForRecurringPickup(foods, when),
         partnerName: partner.name,
         partnerAddress: [partner.address, partner.city].filter(Boolean).join(", "),
         partnerPhone: partner.phone

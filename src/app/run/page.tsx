@@ -15,8 +15,8 @@ export default async function RunPage() {
       <p className="eyebrow">Pantry desk</p>
       <h1>Operate the Vidalia food pantry</h1>
       <p className="lede">
-        This desk is for pantry admins. Recipients, volunteers, and donors have their own accounts.
-        {superAdmin ? " You are the super admin for Plenty." : ""} Leave hours blank until they are real.
+        Recipients, volunteers, and donors have their own accounts.
+        {superAdmin ? " You are the super admin." : ""}
       </p>
       <RunNav pantries={pantries} currentId={pantry?.id} superAdmin={superAdmin} />
       <div className="action-row">

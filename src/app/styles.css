@@ -1,6 +1,6 @@
 :root {
-  --ink: #1f2a22;
-  --muted: #5d6a60;
+  --ink: #17201a;
+  --muted: #3d4a41;
   --line: #e4d8c4;
   --paper: #f7f1e6;
   --panel: #fffdf8;
@@ -8,7 +8,7 @@
   --accent-ink: #fffdf8;
   --leaf: #2f5d3a;
   --radius: 12px;
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  font-family: Georgia, "Palatino Linotype", Palatino, "Times New Roman", serif;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -18,14 +18,14 @@ body {
   background:
     radial-gradient(1200px 500px at 10% -10%, #f3e2c4 0%, transparent 55%),
     var(--paper);
-  font-size: 17px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 a { color: inherit; }
 img { max-width: 100%; height: auto; }
-.shell { width: min(1120px, 100%); margin: 0 auto; padding: 20px 16px 48px; }
-.hero { min-height: 52vh; display: grid; align-content: center; }
+.shell { width: min(1120px, 100%); margin: 0 auto; padding: 16px 16px 48px; }
+.hero { padding: 8px 0 4px; }
 .eyebrow, .card span {
   margin: 0 0 6px;
   color: var(--leaf);
@@ -86,7 +86,7 @@ p, small { color: var(--ink); line-height: 1.6; }
   color: var(--ink);
 }
 textarea.input { min-height: 96px; resize: vertical; }
-.note { color: var(--muted); font-size: .95rem; margin: 6px 0 0; }
+.note { color: #3d4a41; font-size: 1rem; margin: 6px 0 0; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .chip {
   min-height: 36px; display: inline-flex; align-items: center;
@@ -100,7 +100,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 .check input { margin-top: 4px; accent-color: var(--accent); }
 .error, .note.error { color: #9b2c2c; }
 .panel { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: var(--panel); margin-top: 18px; }
-.lede { margin: 8px 0 0; font-size: 1.2rem; line-height: 1.5; }
+.lede { margin: 8px 0 0; font-size: 1.15rem; line-height: 1.4; font-weight: 500; }
 .field { display: grid; gap: 6px; }
 .field > span {
   color: var(--muted);

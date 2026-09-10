@@ -1,7 +1,8 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
-import { listHouseholds, listStorePartners, listStoreVouchers } from "@/lib/db/queries";
+import { listHouseholds, listRecurring, listStorePartners, listStoreVouchers } from "@/lib/db/queries";
+import { FOOD_TYPES, WEEKDAYS, parseFoodNote, weekdayName } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -18,21 +19,18 @@ export default async function StorePartnersPage() {
   const partners = await listStorePartners(pantry.id);
   const households = await listHouseholds(pantry.id);
   const vouchers = await listStoreVouchers(pantry.id);
+  const jobs = await listRecurring(pantry.id).catch(() => []);
   const activePartners = partners.filter((p) => p.status === "active" && p.pickup_mode !== "dock_pickup");
 
   return (
     <main className="shell">
       <p className="eyebrow">Store partners</p>
-      <h1>In-store pickup cards</h1>
-      <p className="lede">
-        A volunteer can meet them at the store, carry the bag, and offer to pray — never required.
-        Then they may shop. The store still gets the person on the lot after the gift is in their hands.
-      </p>
+      <h1>Grocery stores</h1>
+      <p className="lede">Weekly leftover pickup posts a shift, texts pickup volunteers, and routes the food.</p>
       <RunNav />
 
       <section className="panel">
-        <h2>Add a grocery store</h2>
-        <p className="note">The store chooses: dock pickup, a desk hold, or volunteers on the floor. We do not put volunteers in a store that did not ask. We meet people where the opportunity is.</p>
+        <h2>Add a store + weekly pickup</h2>
         <PostForm action="/api/store-partners" submitLabel="Save store">
           <label className="field"><span>Store name</span><input className="input" name="name" required placeholder="Vidalia Piggly Wiggly…" /></label>
           <label className="field"><span>Address</span><input className="input" name="address" /></label>
@@ -46,19 +44,32 @@ export default async function StorePartnersPage() {
           <label className="field"><span>Email</span><input className="input" name="contactEmail" type="email" /></label>
           <label className="field">
             <span>How they give</span>
-            <select className="input" name="pickupMode" defaultValue="hold_desk">
-              <option value="hold_desk">Hold the food at customer service — families walk in with a card</option>
-              <option value="food_voucher">Named food list — they collect listed items only</option>
-              <option value="dock_pickup">We pick up at the dock instead</option>
+            <select className="input" name="pickupMode" defaultValue="dock_pickup">
+              <option value="dock_pickup">We pick up at the dock</option>
+              <option value="hold_desk">Hold the food at customer service</option>
+              <option value="food_voucher">Named food list</option>
             </select>
           </label>
-          <label className="field"><span>Where they collect</span><input className="input" name="holdDesk" defaultValue="Customer service" /></label>
-          <label className="field"><span>Hours for pickup</span><input className="input" name="hoursText" placeholder="Weekdays 9–6…" /></label>
-          <label className="field"><span>Store PIN (4–8 digits, so they can mark a card collected)</span><input className="input" name="pin" inputMode="numeric" pattern="\d{4,8}" /></label>
+          <div className="grid">
+            <label className="field">
+              <span>Weekly pickup day</span>
+              <select className="input" name="weekday" defaultValue="5">
+                {WEEKDAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+            </label>
+            <label className="field"><span>Time</span><input className="input" name="timeLocal" type="time" defaultValue="18:00" /></label>
+          </div>
+          <p className="note">Usually on the dock</p>
+          <div className="chip-row">
+            {FOOD_TYPES.map((t) => (
+              <label className="check" key={t.value}><input type="checkbox" name="foodTypes" value={t.value} defaultChecked={t.value === "dry"} /> {t.label}</label>
+            ))}
+          </div>
+          <label className="field"><span>Where they collect (if desk hold)</span><input className="input" name="holdDesk" defaultValue="Customer service" /></label>
+          <label className="field"><span>Store PIN (4–8 digits)</span><input className="input" name="pin" inputMode="numeric" pattern="\d{4,8}" /></label>
           <input type="hidden" name="volunteersOnSite" value="0" />
-          <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" /> Store asked: Plenty volunteers may meet families here</label>
-          <label className="field"><span>How to find the volunteer (only if they asked)</span><input className="input" name="meetNote" placeholder="Green apron at customer service" /></label>
-          <label className="field"><span>Notes</span><input className="input" name="notes" /></label>
+          <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" /> Store asked: volunteers may meet families here</label>
+          <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" placeholder="Green apron at customer service" /></label>
           <input type="hidden" name="status" value="active" />
         </PostForm>
       </section>
@@ -67,39 +78,75 @@ export default async function StorePartnersPage() {
         <h2>Partner stores</h2>
         {partners.length ? (
           <div className="grid">
-            {partners.map((p) => (
-              <article className="card" key={p.id}>
-                <span>{p.status} · {modeLabel(p.pickup_mode)}</span>
-                <strong>{p.name}</strong>
-                <p>{[p.address, p.city, p.state].filter(Boolean).join(", ") || "Address not set"}</p>
-                <p className="note">{p.hold_desk}{p.hours_text ? ` · ${p.hours_text}` : ""} · extra purchase off · PIN {p.pin_set ? "set" : "needed"}{p.volunteers_on_site ? " · volunteers meet families" : ""}</p>
-                {p.contact_name || p.phone ? <p className="note">{[p.contact_name, p.phone, p.contact_email].filter(Boolean).join(" · ")}</p> : null}
-                <PostForm action={`/api/store-partners/${p.id}`} submitLabel="Update">
-                  <select className="input" name="status" defaultValue={p.status}>
-                    <option value="invited">Invited</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                  </select>
-                  <select className="input" name="pickupMode" defaultValue={p.pickup_mode}>
-                    <option value="hold_desk">Hold at the desk</option>
-                    <option value="food_voucher">Named food list</option>
-                    <option value="dock_pickup">Dock pickup</option>
-                  </select>
-                  <label className="field"><span>Hold desk</span><input className="input" name="holdDesk" defaultValue={p.hold_desk} /></label>
-                  <label className="field"><span>Hours</span><input className="input" name="hoursText" defaultValue={p.hours_text} /></label>
-                  <input type="hidden" name="volunteersOnSite" value="0" />
-                  <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked={p.volunteers_on_site} /> Store chose: volunteers meet families here</label>
-                  <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" defaultValue={p.meet_note} /></label>
-                  <label className="field"><span>New PIN (leave blank to keep)</span><input className="input" name="pin" inputMode="numeric" /></label>
-                </PostForm>
-                {p.status === "active" && p.pickup_mode !== "dock_pickup" ? (
-                  <a className="button" href={`/api/store-card?kind=hold-list&partnerId=${p.id}`}>Print today’s hold list</a>
-                ) : null}
-              </article>
-            ))}
+            {partners.map((p) => {
+              const weekly = jobs.filter((j) => j.kind === "store_pickup" && j.partner_id === p.id);
+              return (
+                <article className="card" key={p.id}>
+                  <span>{p.status} · {modeLabel(p.pickup_mode)}</span>
+                  <strong>{p.name}</strong>
+                  <p>{[p.address, p.city, p.state].filter(Boolean).join(", ") || "Address not set"}</p>
+                  <p className="note">{p.hold_desk}{p.hours_text ? ` · ${p.hours_text}` : ""}{p.volunteers_on_site ? " · volunteers meet families" : ""}</p>
+                  {p.contact_name || p.phone ? <p className="note">{[p.contact_name, p.phone, p.contact_email].filter(Boolean).join(" · ")}</p> : null}
+                  {weekly.length ? (
+                    <ul>
+                      {weekly.map((j) => (
+                        <li key={j.id}>
+                          {weekdayName(j.weekday)} {j.time_local} · {parseFoodNote(j.notes).join(", ")} · {j.active ? "repeating" : "stopped"}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="note">No weekly pickup yet.</p>
+                  )}
+                  <h3 style={{ marginTop: 16 }}>Weekly leftover pickup</h3>
+                  <PostForm action="/api/recurring" submitLabel="Repeat this pickup">
+                    <input type="hidden" name="kind" value="store_pickup" />
+                    <input type="hidden" name="partnerId" value={p.id} />
+                    <input type="hidden" name="title" value={`Pickup at ${p.name}`} />
+                    <input type="hidden" name="role" value="pickup" />
+                    <input type="hidden" name="location" value={[p.address, p.city].filter(Boolean).join(", ")} />
+                    <div className="grid">
+                      <label className="field">
+                        <span>Day</span>
+                        <select className="input" name="weekday" defaultValue="5">
+                          {WEEKDAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="field"><span>Time</span><input className="input" name="timeLocal" type="time" defaultValue="18:00" required /></label>
+                    </div>
+                    <div className="chip-row">
+                      {FOOD_TYPES.map((t) => (
+                        <label className="check" key={t.value}><input type="checkbox" name="foodTypes" value={t.value} defaultChecked={t.value === "dry"} /> {t.label}</label>
+                      ))}
+                    </div>
+                  </PostForm>
+                  <PostForm action={`/api/store-partners/${p.id}`} submitLabel="Update">
+                    <select className="input" name="status" defaultValue={p.status}>
+                      <option value="invited">Invited</option>
+                      <option value="active">Active</option>
+                      <option value="paused">Paused</option>
+                    </select>
+                    <select className="input" name="pickupMode" defaultValue={p.pickup_mode}>
+                      <option value="hold_desk">Hold at the desk</option>
+                      <option value="food_voucher">Named food list</option>
+                      <option value="dock_pickup">Dock pickup</option>
+                    </select>
+                    <label className="field"><span>Hold desk</span><input className="input" name="holdDesk" defaultValue={p.hold_desk} /></label>
+                    <label className="field"><span>Hours</span><input className="input" name="hoursText" defaultValue={p.hours_text} /></label>
+                    <input type="hidden" name="volunteersOnSite" value="0" />
+                    <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked={p.volunteers_on_site} /> Store chose: volunteers meet families here</label>
+                    <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" defaultValue={p.meet_note} /></label>
+                    <label className="field"><span>New PIN (leave blank to keep)</span><input className="input" name="pin" inputMode="numeric" /></label>
+                  </PostForm>
+                  {p.status === "active" && p.pickup_mode !== "dock_pickup" ? (
+                    <a className="button" href={`/api/store-card?kind=hold-list&partnerId=${p.id}`}>Print today’s hold list</a>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         ) : (
-          <p className="empty">No grocery partners yet. That is honest — add a store when a manager says yes.</p>
+          <p className="empty">No grocery partners yet.</p>
         )}
       </section>
 
@@ -124,12 +171,12 @@ export default async function StorePartnersPage() {
               </select>
             </label>
             <label className="field">
-              <span>What is in this bag (bags can differ — mystery is OK)</span>
-              <input className="input" name="itemsText" placeholder="Chicken, rice, apples, pasta — or leave blank for a true surprise" />
+              <span>What is in this bag</span>
+              <input className="input" name="itemsText" placeholder="Chicken, rice, apples — or leave blank" />
             </label>
             <label className="field">
-              <span>They may still want (a hint, not a bill)</span>
-              <input className="input" name="stillNeedText" placeholder="Milk, eggs, soap — only if they choose to buy" />
+              <span>They may still want (optional)</span>
+              <input className="input" name="stillNeedText" placeholder="Milk, eggs, soap" />
             </label>
             <label className="field">
               <span>Expires in days (blank = until collected)</span>
@@ -138,7 +185,7 @@ export default async function StorePartnersPage() {
           </PostForm>
         ) : (
           <p className="empty">
-            {!households.length ? "No households yet." : "No active in-store partners yet."} Cards print after both exist.
+            {!households.length ? "No households yet." : "No active in-store partners yet."}
           </p>
         )}
       </section>

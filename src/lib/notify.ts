@@ -1,4 +1,4 @@
-import { recordPromoSend } from "@/lib/db/queries";
+import { listPeople, recordPromoSend } from "@/lib/db/queries";
 import { resendConfigured, resendFrom } from "@/lib/promote/email";
 
 export function twilioConfigured() {
@@ -35,7 +35,7 @@ export async function sendSms(to: string, body: string): Promise<{ ok: boolean; 
 export async function sendPlainEmail(to: string, subject: string, text: string): Promise<{ ok: boolean; error: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "Email sending is not configured." };
-  const html = `<p style="font-family:Georgia,serif;font-size:16px;line-height:1.5;white-space:pre-wrap">${text.replace(/</g, "&lt;")}</p>`;
+  const html = `<p style="font-family:Georgia,serif;font-size:16px;line-height:1.5;white-space:pre-wrap">${text.replace(/</g, "<")}</p>`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -116,5 +116,36 @@ export async function notifyCrew(input: {
     subject: input.subject,
     text: input.text,
     audience: input.roles.join(",")
+  });
+}
+
+/** Email pantry admins that a pickup or store request landed. */
+export async function notifyDesk(input: {
+  pantryId: string;
+  pantryEmail?: string | null;
+  pantryPhone?: string | null;
+  subject: string;
+  text: string;
+}): Promise<{ emailed: number; texted: number; failed: number; detail: string }> {
+  const people = await listPeople(input.pantryId).catch(() => []);
+  const desk: CrewMember[] = people
+    .filter((p) => p.roles.includes("steward") || p.roles.includes("admin"))
+    .map((p) => ({ email: p.email, phone: null, name: p.name, roles: p.roles }));
+  const extra = String(input.pantryEmail || "").trim().toLowerCase();
+  if (extra && !desk.some((p) => (p.email || "").toLowerCase() === extra)) {
+    desk.push({
+      email: input.pantryEmail || null,
+      phone: input.pantryPhone || null,
+      name: "Pantry desk",
+      roles: ["steward"]
+    });
+  }
+  if (!desk.length) return { emailed: 0, texted: 0, failed: 0, detail: "No desk contacts yet." };
+  return notifyPeople({
+    pantryId: input.pantryId,
+    people: desk,
+    subject: input.subject,
+    text: input.text,
+    audience: "desk"
   });
 }

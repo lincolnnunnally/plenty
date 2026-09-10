@@ -9,17 +9,14 @@ export const metadata = pageMeta(
 
 export default async function ThisWeekPage() {
   const pantry = await getDefaultPantrySafe();
-  const available = pantry ? await availableThisWeek(pantry.id) : [];
+  const available = pantry ? await availableThisWeek(pantry.id).catch(() => []) : [];
 
   return (
     <main className="shell">
       <p className="eyebrow">Vidalia food pantry · this week</p>
       <h1>What you can get this week</h1>
-      <p className="lede">
-        These are the groceries Plenty is putting in bags and boxes this week. Photos are posted when
-        we have them, so you know what to expect before you come.
-      </p>
-      {pantry?.hours_text ? <p><strong>Hours:</strong> {pantry.hours_text}</p> : <p className="empty">Hours not posted yet.</p>}
+      <p className="lede">What is going in bags this week.</p>
+      {pantry?.hours_text ? <p className="note">{pantry.hours_text}{pantry.address ? ` · ${pantry.address}` : ""}</p> : null}
       {available.length ? (
         <div className="photo-grid">
           {available.map((item) => (
@@ -32,7 +29,7 @@ export default async function ThisWeekPage() {
           ))}
         </div>
       ) : (
-        <p className="empty">This week's food list is not posted yet. Check back, or create an account so we can tell you when it is.</p>
+        <p className="empty">This week's list is not up yet.</p>
       )}
       <div className="action-row">
         <a className="button primary" href="/need-food">Get food for your family</a>

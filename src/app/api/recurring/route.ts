@@ -1,5 +1,6 @@
 import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
 import { addRecurring, getDefaultPantry, isVolunteerRole, setRecurringActive } from "@/lib/db/queries";
+import { encodeFoodNote, foodTypesFrom, normalizeTimeLocal } from "@/lib/store-pitch";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,15 @@ export async function POST(request: Request) {
   if (!title) return fail("Name the repeating job.");
   const weekday = Number(str(body.weekday));
   if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return fail("Choose a day of the week.");
-  const timeLocal = str(body.timeLocal);
-  if (!/^\d{2}:\d{2}$/.test(timeLocal)) return fail("Choose a time.");
+  const timeLocal = normalizeTimeLocal(str(body.timeLocal));
+  if (!timeLocal) return fail("Choose a time.");
   const role = str(body.role) || "pickup";
   if (kind === "shift" && !isVolunteerRole(role)) return fail("Choose a volunteer role.");
   if (kind === "store_pickup" && !str(body.partnerId)) return fail("Choose which store this pickup repeats at.");
+  const foods = foodTypesFrom(body.foodTypes);
+  const notes = [str(body.notes), kind === "store_pickup" && foods.length ? encodeFoodNote(foods) : ""]
+    .filter(Boolean)
+    .join("\n");
   try {
     await addRecurring({
       pantryId: pantry.id,
@@ -38,7 +43,7 @@ export async function POST(request: Request) {
       role: kind === "distribution" ? "serve" : role,
       location: str(body.location) || pantry.address || pantry.city,
       partnerId: str(body.partnerId) || null,
-      notes: str(body.notes)
+      notes
     });
     return ok({ message: "Repeating job saved. The hourly clock will post the next one." });
   } catch (err) {

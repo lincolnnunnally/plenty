@@ -7,8 +7,8 @@ import { getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
 
 const NAV = [
   { href: "/need-food", label: "Get food" },
-  { href: "/this-week", label: "This week" },
   { href: "/volunteer", label: "Volunteer" },
+  { href: "/for-stores", label: "Stores" },
   { href: "/donate", label: "Give" },
   { href: "/account", label: "Account" }
 ];

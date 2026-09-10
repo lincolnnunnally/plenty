@@ -19,10 +19,7 @@ export default async function FoodRescuePage() {
     <main className="shell">
       <p className="eyebrow">Food rescue</p>
       <h1>From the store to a table — or a farm</h1>
-      <p className="lede">
-        A store report posts a pickup and a volunteer shift. Change the destination any time. Produce that cannot
-        be eaten soon goes to a farm or compost if you have listed one.
-      </p>
+      <p className="lede">A store pickup posts a volunteer shift and a destination. Produce goes where it will be eaten first.</p>
       <RunNav />
 
       {loads.length ? (

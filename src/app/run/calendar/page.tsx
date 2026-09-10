@@ -12,6 +12,7 @@ import {
 import { twilioConfigured } from "@/lib/notify";
 import { resendConfigured } from "@/lib/promote/email";
 import { WEEKDAYS } from "@/lib/schedule";
+import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +35,7 @@ export default async function CalendarPage() {
     <main className="shell">
       <p className="eyebrow">Today</p>
       <h1>What is happening, and what repeats</h1>
-      <p className="lede">
-        One calendar for shifts, pickups, and distribution days. If a location changes, change it here — the
-        job moves and we email and text the people who signed up.
-      </p>
+      <p className="lede">Shifts, pickups, and what repeats. A weekly store pickup posts a load, texts the crew, and routes the food.</p>
       <RunNav />
       <p className="note">
         {resendConfigured() ? "Email is live." : "Email is not configured on this host."}{" "}
@@ -97,6 +95,12 @@ export default async function CalendarPage() {
               </select>
             </label>
           ) : null}
+          <p className="note">If this is leftover food, check what usually comes</p>
+          <div className="chip-row">
+            {FOOD_TYPES.map((t) => (
+              <label className="check" key={t.value}><input type="checkbox" name="foodTypes" value={t.value} /> {t.label}</label>
+            ))}
+          </div>
           <label className="field"><span>Notes</span><textarea className="input" name="notes" /></label>
         </PostForm>
         {jobs.length ? (
