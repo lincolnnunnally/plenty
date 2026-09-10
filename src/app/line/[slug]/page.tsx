@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { LineFlow } from "@/components/line-flow";
 import { getPantryBySlug, effectivePayMethods } from "@/lib/db/queries";
+import { readLang, t } from "@/lib/i18n";
 import { pageMeta } from "@/lib/seo";
 import { stripeConfigured } from "@/lib/stripe-give";
 import type { Metadata } from "next";
@@ -29,15 +31,13 @@ export default async function LinePage({
   if (!pantry) notFound();
   const methods = await effectivePayMethods(pantry).catch(() => []);
   const cardLive = await stripeConfigured();
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
   return (
     <main className="shell">
       <p className="eyebrow">Pantry line · {pantry.city || "Vidalia"}</p>
       <h1>{pantry.name}</h1>
-      <p className="lede">
-        This food is for everyone — no income test. Scan to check in. Pay handling before you arrive or here.
-        Cannot come? Ask for a delivery. Take what you will use. Share what you will not.
-      </p>
+      <p className="lede">{t(lang, "lineLede")}</p>
       {cancelled ? <p className="note">Card checkout was cancelled. Nothing was charged. You are still checked in.</p> : null}
       <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} initialPass={pass} />
     </main>

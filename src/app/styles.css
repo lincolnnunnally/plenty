@@ -141,6 +141,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 .app-footer-nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
 .app-footer-nav a:hover { color: var(--ink); }
 .empty { margin-top: 12px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); background: transparent; }
+.lang-toggle { display: inline-flex; gap: 4px; align-items: center; }
 .desk-switch { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 .desk-switch span { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .desk-switch .input { width: auto; min-width: 180px; }

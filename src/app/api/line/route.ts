@@ -1,4 +1,5 @@
 import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
+import { shareHouseholdToEcosystem } from "@/lib/ecosystem";
 import {
   addContribution,
   addWalkInHousehold,
@@ -59,6 +60,65 @@ export async function POST(request: Request) {
     return ok({ households: [await pack(found)] });
   }
 
+  if (action === "mark_sent") {
+    const householdId = str(body.householdId);
+    if (!householdId) return fail("Check in first.");
+    const channel = str(body.channel);
+    const labels: Record<string, string> = {
+      cashapp: "Cash App",
+      venmo: "Venmo",
+      zelle: "Zelle",
+      cash: "cash"
+    };
+    const label = labels[channel] || channel;
+    if (!label) return fail("Say Cash App, Venmo, Zelle, or cash.");
+    const dollars = str(body.amountDollars);
+    const cents = dollars ? Math.round(Number(dollars) * 100) : null;
+    await addContribution({
+      pantryId: pantry.id,
+      householdId,
+      userId: steward.user?.id || null,
+      amountCents: cents && Number.isFinite(cents) ? cents : null,
+      waived: false,
+      waiveReason: "",
+      notes: `Said they sent it on ${label}.`,
+      visitId: str(body.visitId) || null,
+      timing: str(body.visitId) ? "at_receipt" : "upfront",
+      status: "received"
+    });
+    return ok({
+      handlingPrepaid: true,
+      message: `Recorded: sent on ${label}. The food is free either way.`
+    });
+  }
+
+  if (action === "walkthrough") {
+    if (!asSteward) return fail("Only the desk can count an unregistered walk-through.", 403);
+    const name = str(body.displayName) || "Walk-in";
+    const household = await addWalkInHousehold({
+      pantryId: pantry.id,
+      displayName: name,
+      householdSize: Math.max(1, Number(str(body.householdSize)) || 1),
+      phone: str(body.phone),
+      notes: "Came through without a full registration"
+    });
+    const visit = await recordVisit({
+      pantryId: pantry.id,
+      householdId: household.id,
+      userId: steward.user?.id || null,
+      itemsSummary: "",
+      notes: "Unregistered walk-through"
+    });
+    await shareHouseholdToEcosystem({ household, pantry, event: "visit" }).catch(() => ({ ok: false, error: "" }));
+    return ok({
+      householdId: household.id,
+      visitId: visit.id,
+      displayName: household.display_name,
+      passCode: household.pass_code,
+      message: `${household.display_name} is counted. Food went out.`
+    });
+  }
+
   if (action === "waive") {
     const householdId = str(body.householdId);
     if (!householdId) return fail("Check in first.");
@@ -106,6 +166,11 @@ export async function POST(request: Request) {
   });
   const applied = await applyHandlingToVisit(household.id, visit.id);
   const prepaid = Boolean(applied);
+  const share = await shareHouseholdToEcosystem({
+    household,
+    pantry,
+    event: household.notes.includes("Walk-in") || !household.user_id ? "registered" : "visit"
+  });
 
   return ok({
     householdId: household.id,
@@ -115,6 +180,7 @@ export async function POST(request: Request) {
     handlingPrepaid: prepaid,
     message: prepaid
       ? `${household.display_name} is checked in. Handling was already given. The food is free.`
-      : `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`
+      : `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`,
+    shareError: share.ok ? "" : share.error
   });
 }

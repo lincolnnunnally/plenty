@@ -1,6 +1,8 @@
 import "./styles.css";
+import { cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { appBrand } from "@/lib/app-brand";
+import { readLang } from "@/lib/i18n";
 import { HOME_DESCRIPTION } from "@/lib/seo";
 import { Telemetry } from "../lib/TelemetryProvider";
 
@@ -28,9 +30,10 @@ export const metadata = {
   twitter: { card: "summary_large_image", title: appBrand.name, description: HOME_DESCRIPTION }
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
   return (
-    <html lang="en">
+    <html lang={lang}>
       <body>
         <AppShell>{children}</AppShell>
         <Telemetry app="plenty" />

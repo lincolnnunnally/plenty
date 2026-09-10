@@ -64,6 +64,7 @@ create unique index if not exists plenty_households_pantry_user_idx on plenty_ho
 alter table plenty_households add column if not exists pass_code text;
 create unique index if not exists plenty_households_pass_idx on plenty_households (pass_code) where pass_code is not null and pass_code <> '';
 alter table plenty_households add column if not exists reach_ok boolean not null default false;
+alter table plenty_households add column if not exists person_id uuid;
 
 create table if not exists plenty_inventory (
   id uuid primary key default gen_random_uuid(),

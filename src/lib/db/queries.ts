@@ -1527,6 +1527,7 @@ export async function addContribution(input: {
   notes: string;
   visitId?: string | null;
   timing?: string;
+  status?: string;
 }): Promise<Contribution> {
   const client = await sb();
   const status = input.waived ? "waived" : input.amountCents && input.amountCents > 0 ? "received" : "pledged";
@@ -1537,10 +1538,10 @@ export async function addContribution(input: {
     amount_cents: input.waived ? 0 : input.amountCents,
     waived: input.waived,
     waive_reason: input.waiveReason,
-    status,
     notes: input.notes,
     visit_id: input.visitId ?? null,
-    timing: input.timing || (input.visitId ? "at_receipt" : "upfront")
+    timing: input.timing || (input.visitId ? "at_receipt" : "upfront"),
+    status: input.status || status
   }).select(CONTRIB_COLS).single();
   fail(error);
   return data as Contribution;

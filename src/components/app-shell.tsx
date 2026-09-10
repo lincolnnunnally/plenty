@@ -1,6 +1,7 @@
 import { appBrand } from "@/lib/app-brand";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
+import { LangToggle } from "@/components/lang-toggle";
 import { SignOutForm } from "@/components/sign-out-form";
 import { getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
 
@@ -31,6 +32,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             {NAV.map((item) => (
               <a key={item.href} href={item.href}>{item.label}</a>
             ))}
+            <LangToggle />
             {steward ? <a href="/run">Pantry desk</a> : null}
             {user ? (
               <SignOutForm buttonClassName="app-nav-signout" />

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { GiveCardForm } from "@/components/give-card";
 import { PayBoard, type PayRow } from "@/components/pay-board";
+import { useLang } from "@/lib/use-lang";
+import { passUrl } from "@/lib/pass";
 
 type Found = { id: string; displayName: string; size: number; phone: string; handlingPrepaid?: boolean; passCode?: string };
 
@@ -35,6 +37,8 @@ export function LineFlow({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [deliverAddr, setDeliverAddr] = useState("");
+  const [passCode, setPassCode] = useState("");
+  const { t } = useLang();
 
   useEffect(() => {
     if (!initialPass) return;
@@ -60,6 +64,7 @@ export function LineFlow({
       visitId?: string;
       displayName?: string;
       handlingPrepaid?: boolean;
+      passCode?: string;
       households?: Found[];
     };
     if (!res.ok || payload.ok === false) throw new Error(payload.message || "That did not save.");
@@ -96,6 +101,7 @@ export function LineFlow({
       setHouseholdId(payload.householdId || "");
       setVisitId(payload.visitId || "");
       setPrepaid(Boolean(payload.handlingPrepaid));
+      setPassCode(payload.passCode || "");
       setMessage(payload.message || "Checked in.");
       setStep("give");
     } catch (err) {
@@ -118,15 +124,48 @@ export function LineFlow({
     }
   }
 
+  async function markSent(channel: string) {
+    setError("");
+    setBusy(true);
+    try {
+      const payload = await post({ action: "mark_sent", householdId, visitId, channel });
+      setPrepaid(true);
+      setMessage(payload.message || "Recorded.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save that.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function walkthrough(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const payload = await post({
+        action: "walkthrough",
+        displayName: name || "Walk-in",
+        householdSize: size,
+        phone
+      });
+      setHouseholdId(payload.householdId || "");
+      setVisitId(payload.visitId || "");
+      setPassCode(payload.passCode || "");
+      setMessage(payload.message || "Counted.");
+      setStep("give");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not count that visit.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (step === "give") {
     return (
       <section className="panel">
-        <h2>{prepaid ? "Handling already given" : "Handling donation — requested, not required"}</h2>
-        <p className="lede">
-          {prepaid
-            ? "You already gave a handling donation. The food is free. You are checked in for today."
-            : "You are checked in. The food is free. We request a donation for handling and orchestration — pickup, routing, and running this line — not for the groceries. Pay now or say you cannot."}
-        </p>
+        <h2>{prepaid ? t("handlingAlready") : t("handlingTitle")}</h2>
+        <p className="lede">{prepaid ? t("handlingPaidLede") : t("handlingLede")}</p>
         {message ? <p className="note">{message}</p> : null}
         {prepaid ? (
           <p className="note">If you want to give more handling, you still can. You do not have to.</p>
@@ -136,17 +175,32 @@ export function LineFlow({
         ) : (
           <p className="empty">Card is not live yet. Scan Cash App, Venmo, or Zelle if those are posted.</p>
         )}
-        <h3 style={{ marginTop: 24 }}>Scan</h3>
+        {passCode ? (
+          <div>
+            <h3 style={{ marginTop: 16 }}>{t("yourPass")}</h3>
+            <img className="pay-qr" src={`/api/promote/qr?to=${encodeURIComponent(passUrl(passCode))}&size=280`} alt={passCode} width={160} height={160} />
+            <p className="note">{passCode}</p>
+          </div>
+        ) : null}
+        <h3 style={{ marginTop: 24 }}>Cash App / Venmo / Zelle</h3>
         <PayBoard methods={methods} empty="No Cash App, Venmo, or Zelle is posted for this pantry yet." />
+        {prepaid ? null : (
+          <div className="action-row">
+            <button className="button" type="button" disabled={busy} onClick={() => void markSent("cashapp")}>{t("sentCashapp")}</button>
+            <button className="button" type="button" disabled={busy} onClick={() => void markSent("venmo")}>{t("sentVenmo")}</button>
+            <button className="button" type="button" disabled={busy} onClick={() => void markSent("zelle")}>{t("sentZelle")}</button>
+            <button className="button" type="button" disabled={busy} onClick={() => void markSent("cash")}>{t("sentCash")}</button>
+          </div>
+        )}
         <div className="action-row">
           {prepaid ? null : (
             <button className="button leaf" type="button" onClick={waive} disabled={busy}>
-              I cannot help with handling this time
+              {t("cannotHelp")}
             </button>
           )}
-          <a className="button" href="/become">More help after groceries — optional</a>
-          <button className="button" type="button" onClick={() => { setStep("arrive"); setHouseholdId(""); setMessage(""); setPrepaid(false); }}>
-            Next household
+          <a className="button" href="/become">{t("moreHelp")}</a>
+          <button className="button" type="button" onClick={() => { setStep("arrive"); setHouseholdId(""); setMessage(""); setPrepaid(false); setPassCode(""); }}>
+            {t("nextHousehold")}
           </button>
         </div>
         {desk ? (
@@ -195,23 +249,23 @@ export function LineFlow({
 
   return (
     <section className="panel">
-      <h2>{desk ? `Check people in at ${pantryName}` : `Check in at ${pantryName}`}</h2>
-      <p className="note">A phone helps us find you next time. If you do not have one with you, we will write your name.</p>
+      <h2>{desk ? `${t("lineTitle")} — ${pantryName}` : `${t("lineTitle")} — ${pantryName}`}</h2>
+      <p className="note">{t("everyone")}</p>
       {desk ? (
         <form className="stack" onSubmit={lookup}>
           <label className="field">
-            <span>Name, phone, or household pass (HH-…)</span>
+            <span>Name, phone, or HH-…</span>
             <input className="input" value={query} onChange={(e) => { setQuery(e.target.value); setPass(e.target.value); }} placeholder="Jones, 912…, or HH-…" />
           </label>
-          <button className="button" type="submit" disabled={busy}>{busy ? "Searching…" : "Find household"}</button>
+          <button className="button" type="submit" disabled={busy}>{busy ? t("saving") : t("findHousehold")}</button>
         </form>
       ) : (
         <form className="stack" onSubmit={lookup}>
           <label className="field">
-            <span>Phone if you have one</span>
+            <span>{t("phoneOptional")}</span>
             <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="912-555-0100" />
           </label>
-          <button className="button" type="submit" disabled={busy}>{busy ? "Searching…" : "Find me"}</button>
+          <button className="button" type="submit" disabled={busy}>{busy ? t("saving") : t("findMe")}</button>
         </form>
       )}
       {matches.length ? (
@@ -227,7 +281,7 @@ export function LineFlow({
           ))}
         </div>
       ) : null}
-      <h3 style={{ marginTop: 24 }}>New household</h3>
+      <h3 style={{ marginTop: 24 }}>{t("newHousehold")}</h3>
       <form
         className="stack"
         onSubmit={(event) => {
@@ -236,23 +290,29 @@ export function LineFlow({
         }}
       >
         <label className="field">
-          <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Who we should welcome" />
+          <span>{t("name")}</span>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("name")} />
         </label>
         <label className="field">
-          <span>How many people you are feeding</span>
+          <span>{t("peopleCount")}</span>
           <input className="input" type="number" min={1} value={size} onChange={(e) => setSize(e.target.value)} />
         </label>
         <label className="field">
-          <span>Phone (optional)</span>
+          <span>{t("phoneOptional")}</span>
           <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </label>
         {error ? <p className="note error" role="alert">{error}</p> : null}
         {message ? <p className="note">{message}</p> : null}
         <button className="button primary" type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Check in"}
+          {busy ? t("saving") : t("checkIn")}
         </button>
       </form>
+      {desk ? (
+        <form className="stack" style={{ marginTop: 18 }} onSubmit={walkthrough}>
+          <p className="note">{t("walkthroughHint")}</p>
+          <button className="button" type="submit" disabled={busy}>{t("walkthrough")}</button>
+        </form>
+      ) : null}
     </section>
   );
 }
