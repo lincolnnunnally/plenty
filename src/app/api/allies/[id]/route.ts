@@ -1,9 +1,10 @@
-import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
+import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
+import { alliesForOperator } from "@/lib/db/food-loads";
 import { getDefaultPantry, updateAlly } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
-const KINDS = new Set(["pantry", "thrift", "church", "other"]);
+const KINDS = new Set(["pantry", "thrift", "church", "farm", "compost", "other"]);
 const RELS = new Set(["to_meet", "visited", "running_own", "we_supply", "they_distribute", "share_volunteers", "paused"]);
 
 function flag(value: unknown) {
@@ -14,13 +15,19 @@ function flag(value: unknown) {
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const pantry = await getDefaultPantry();
   if (!pantry) return fail("No pantry is set up yet.", 503);
-  const { error } = await requireStewardFor(pantry.id);
-  if (error) return error;
   const { id } = await context.params;
+  const steward = await requireStewardFor(pantry.id);
+  const asSteward = !steward.error;
+  if (!asSteward) {
+    const { error, user } = await requireUser();
+    if (error || !user) return error || fail("Sign in first.", 401);
+    const operated = await alliesForOperator(pantry.id, user.id);
+    if (!operated.some((a) => a.id === id)) return fail("Only a pantry admin or that pantry's operator can do that.", 403);
+  }
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
   const kind = str(body.kind);
-  if (kind && !KINDS.has(kind)) return fail("Choose pantry, thrift, church, or other.");
+  if (kind && !KINDS.has(kind)) return fail("Choose pantry, thrift, church, farm, compost, or other.");
   const relationship = str(body.relationship);
   if (relationship && !RELS.has(relationship)) return fail("Choose how we relate to them.");
   const listedPublicly = body.listedPublicly != null ? flag(body.listedPublicly) : undefined;
@@ -46,6 +53,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       wantsVolunteers: body.wantsVolunteers != null ? flag(body.wantsVolunteers) : undefined,
       hasFreezer: body.hasFreezer != null ? flag(body.hasFreezer) : undefined,
       hasSpace: body.hasSpace != null ? flag(body.hasSpace) : undefined,
+      acceptsDry: body.acceptsDry != null ? flag(body.acceptsDry) : undefined,
+      acceptsRefrigerated: body.acceptsRefrigerated != null ? flag(body.acceptsRefrigerated) : undefined,
+      acceptsFrozen: body.acceptsFrozen != null ? flag(body.acceptsFrozen) : undefined,
+      acceptsProduce: body.acceptsProduce != null ? flag(body.acceptsProduce) : undefined,
+      nextDistributionAt: body.nextDistributionAt != null ? (str(body.nextDistributionAt) ? new Date(str(body.nextDistributionAt)).toISOString() : null) : undefined,
       visitNotes: body.visitNotes != null ? str(body.visitNotes) : undefined,
       lastVisitedAt: flag(body.markVisited) ? new Date().toISOString() : undefined
     });

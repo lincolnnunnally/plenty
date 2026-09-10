@@ -51,6 +51,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <a href="/donate">Give</a>
             <a href="/around">Around Toombs</a>
             <a href="/for-stores">For stores</a>
+            <a href="/for-stores/manage">Store desk</a>
+            <a href="/serve">Allied pantry</a>
             <a href="/tax-exempt">Tax-exempt info</a>
             <a href="/terms">Terms</a>
             <a href="/privacy">Privacy</a>

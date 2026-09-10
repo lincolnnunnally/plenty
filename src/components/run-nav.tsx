@@ -10,6 +10,7 @@ export function RunNav() {
       <a href="/run/distributions">Distribution days</a>
       <a href="/run/donations">Gifts & assets</a>
       <a href="/run/stores">Store cards</a>
+      <a href="/run/food">Food rescue</a>
       <a href="/run/around">Meet pantries</a>
       <a href="/run/receipts">Receipts</a>
       <a href="/run/promote">Promote</a>

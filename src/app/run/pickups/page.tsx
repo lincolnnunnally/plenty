@@ -23,7 +23,7 @@ export default async function PickupsPage() {
         <div className="grid">
           {pickups.map((p) => (
             <article className="card" key={p.id}>
-              <span>{p.kind === "donation_pickup" ? "Pick up a donation" : "Deliver to a household"} · {p.status}</span>
+              <span>{p.kind === "household_delivery" ? "Deliver to a household" : p.kind === "store_collect" ? "Collect leftover from a store" : "Pick up a donation"} · {p.status}</span>
               <strong>{p.address}</strong>
               <p>{p.contact_name} {p.contact_phone}</p>
               {p.scheduled_for ? <p>{new Date(p.scheduled_for).toLocaleString()}</p> : <p className="note">No time set yet</p>}

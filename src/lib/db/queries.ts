@@ -1914,7 +1914,7 @@ export async function redeemStoreCardWithPin(code: string, pin: string, note: st
 }
 
 const ALLY_COLS =
-  "id, pantry_id, kind, name, address, city, state, zip, phone, contact_name, contact_email, hours_hint, hours_text, website, relationship, listed_publicly, wants_food, can_host_distribution, can_pickup, wants_volunteers, has_freezer, has_space, visit_notes, last_visited_at, source_note, created_at";
+  "id, pantry_id, kind, name, address, city, state, zip, phone, contact_name, contact_email, hours_hint, hours_text, website, relationship, listed_publicly, wants_food, can_host_distribution, can_pickup, wants_volunteers, has_freezer, has_space, visit_notes, last_visited_at, source_note, accepts_dry, accepts_refrigerated, accepts_frozen, accepts_produce, next_distribution_at, created_at";
 
 export type Ally = {
   id: string;
@@ -1942,6 +1942,11 @@ export type Ally = {
   visit_notes: string;
   last_visited_at: string | null;
   source_note: string;
+  accepts_dry: boolean;
+  accepts_refrigerated: boolean;
+  accepts_frozen: boolean;
+  accepts_produce: boolean;
+  next_distribution_at: string | null;
   created_at: string;
 };
 
@@ -2061,6 +2066,11 @@ export async function updateAlly(
     visitNotes: string;
     lastVisitedAt: string | null;
     sourceNote: string;
+    acceptsDry: boolean;
+    acceptsRefrigerated: boolean;
+    acceptsFrozen: boolean;
+    acceptsProduce: boolean;
+    nextDistributionAt: string | null;
   }>
 ): Promise<Ally | null> {
   const client = await sb();
@@ -2085,6 +2095,11 @@ export async function updateAlly(
   if (patch.wantsVolunteers != null) row.wants_volunteers = patch.wantsVolunteers;
   if (patch.hasFreezer != null) row.has_freezer = patch.hasFreezer;
   if (patch.hasSpace != null) row.has_space = patch.hasSpace;
+  if (patch.acceptsDry != null) row.accepts_dry = patch.acceptsDry;
+  if (patch.acceptsRefrigerated != null) row.accepts_refrigerated = patch.acceptsRefrigerated;
+  if (patch.acceptsFrozen != null) row.accepts_frozen = patch.acceptsFrozen;
+  if (patch.acceptsProduce != null) row.accepts_produce = patch.acceptsProduce;
+  if (patch.nextDistributionAt !== undefined) row.next_distribution_at = patch.nextDistributionAt;
   if (patch.visitNotes != null) row.visit_notes = patch.visitNotes;
   if (patch.lastVisitedAt !== undefined) row.last_visited_at = patch.lastVisitedAt;
   if (patch.sourceNote != null) row.source_note = patch.sourceNote;

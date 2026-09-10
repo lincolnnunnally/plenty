@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
-import { ensureToombsStartingPoints, listAllies, listOpsNeeds } from "@/lib/db/queries";
+import { ensureToombsStartingPoints, listAllies, listOpsNeeds, listPeople } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export default async function AroundDeskPage() {
   await ensureToombsStartingPoints(pantry.id);
   const allies = await listAllies(pantry.id);
   const needs = await listOpsNeeds(pantry.id);
+  const people = await listPeople(pantry.id);
   const toMeet = allies.filter((a) => a.relationship === "to_meet");
 
   return (
@@ -121,6 +122,28 @@ export default async function AroundDeskPage() {
                   <label className="check"><input type="checkbox" name="hasFreezer" value="1" defaultChecked={a.has_freezer} /> They have freezer space</label>
                   <input type="hidden" name="hasSpace" value="0" />
                   <label className="check"><input type="checkbox" name="hasSpace" value="1" defaultChecked={a.has_space} /> They have storage / hall space</label>
+                  <input type="hidden" name="acceptsDry" value="0" />
+                  <label className="check"><input type="checkbox" name="acceptsDry" value="1" defaultChecked={a.accepts_dry} /> Can take dry goods</label>
+                  <input type="hidden" name="acceptsRefrigerated" value="0" />
+                  <label className="check"><input type="checkbox" name="acceptsRefrigerated" value="1" defaultChecked={a.accepts_refrigerated} /> Can take refrigerated</label>
+                  <input type="hidden" name="acceptsFrozen" value="0" />
+                  <label className="check"><input type="checkbox" name="acceptsFrozen" value="1" defaultChecked={a.accepts_frozen} /> Can take frozen</label>
+                  <input type="hidden" name="acceptsProduce" value="0" />
+                  <label className="check"><input type="checkbox" name="acceptsProduce" value="1" defaultChecked={a.accepts_produce} /> Can take produce (needs a distribution soon)</label>
+                  <label className="field"><span>Next distribution</span><input className="input" type="datetime-local" name="nextDistributionAt" defaultValue={a.next_distribution_at ? a.next_distribution_at.slice(0, 16) : ""} /></label>
+                {people.length && (a.kind === "pantry" || a.kind === "church" || a.kind === "farm" || a.kind === "compost") ? (
+                  <PostForm action="/api/ally-members" submitLabel="Hand off this pantry">
+                    <input type="hidden" name="allyId" value={a.id} />
+                    <label className="field">
+                      <span>They sign in and run pickups for this place</span>
+                      <select className="input" name="userId" required>
+                        {people.map((p) => (
+                          <option key={p.user_id} value={p.user_id}>{p.name || p.email}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </PostForm>
+                ) : null}
                   <input type="hidden" name="markVisited" value="0" />
                   <label className="check"><input type="checkbox" name="markVisited" value="1" /> I visited or called today</label>
                   <input type="hidden" name="listedPublicly" value="0" />
@@ -143,6 +166,8 @@ export default async function AroundDeskPage() {
               <option value="pantry">Food pantry</option>
               <option value="thrift">Thrift store</option>
               <option value="church">Church (volunteers)</option>
+              <option value="farm">Farm / pig farm</option>
+              <option value="compost">Garden / compost</option>
               <option value="other">Other</option>
             </select>
           </label>

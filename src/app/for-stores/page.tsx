@@ -62,6 +62,7 @@ export default function ForStoresPage() {
         <div className="action-row">
           <a className="button primary" href="/donate">We’ll pick it up</a>
           <a className="button leaf" href="#store-yes">You choose</a>
+          <a className="button" href="/for-stores/manage">Change your option later</a>
         </div>
       </section>
 

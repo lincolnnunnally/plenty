@@ -452,3 +452,49 @@ create index if not exists plenty_ops_needs_pantry_idx on plenty_ops_needs (pant
 
 alter table plenty_pickups add column if not exists ally_id uuid;
 alter table plenty_donations add column if not exists ally_id uuid;
+
+alter table plenty_allies add column if not exists accepts_dry boolean not null default true;
+alter table plenty_allies add column if not exists accepts_refrigerated boolean not null default false;
+alter table plenty_allies add column if not exists accepts_frozen boolean not null default false;
+alter table plenty_allies add column if not exists accepts_produce boolean not null default false;
+alter table plenty_allies add column if not exists next_distribution_at timestamptz;
+
+create table if not exists plenty_ally_members (
+  ally_id uuid not null references plenty_allies(id) on delete cascade,
+  user_id uuid not null,
+  role text not null default 'operator',
+  created_at timestamptz not null default now(),
+  primary key (ally_id, user_id)
+);
+create index if not exists plenty_ally_members_user_idx on plenty_ally_members (user_id);
+
+create table if not exists plenty_food_loads (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  partner_id uuid not null references plenty_store_partners(id) on delete cascade,
+  mode text not null default 'dock_pickup',
+  leftover boolean not null default false,
+  status text not null default 'offered',
+  pickup_at timestamptz,
+  hold_until timestamptz,
+  dest_ally_id uuid,
+  dest_note text not null default '',
+  route_reason text not null default '',
+  pickup_id uuid,
+  shift_id uuid,
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists plenty_food_loads_pantry_idx on plenty_food_loads (pantry_id, status, pickup_at);
+
+create table if not exists plenty_food_load_items (
+  id uuid primary key default gen_random_uuid(),
+  load_id uuid not null references plenty_food_loads(id) on delete cascade,
+  category text not null,
+  title text not null default '',
+  quantity text not null default '',
+  must_use_by date,
+  status text not null default 'pending'
+);
+create index if not exists plenty_food_load_items_load_idx on plenty_food_load_items (load_id);

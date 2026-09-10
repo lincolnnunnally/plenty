@@ -3,7 +3,7 @@ import { addAlly, getDefaultPantry } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
-const KINDS = new Set(["pantry", "thrift", "church", "other"]);
+const KINDS = new Set(["pantry", "thrift", "church", "farm", "compost", "other"]);
 const RELS = new Set(["to_meet", "visited", "running_own", "we_supply", "they_distribute", "share_volunteers", "paused"]);
 
 function flag(value: unknown) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const name = str(body.name);
   if (!name) return fail("Name the place.");
   const kind = str(body.kind) || "pantry";
-  if (!KINDS.has(kind)) return fail("Choose pantry, thrift, church, or other.");
+  if (!KINDS.has(kind)) return fail("Choose pantry, thrift, church, farm, compost, or other.");
   const relationship = str(body.relationship) || "to_meet";
   if (!RELS.has(relationship)) return fail("Choose how we relate to them.");
   const listedPublicly = flag(body.listedPublicly);
