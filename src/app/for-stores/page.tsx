@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-static";
 export const metadata = pageMeta(
-  "Donating leftover food is better business than throwing it away",
+  "Donating unsold food is better business than throwing it away",
   "You benefit and you are protected. That’s why Publix, Kroger, Walmart, and Costco donate. Plenty is a program of United Under God, Inc., EIN 81-3554390."
 );
 
@@ -19,7 +19,7 @@ export default function ForStoresPage() {
   return (
     <main className="shell">
       <p className="eyebrow">Grocery stores · warehouses · farms</p>
-      <h1 className="store-pop">Donating leftover food is better business than throwing it away</h1>
+      <h1 className="store-pop">Donating unsold food is better business than throwing it away</h1>
       <p className="lede">You benefit. You are protected. That’s why Publix, Kroger, Walmart, and Costco already do it.</p>
       <p className="brief-ein">EIN {EIN} · {LEGAL_NAME} · 501(c)(3) · Plenty is our pantry program</p>
 

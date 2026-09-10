@@ -66,7 +66,7 @@ export default async function InventoryPage() {
           </label>
           <label className="field"><span>Name if not on the list</span><input className="input" name="itemName" /></label>
           <label className="field"><span>How many</span><input className="input" name="quantity" type="number" min={1} defaultValue={1} /></label>
-          <label className="field"><span>Note</span><input className="input" name="note" placeholder="Saturday line, store pickup, leftover" /></label>
+          <label className="field"><span>Note</span><input className="input" name="note" placeholder="Saturday line, store pickup, unsold" /></label>
         </PostForm>
       </section>
 

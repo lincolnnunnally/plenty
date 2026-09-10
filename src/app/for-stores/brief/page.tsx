@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-static";
 export const metadata = pageMeta(
-  "Donating leftover food is better business than throwing it away",
+  "Donating unsold food is better business than throwing it away",
   `You benefit and you are protected. That’s why Publix, Kroger, Walmart, and Costco donate. Plenty is a program of ${LEGAL_NAME}, EIN ${EIN}.`
 );
 
@@ -27,7 +27,7 @@ export default function StoreBriefPage() {
       <article className="brief-sheet">
         <header className="brief-top">
           <p className="brief-kicker">Plenty food pantry · {LEGAL_NAME} · 501(c)(3)</p>
-          <h1 className="store-pop">Donating leftover food is better business than throwing it away</h1>
+          <h1 className="store-pop">Donating unsold food is better business than throwing it away</h1>
           <p className="lede">You benefit. You are protected. That’s why Publix, Kroger, Walmart, and Costco already do it.</p>
           <p className="brief-ein">EIN {EIN} · A gift to Plenty is a gift to {LEGAL_NAME}</p>
         </header>
