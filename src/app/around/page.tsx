@@ -1,35 +1,34 @@
-import { getDefaultPantrySafe, listedAllies } from "@/lib/db/queries";
+import { ensureToombsStartingPoints, getDefaultPantrySafe, listedAllies } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Food pantries in Vidalia and Lyons",
-  "Plenty is getting established in Toombs County. Here are other pantries and thrift stores we have confirmed in person. Call first."
+  "Plenty lists food pantries in Toombs County only after someone walks in. Hours are what we saw, not what a directory guessed."
 );
 
 export default async function AroundPage() {
   const pantry = await getDefaultPantrySafe();
+  if (pantry) await ensureToombsStartingPoints(pantry.id).catch(() => 0);
   const listed = pantry ? await listedAllies(pantry.id).catch(() => []) : [];
-  const pantries = listed.filter((a) => a.kind === "pantry");
-  const thrift = listed.filter((a) => a.kind === "thrift");
-  const churches = listed.filter((a) => a.kind === "church");
+  const open = listed.filter((a) => a.kind === "pantry" && a.relationship !== "closed");
+  const closed = listed.filter((a) => a.relationship === "closed");
+  const thrift = listed.filter((a) => a.kind === "thrift" && a.relationship !== "closed");
+  const churches = listed.filter((a) => a.kind === "church" && a.relationship !== "closed");
 
   return (
     <main className="shell">
       <p className="eyebrow">Toombs County · Vidalia and Lyons</p>
-      <h1>Other places you can go</h1>
-      <p className="lede">
-        Plenty is getting established. We will not invent hours. Until we post ours, these are places
-        we have actually visited or confirmed. If a pantry is happy doing their own thing, we leave them be.
-      </p>
+      <h1>Food pantries we have checked</h1>
+      <p className="lede">Hours only after someone walked in. If a building is empty, we say so.</p>
 
-      {pantries.length ? (
+      {open.length ? (
         <section className="panel">
-          <h2>Food pantries</h2>
+          <h2>Open</h2>
           <div className="grid">
-            {pantries.map((a) => (
+            {open.map((a) => (
               <article className="card" key={a.id}>
-                <span>{a.city}</span>
+                <span>{a.city}{a.last_visited_at ? ` · checked ${new Date(a.last_visited_at).toLocaleDateString()}` : ""}</span>
                 <strong>{a.name}</strong>
                 {a.address ? <p>{a.address}</p> : null}
                 {a.hours_text ? <p>{a.hours_text}</p> : <p className="note">Call for hours.</p>}
@@ -39,11 +38,24 @@ export default async function AroundPage() {
           </div>
         </section>
       ) : (
-        <p className="empty">
-          We have not confirmed another pantry in person yet. That is honest. Call Plenty when our hours are posted,
-          or ask a church you already trust.
-        </p>
+        <p className="empty">No other pantry confirmed in person yet.</p>
       )}
+
+      {closed.length ? (
+        <section className="panel">
+          <h2>Do not go here</h2>
+          <div className="grid">
+            {closed.map((a) => (
+              <article className="card" key={a.id}>
+                <span>Closed or moved{a.last_visited_at ? ` · ${new Date(a.last_visited_at).toLocaleDateString()}` : ""}</span>
+                <strong>{a.name}</strong>
+                {a.address ? <p>{a.address}</p> : null}
+                <p>{a.visit_notes || a.hours_text || "Building empty or moved."}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {thrift.length ? (
         <section className="panel">
@@ -80,7 +92,7 @@ export default async function AroundPage() {
 
       <p className="note">
         Need groceries from Plenty? <a href="/need-food">Get food</a>.
-        {" "}Want to help an existing pantry? <a href="/volunteer">Volunteer</a>.
+        {" "}Want to help? <a href="/volunteer">Volunteer</a>.
       </p>
     </main>
   );

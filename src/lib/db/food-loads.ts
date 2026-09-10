@@ -81,6 +81,7 @@ export function suggestRoute(input: {
     (a) =>
       (a.kind === "pantry" || a.kind === "church") &&
       a.relationship !== "paused" &&
+      a.relationship !== "closed" &&
       (a.wants_food || a.can_pickup || a.can_host_distribution || a.relationship === "we_supply" || a.relationship === "they_distribute")
   );
   const compost = input.allies.filter((a) => a.kind === "farm" || a.kind === "compost");

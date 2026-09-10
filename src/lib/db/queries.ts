@@ -2420,12 +2420,12 @@ export async function updateAlly(
 }
 
 export async function ensureToombsStartingPoints(pantryId: string): Promise<number> {
-  const { TOOMBS_STARTING_POINTS } = await import("@/lib/allies/toombs-starting-points");
+  const { TOOMBS_STARTING_POINTS, FIELD_VISITS, allyNameKey } = await import("@/lib/allies/toombs-starting-points");
   const existing = await listAllies(pantryId);
-  const names = new Set(existing.map((a) => a.name.trim().toLowerCase()));
+  const names = new Set(existing.map((a) => allyNameKey(a.name)));
   let added = 0;
   for (const row of TOOMBS_STARTING_POINTS) {
-    if (names.has(row.name.trim().toLowerCase())) continue;
+    if (names.has(allyNameKey(row.name))) continue;
     await addAlly({
       pantryId,
       kind: row.kind,
@@ -2451,7 +2451,58 @@ export async function ensureToombsStartingPoints(pantryId: string): Promise<numb
       visitNotes: "",
       sourceNote: row.sourceNote
     });
+    names.add(allyNameKey(row.name));
     added += 1;
+  }
+
+  const latest = added ? await listAllies(pantryId) : existing;
+  for (const visit of FIELD_VISITS) {
+    const keys = new Set(visit.names.map(allyNameKey));
+    const row = latest.find((a) => keys.has(allyNameKey(a.name)));
+    const visitedAt = `${visit.visitedOn}T16:00:00.000Z`;
+    if (row) {
+      const already = row.last_visited_at && row.last_visited_at.slice(0, 10) >= visit.visitedOn;
+      if (already) continue;
+      await updateAlly(row.id, pantryId, {
+        address: visit.address,
+        city: visit.city,
+        zip: visit.zip,
+        phone: visit.phone,
+        hoursText: visit.hoursText,
+        relationship: visit.relationship,
+        listedPublicly: visit.listedPublicly,
+        visitNotes: visit.visitNotes,
+        sourceNote: visit.sourceNote,
+        lastVisitedAt: visitedAt
+      });
+    } else {
+      const created = await addAlly({
+        pantryId,
+        kind: visit.kind,
+        name: visit.names[0],
+        address: visit.address,
+        city: visit.city,
+        state: "GA",
+        zip: visit.zip,
+        phone: visit.phone,
+        contactName: "",
+        contactEmail: "",
+        hoursHint: "",
+        hoursText: visit.hoursText,
+        website: "",
+        relationship: visit.relationship,
+        listedPublicly: visit.listedPublicly,
+        wantsFood: false,
+        canHostDistribution: false,
+        canPickup: false,
+        wantsVolunteers: false,
+        hasFreezer: false,
+        hasSpace: false,
+        visitNotes: visit.visitNotes,
+        sourceNote: visit.sourceNote
+      });
+      await updateAlly(created.id, pantryId, { lastVisitedAt: visitedAt });
+    }
   }
   return added;
 }

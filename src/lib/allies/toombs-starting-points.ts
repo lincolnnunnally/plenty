@@ -11,6 +11,21 @@ export type StartingPoint = {
   sourceNote: string;
 };
 
+export type FieldVisit = {
+  names: string[];
+  kind: "pantry" | "thrift" | "church";
+  address: string;
+  city: string;
+  zip: string;
+  phone: string;
+  hoursText: string;
+  relationship: "running_own" | "visited" | "closed" | "to_meet";
+  listedPublicly: boolean;
+  visitNotes: string;
+  sourceNote: string;
+  visitedOn: string;
+};
+
 export const TOOMBS_STARTING_POINTS: StartingPoint[] = [
   {
     kind: "pantry",
@@ -19,8 +34,18 @@ export const TOOMBS_STARTING_POINTS: StartingPoint[] = [
     city: "Vidalia",
     zip: "30474",
     phone: "(912) 538-1730",
-    hoursHint: "Directories still list 300 McIntosh St. They moved. Confirm hours in person.",
+    hoursHint: "Directories still list 300 McIntosh St and a 2022 move to Center Drive. Confirm in person.",
     sourceNote: "Food and clothing. Meet first. Do not list publicly until you walk in."
+  },
+  {
+    kind: "pantry",
+    name: "Vidalia Church of God",
+    address: "401 Adams St",
+    city: "Vidalia",
+    zip: "30474",
+    phone: "(912) 537-4361",
+    hoursHint: "Directories list a pantry with no day or time. Confirm in person.",
+    sourceNote: "On the Neighborly Toombs list. Meet first."
   },
   {
     kind: "pantry",
@@ -153,3 +178,41 @@ export const TOOMBS_STARTING_POINTS: StartingPoint[] = [
     sourceNote: "May overlap with Wings of Hope. Ask. Do not assume."
   }
 ];
+
+/** In-person checks. These overwrite directory guesses. Do not invent hours. */
+export const FIELD_VISITS: FieldVisit[] = [
+  {
+    names: ["Vidalia Church of God"],
+    kind: "pantry",
+    address: "401 Adams St",
+    city: "Vidalia",
+    zip: "30474",
+    phone: "(912) 537-4361",
+    hoursText: "Third Wednesday of the month. Starts serving about 4:00 p.m.",
+    relationship: "running_own",
+    listedPublicly: true,
+    visitNotes:
+      "Visited in person 10 Sep 2026. They operate one Wednesday a month — the third Wednesday. Start serving about 4 o'clock.",
+    sourceNote: "Hours confirmed in person. Address and phone from the Neighborly directory.",
+    visitedOn: "2026-09-10"
+  },
+  {
+    names: ["God's Storehouse", "God's Store House"],
+    kind: "pantry",
+    address: "2200 Center Drive",
+    city: "Vidalia",
+    zip: "30474",
+    phone: "(912) 538-1730",
+    hoursText: "Not operating at this address.",
+    relationship: "closed",
+    listedPublicly: true,
+    visitNotes:
+      "Visited in person 10 Sep 2026. The building is empty and for sale. Either out of business or moved. Do not send people here.",
+    sourceNote: "Last known address 2200 Center Drive. Directories still print a 2022 move from 300 McIntosh St.",
+    visitedOn: "2026-09-10"
+  }
+];
+
+export function allyNameKey(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}

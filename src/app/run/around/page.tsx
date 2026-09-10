@@ -13,6 +13,7 @@ function relLabel(value: string) {
   if (value === "they_distribute") return "They can distribute our grocery pickup";
   if (value === "share_volunteers") return "We share volunteers";
   if (value === "paused") return "Paused";
+  if (value === "closed") return "Closed or moved";
   return "To meet";
 }
 
@@ -28,11 +29,8 @@ export default async function AroundDeskPage() {
   return (
     <main className="shell">
       <p className="eyebrow">Toombs County · Vidalia and Lyons</p>
-      <h1>Meet the pantries already here</h1>
-      <p className="lede">
-        Call. Visit. See how they work. Offer help if they want it. If they are happy as they are, we do our own thing.
-        Nothing is public until you confirm it in person.
-      </p>
+      <h1>Keep the pantry list honest</h1>
+      <p className="lede">Walk in. Save what you saw. Hours stay off the public list until then. Closed if the building is empty.</p>
       <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
 
       <section className="panel">
@@ -83,12 +81,12 @@ export default async function AroundDeskPage() {
 
       <section className="panel">
         <h2>Visit list · {toMeet.length} still to meet</h2>
-        <p className="note">These names came from public directories. Hours online disagree. They are not listed for neighbors until you check the box after a real visit.</p>
+        <p className="note">Directory names until you walk in. Check the public box only after you confirm hours — or mark closed if the building is empty.</p>
         {allies.length ? (
           <div className="grid">
             {allies.map((a) => (
               <article className="card" key={a.id}>
-                <span>{a.kind} · {a.city} · {relLabel(a.relationship)}{a.listed_publicly ? " · public" : " · desk only"}</span>
+                <span>{a.kind} · {a.city} · {relLabel(a.relationship)}{a.listed_publicly ? " · public" : " · desk only"}{a.last_visited_at ? ` · ${new Date(a.last_visited_at).toLocaleDateString()}` : ""}</span>
                 <strong>{a.name}</strong>
                 {a.address ? <p>{a.address}</p> : null}
                 {a.phone ? <p><a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`}>{a.phone}</a></p> : null}
@@ -105,6 +103,7 @@ export default async function AroundDeskPage() {
                       <option value="they_distribute">They can be the pickup / distribution for a store</option>
                       <option value="share_volunteers">They want volunteers we recruit</option>
                       <option value="paused">Paused</option>
+                      <option value="closed">Closed or moved — do not send people here</option>
                     </select>
                   </label>
                   <label className="field"><span>Confirmed hours (required to list publicly)</span><input className="input" name="hoursText" defaultValue={a.hours_text} /></label>
@@ -163,7 +162,7 @@ export default async function AroundDeskPage() {
                   <input type="hidden" name="markVisited" value="0" />
                   <label className="check"><input type="checkbox" name="markVisited" value="1" /> I visited or called today</label>
                   <input type="hidden" name="listedPublicly" value="0" />
-                  <label className="check"><input type="checkbox" name="listedPublicly" value="1" defaultChecked={a.listed_publicly} /> List on Get food — hours confirmed in person</label>
+                  <label className="check"><input type="checkbox" name="listedPublicly" value="1" defaultChecked={a.listed_publicly} /> List publicly — hours confirmed, or mark closed so people do not drive there</label>
                 </PostForm>
               </article>
             ))}

@@ -4,7 +4,7 @@ import { addAlly, getDefaultPantry } from "@/lib/db/queries";
 export const dynamic = "force-dynamic";
 
 const KINDS = new Set(["pantry", "thrift", "church", "farm", "compost", "other"]);
-const RELS = new Set(["to_meet", "visited", "running_own", "we_supply", "they_distribute", "share_volunteers", "paused"]);
+const RELS = new Set(["to_meet", "visited", "running_own", "we_supply", "they_distribute", "share_volunteers", "paused", "closed"]);
 
 function flag(value: unknown) {
   const parts = Array.isArray(value) ? value : [value];
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const relationship = str(body.relationship) || "to_meet";
   if (!RELS.has(relationship)) return fail("Choose how we relate to them.");
   const listedPublicly = flag(body.listedPublicly);
-  if (listedPublicly && !str(body.hoursText) && kind === "pantry") {
+  if (listedPublicly && !str(body.hoursText) && kind === "pantry" && relationship !== "closed") {
     return fail("Do not list a pantry publicly until you have confirmed hours in person.");
   }
   try {
