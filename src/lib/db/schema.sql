@@ -345,6 +345,11 @@ create table if not exists plenty_volunteer_hours (
   notes text not null default '',
   created_at timestamptz not null default now()
 );
+-- CREATE TABLE IF NOT EXISTS does not add columns if an earlier stub table exists.
+alter table plenty_volunteer_hours add column if not exists hours numeric(6,2) not null default 0;
+alter table plenty_volunteer_hours add column if not exists shift_id uuid;
+alter table plenty_volunteer_hours add column if not exists worked_on date not null default current_date;
+alter table plenty_volunteer_hours add column if not exists notes text not null default '';
 create index if not exists plenty_volunteer_hours_pantry_idx on plenty_volunteer_hours (pantry_id, user_id, worked_on desc);
 
 create table if not exists plenty_contributions (

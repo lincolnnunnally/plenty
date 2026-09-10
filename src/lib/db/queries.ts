@@ -191,6 +191,21 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+function missingColumn(error: { message: string } | null, table: string, column: string) {
+  if (!error?.message) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes(`${table}.${column} does not exist`.toLowerCase())
+    || msg.includes(`column "${column.toLowerCase()}" of relation`)
+    || (msg.includes(`could not find the '${column.toLowerCase()}' column`) && msg.includes(table.toLowerCase()));
+}
+
+function missingTable(error: { message: string } | null, table: string) {
+  if (!error?.message) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes(`relation "${table.toLowerCase()}" does not exist`)
+    || msg.includes(`could not find the table`) && msg.includes(table.toLowerCase());
+}
+
 function asRoles(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String);
   if (typeof value === "string") {
@@ -1309,7 +1324,42 @@ export type Contribution = {
 
 const ASSET_COLS = "id, pantry_id, kind, title, description, tenure, donor_user_id, donor_name, status, notes, created_at";
 const HOUR_COLS = "id, pantry_id, user_id, shift_id, hours, worked_on, notes, created_at";
+const HOUR_COLS_WITHOUT_HOURS = "id, pantry_id, user_id, shift_id, worked_on, notes, created_at";
 const CONTRIB_COLS = "id, pantry_id, household_id, user_id, amount_cents, waived, waive_reason, status, notes, visit_id, created_at, timing";
+
+function asVolunteerHour(row: Record<string, unknown>): VolunteerHour {
+  return {
+    id: String(row.id),
+    pantry_id: String(row.pantry_id),
+    user_id: String(row.user_id),
+    shift_id: row.shift_id ? String(row.shift_id) : null,
+    hours: Number(row.hours ?? 0) || 0,
+    worked_on: String(row.worked_on ?? ""),
+    notes: String(row.notes ?? ""),
+    created_at: String(row.created_at ?? "")
+  };
+}
+
+async function selectVolunteerHours(pantryId: string, userId?: string): Promise<VolunteerHour[]> {
+  const client = await sb();
+  const limit = userId ? 200 : 80;
+  let query = client.from("plenty_volunteer_hours").select(HOUR_COLS).eq("pantry_id", pantryId);
+  if (userId) query = query.eq("user_id", userId);
+  const { data, error } = await query.order("worked_on", { ascending: false }).limit(limit);
+  if (error && missingTable(error, "plenty_volunteer_hours")) return [];
+  if (error && missingColumn(error, "plenty_volunteer_hours", "hours")) {
+    let fallback = client.from("plenty_volunteer_hours").select(HOUR_COLS_WITHOUT_HOURS).eq("pantry_id", pantryId);
+    if (userId) fallback = fallback.eq("user_id", userId);
+    const retry = await fallback.order("worked_on", { ascending: false }).limit(limit);
+    if (retry.error) {
+      if (missingTable(retry.error, "plenty_volunteer_hours")) return [];
+      fail(retry.error);
+    }
+    return ((retry.data as Record<string, unknown>[]) || []).map(asVolunteerHour);
+  }
+  fail(error);
+  return ((data as VolunteerHour[]) || []).map((row) => asVolunteerHour(row as unknown as Record<string, unknown>));
+}
 
 export async function myShiftSignups(userId: string): Promise<ShiftSignup[]> {
   const client = await sb();
@@ -1474,23 +1524,34 @@ export async function addVolunteerHours(input: {
 }): Promise<VolunteerHour> {
   const client = await sb();
   const hours = Math.max(0.25, Number(input.hours) || 0);
-  const { data, error } = await client.from("plenty_volunteer_hours").insert({
+  const payload: Record<string, unknown> = {
     pantry_id: input.pantryId,
     user_id: input.userId,
     shift_id: input.shiftId,
     hours,
     worked_on: input.workedOn,
     notes: input.notes
-  }).select(HOUR_COLS).single();
+  };
+  const { data, error } = await client.from("plenty_volunteer_hours").insert(payload).select(HOUR_COLS).single();
+  if (error && missingColumn(error, "plenty_volunteer_hours", "hours")) {
+    const withoutHours = {
+      pantry_id: input.pantryId,
+      user_id: input.userId,
+      shift_id: input.shiftId,
+      worked_on: input.workedOn,
+      notes: input.notes
+    };
+    const retry = await client.from("plenty_volunteer_hours").insert(withoutHours).select(HOUR_COLS_WITHOUT_HOURS).single();
+    fail(retry.error);
+    return asVolunteerHour({ ...(retry.data as Record<string, unknown>), hours });
+  }
   fail(error);
-  return data as VolunteerHour;
+  return asVolunteerHour(data as unknown as Record<string, unknown>);
 }
 
 export async function listVolunteerHours(pantryId: string): Promise<VolunteerHour[]> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_volunteer_hours").select(HOUR_COLS).eq("pantry_id", pantryId).order("worked_on", { ascending: false }).limit(80);
-  fail(error);
-  const rows = (data as VolunteerHour[]) || [];
+  const rows = await selectVolunteerHours(pantryId);
   const ids = [...new Set(rows.map((r) => r.user_id))];
   const { data: profiles } = ids.length
     ? await client.from("plenty_user_profiles").select("id, name, email").in("id", ids)
@@ -1504,10 +1565,7 @@ export async function listVolunteerHours(pantryId: string): Promise<VolunteerHou
 }
 
 export async function hoursForUser(pantryId: string, userId: string): Promise<VolunteerHour[]> {
-  const client = await sb();
-  const { data, error } = await client.from("plenty_volunteer_hours").select(HOUR_COLS).eq("pantry_id", pantryId).eq("user_id", userId).order("worked_on", { ascending: false });
-  fail(error);
-  return (data as VolunteerHour[]) || [];
+  return selectVolunteerHours(pantryId, userId);
 }
 
 export async function hoursTotals(pantryId: string): Promise<Map<string, number>> {

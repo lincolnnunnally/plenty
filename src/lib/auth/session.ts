@@ -17,11 +17,16 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     const email = "lincoln@unitedundergod.org";
     return { id: "", name: "Local Setup User", email, role: "owner", mode: "setup" };
   }
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) return null;
-  const role = isSuperAdminEmail(email) ? "owner" : ((session.user?.role as Role | undefined) ?? "member");
-  return { id: session.user?.id ?? "", name: session.user?.name || email, email, role, mode: "session" };
+  try {
+    const session = await auth();
+    const email = session?.user?.email;
+    if (!email) return null;
+    const role = isSuperAdminEmail(email) ? "owner" : ((session.user?.role as Role | undefined) ?? "member");
+    return { id: session.user?.id ?? "", name: session.user?.name || email, email, role, mode: "session" };
+  } catch (error) {
+    console.error("[plenty][auth] session read failed", error);
+    return null;
+  }
 }
 
 export async function requireCustomerAccess(nextPath = "/app") {

@@ -26,8 +26,8 @@ export default async function PeoplePage() {
   const visits = await listVisits(pantry.id);
   const locations = await listLocations(pantry.id);
   const contributions = await listContributions(pantry.id);
-  const hours = await listVolunteerHours(pantry.id);
-  const totals = await hoursTotals(pantry.id);
+  const hours = await listVolunteerHours(pantry.id).catch(() => []);
+  const totals = await hoursTotals(pantry.id).catch(() => new Map<string, number>());
   const visitCounts = await visitCountsByHousehold(pantry.id);
   const locationName = new Map(locations.map((l) => [l.id, l.name]));
 

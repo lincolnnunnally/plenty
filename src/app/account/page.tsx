@@ -13,20 +13,20 @@ export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const user = await requireCustomerAccess("/account");
-  const memberships = await membershipsForUser(user.id);
+  const memberships = await membershipsForUser(user.id).catch(() => []);
   const pantry = await getDefaultPantrySafe();
-  const steward = pantry ? await isSteward(pantry.id, user.id, user.email) : false;
-  const gifts = await giftsForUser(user.id);
-  const tax = pantry ? await getTaxProfile(pantry.id) : null;
+  const steward = pantry ? await isSteward(pantry.id, user.id, user.email).catch(() => false) : false;
+  const gifts = await giftsForUser(user.id).catch(() => []);
+  const tax = pantry ? await getTaxProfile(pantry.id).catch(() => null) : null;
   const receivedMoney = gifts.filter((g) => g.kind === "money" && g.status === "received");
   const roles = memberships.map((m) => m.role);
-  const visits = pantry ? await visitsForUser(pantry.id, user.id) : [];
-  const hours = pantry ? await hoursForUser(pantry.id, user.id) : [];
-  const myShifts = await myShiftSignups(user.id);
-  const household = pantry ? await householdForUser(pantry.id, user.id) : null;
-  const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
-  const credits = household ? await unusedHandling(household.id) : [];
-  const deliveries = household && pantry ? await openDeliveriesForHousehold(pantry.id, household.id) : [];
+  const visits = pantry ? await visitsForUser(pantry.id, user.id).catch(() => []) : [];
+  const hours = pantry ? await hoursForUser(pantry.id, user.id).catch(() => []) : [];
+  const myShifts = await myShiftSignups(user.id).catch(() => []);
+  const household = pantry ? await householdForUser(pantry.id, user.id).catch(() => null) : null;
+  const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id }).catch(() => [])).filter((v) => v.status === "issued") : [];
+  const credits = household ? await unusedHandling(household.id).catch(() => []) : [];
+  const deliveries = household && pantry ? await openDeliveriesForHousehold(pantry.id, household.id).catch(() => []) : [];
   const cardLive = await stripeConfigured();
   const pass = household?.pass_code ? passUrl(household.pass_code) : "";
   const roleLabel = roles.includes("neighbor") && roles.includes("volunteer")

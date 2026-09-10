@@ -18,7 +18,7 @@ export default async function VolunteerPage() {
   const myShifts = user ? await myShiftSignups(user.id) : [];
   const signed = new Set(myShifts.filter((s) => !["cancelled", "covered"].includes(s.status)).map((s) => s.shift_id));
   const covers = pantry ? await listCoverRequests(pantry.id) : [];
-  const hours = user && pantry ? await hoursForUser(pantry.id, user.id) : [];
+  const hours = user && pantry ? await hoursForUser(pantry.id, user.id).catch(() => []) : [];
   const hourTotal = hours.reduce((sum, row) => sum + Number(row.hours), 0);
   const allyHelp = pantry ? (await listedAllies(pantry.id).catch(() => [])).filter((a) => a.wants_volunteers) : [];
   const phone = user ? await userPhone(user.id).catch(() => "") : "";
