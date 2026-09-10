@@ -8,18 +8,23 @@ export function isAudience(value: string): value is Audience {
   return (AUDIENCES as readonly string[]).includes(value);
 }
 
+/** Requested at the line. Not a charge for groceries. */
+export const HANDLING_DONATION =
+  "The food is free. We request a donation for handling and orchestration — pickup, routing, and running the line — not for the groceries.";
+
+export const HANDLING_IF_NOT = "If you cannot help with handling, you still get food.";
+
 export function donationPolicyCopy(pantry: Pantry) {
   const extra = pantry.donation_note.trim();
-  const neverHeld = "Food is never held back if you cannot give.";
   switch (pantry.donation_policy) {
     case "none":
-      return extra || `No donation is asked. Come as you are.`;
+      return extra || "No donation is asked. Come as you are. The food is free.";
     case "suggested":
-      return `${extra || "A small donation is suggested when you can, to help keep the pantry going."} ${neverHeld}`;
+      return `${extra || "A handling donation is suggested when you can — not a payment for food."} ${HANDLING_IF_NOT}`;
     case "expected":
-      return `${extra || "We ask for a small donation when you pick up food, so neighbors can keep this pantry going."} ${neverHeld}`;
+      return `${extra || "We request a handling donation when you pick up. That pays pickup, routing, and the line — not the food."} ${HANDLING_IF_NOT}`;
     default:
-      return `${extra || "If you can give a little when you pick up food, it helps keep the shelves full."} ${neverHeld}`;
+      return `${extra || HANDLING_DONATION} ${HANDLING_IF_NOT}`;
   }
 }
 

@@ -33,7 +33,8 @@ export async function POST(request: Request) {
       householdId: household?.id,
       pantryId: pantry.id,
       pantrySlug: pantry.slug,
-      cancelPath: str(body.fromLine) ? `/line/${pantry.slug}?cancelled=1` : "/donate?cancelled=1"
+      cancelPath: str(body.fromLine) ? `/line/${pantry.slug}?cancelled=1` : "/donate?cancelled=1",
+      handling: Boolean(str(body.fromLine))
     });
     if (!session.url) return fail("Stripe did not return a checkout page.", 503);
     return Response.json({ ok: true, url: session.url });

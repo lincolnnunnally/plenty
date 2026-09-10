@@ -54,7 +54,7 @@ export default async function DonateThanksPage({ searchParams }: { searchParams:
           ? `$${(amount / 100).toFixed(0)} is recorded for Plenty, a program of United Under God, Inc. If we have your email, a year-end receipt is on your account.`
           : "If you closed the tab after paying, we will still see it when we reconcile. You can also give with Cash App, Venmo, or Zelle."}
       </p>
-      <p>Food is never held back because someone cannot give.</p>
+      <p>Thank you. Groceries on the line stay free. This gift helps handling and what we are short on.</p>
       <div className="action-row">
         <a className="button primary" href="/donate">Back to Give</a>
         <a className="button" href="/need-food">Get food</a>

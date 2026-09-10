@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const pantry = await getPantryBySlug(slug).catch(() => null);
   return pageMeta(
     pantry ? `Check in at ${pantry.name}` : "Pantry line",
-    "Register your household, check in, and give a little if you can. Food is never held back because you cannot give."
+    "Register, check in, and we will request a handling donation — not a charge for food. Groceries stay free if you cannot help with handling."
   );
 }
 
@@ -35,8 +35,8 @@ export default async function LinePage({
       <p className="eyebrow">Pantry line · {pantry.city || "Vidalia"}</p>
       <h1>{pantry.name}</h1>
       <p className="lede">
-        Scan this page to check in. If you can give on Cash App, Venmo, Zelle, or a card, you can do that here.
-        If you cannot, you still get food.
+        Scan this page to check in. The food is free. We will request a donation for handling and orchestration —
+        pickup, routing, and this line — not for the groceries. Cash App, Venmo, Zelle, or card if you can. If you cannot, you still eat.
       </p>
       {cancelled ? <p className="note">Card checkout was cancelled. Nothing was charged. You are still checked in.</p> : null}
       <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} />

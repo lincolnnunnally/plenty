@@ -45,8 +45,8 @@ export async function POST(request: Request) {
     });
     return ok({
       message: waived
-        ? "No donation this time. They are still welcome."
-        : "Contribution recorded. Food is never held back for this."
+        ? "No handling donation this time. They still get food."
+        : "Handling donation recorded. That is not a charge for food."
     });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not record the contribution.", 503);

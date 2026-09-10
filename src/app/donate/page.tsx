@@ -9,7 +9,7 @@ import { stripeConfigured } from "@/lib/stripe-give";
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Donate to the Vidalia food pantry",
-  "Give by card, Cash App, Venmo, or Zelle to Plenty food pantry in Vidalia, Georgia. Food is never held back because someone cannot give."
+  "Give by card, Cash App, Venmo, or Zelle to Plenty. Groceries on the line are free. Money helps handling — pickup, routing, and running the pantry — and what we are short on."
 );
 
 export default async function DonatePage({ searchParams }: { searchParams: Promise<{ cancelled?: string }> }) {
@@ -39,7 +39,7 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
         </article>
         <article className="card">
           <strong>Money</strong>
-          <p>Buys what we are short on — milk, eggs, protein. Card, Cash App, Venmo, Zelle, or cash. Food is never held back because someone cannot give.</p>
+          <p>Helps handling — pickup, routing, and the line — and buys what we are short on. Card, Cash App, Venmo, Zelle, or cash. Groceries on the line stay free.</p>
         </article>
         <article className="card">
           <strong>Space, a freezer, or a vehicle</strong>

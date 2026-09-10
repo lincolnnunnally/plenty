@@ -53,7 +53,11 @@ export function GiveCardForm({
 
   return (
     <form className="stack" onSubmit={onSubmit}>
-      <p className="note">Card, Apple Pay, or Google Pay. Food is never held back because someone cannot give.</p>
+      <p className="note">
+        {fromLine
+          ? "Requested handling donation — not a charge for food. Card, Apple Pay, or Google Pay."
+          : "Card, Apple Pay, or Google Pay. The food on the line is free. A gift here helps handling and what we are short on."}
+      </p>
       <div className="chip-row" role="group" aria-label="Amount">
         {PRESETS.map((n) => (
           <button

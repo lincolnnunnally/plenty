@@ -50,11 +50,11 @@ export async function POST(request: Request) {
       userId: steward.user?.id || null,
       amountCents: 0,
       waived: true,
-      waiveReason: "Cannot give this visit",
+      waiveReason: "Cannot help with handling this visit",
       notes: "Line",
       visitId: str(body.visitId) || null
     });
-    return ok({ message: "No gift this time. They still get food." });
+    return ok({ message: "No handling donation this time. They still get food." });
   }
 
   let household = str(body.householdId) ? await getHousehold(str(body.householdId), pantry.id) : null;
@@ -87,6 +87,6 @@ export async function POST(request: Request) {
     householdId: household.id,
     visitId: visit.id,
     displayName: household.display_name,
-    message: `${household.display_name} is checked in. Food does not depend on a gift.`
+    message: `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`
   });
 }

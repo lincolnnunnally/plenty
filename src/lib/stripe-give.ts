@@ -70,8 +70,12 @@ export async function createPlentyCheckout(input: {
   pantryId?: string;
   pantrySlug?: string;
   cancelPath?: string;
+  handling?: boolean;
 }): Promise<{ id: string; url: string }> {
   const email = (input.email || "").trim();
+  const productName = input.handling
+    ? "Plenty handling donation (not a charge for food)"
+    : "Gift to Plenty food pantry";
   const thanks = `${input.origin}/donate/thanks?session_id={CHECKOUT_SESSION_ID}${input.pantrySlug ? `&pantry=${encodeURIComponent(input.pantrySlug)}` : ""}`;
   const cancel = `${input.origin}${input.cancelPath || "/donate?cancelled=1"}`;
   const session = await stripe("/checkout/sessions", {
@@ -84,7 +88,7 @@ export async function createPlentyCheckout(input: {
       "line_items[0][quantity]": 1,
       "line_items[0][price_data][currency]": "usd",
       "line_items[0][price_data][unit_amount]": input.amountCents,
-      "line_items[0][price_data][product_data][name]": "Gift to Plenty food pantry",
+      "line_items[0][price_data][product_data][name]": productName,
       "line_items[0][price_data][product_data][metadata][app]": "plenty",
       "line_items[0][price_data][product_data][metadata][kind]": "donation",
       "metadata[app]": "plenty",

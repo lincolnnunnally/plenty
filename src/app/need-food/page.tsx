@@ -187,7 +187,7 @@ export default async function NeedFoodPage() {
               {storeCards.length ? (
                 <>
                   <h3 style={{ marginTop: 24 }}>Your grocery store card</h3>
-                  <p className="note">A volunteer may meet you with the bag and offer to pray — only if you want. Then you may shop for what is not in it. You do not have to buy anything. If you can give a little to keep Plenty going, do that here, not at the grocery register.</p>
+                  <p className="note">A volunteer may meet you with the bag and offer to pray — only if you want. Then you may shop for what is not in it. You do not have to buy anything. A handling donation, if you can, happens with Plenty — not at the grocery register.</p>
                   <div className="grid">
                     {storeCards.map((card) => (
                       <article className="card" key={card.id}>
@@ -229,13 +229,13 @@ export default async function NeedFoodPage() {
                 <label className="check"><input type="checkbox" name="porchLeaveOk" defaultChecked={household.porch_leave_ok} /> OK to leave on the porch if we miss you</label>
                 <label className="field"><span>Anything else</span><input className="input" name="notes" defaultValue={household.porch_notes} /></label>
               </PostForm>
-              <h3 style={{ marginTop: 24 }}>If you can help keep the pantry going</h3>
-              <p className="note">Some families give a little when they pick up food — Cash App, Venmo, Zelle, card, or cash. If you cannot, say so. You still get groceries.</p>
-              <PayBoard methods={pay} empty="No Cash App, Venmo, or Zelle is posted yet. You can still give cash in person, or say you cannot. Food does not depend on it." />
+              <h3 style={{ marginTop: 24 }}>Handling donation — requested, not required</h3>
+              <p className="note">The food is free. We request a donation for handling and orchestration — pickup, routing, and the line — not for the groceries. Cash App, Venmo, Zelle, card, or cash. If you cannot, say so.</p>
+              <PayBoard methods={pay} empty="No Cash App, Venmo, or Zelle is posted yet. You can still help with handling in cash, or say you cannot. Food does not depend on it." />
               <p className="note"><a href="/donate">Give by card</a></p>
               <PostForm action="/api/contributions" submitLabel="Record this">
                 <label className="field"><span>Amount in dollars (optional)</span><input className="input" name="amountDollars" type="number" min="0" step="1" /></label>
-                <label className="check"><input type="checkbox" name="waived" /> I cannot give this time</label>
+                <label className="check"><input type="checkbox" name="waived" /> I cannot help with handling this time</label>
                 <label className="field"><span>Note</span><input className="input" name="notes" /></label>
               </PostForm>
               <p className="note"><a href="/become">Want help with the next step after groceries?</a> Optional. Food does not depend on it.</p>

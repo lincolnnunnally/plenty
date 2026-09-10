@@ -55,7 +55,7 @@ export default async function StoreCardLookupPage({ params }: { params: Promise<
         <p><strong>In this bag (free):</strong> {card.items_text || "A surprise hold. Open it before you shop."}</p>
         <p><strong>You may still want:</strong> {card.still_need_text || "Whatever is not in the bag — only if you choose to buy it."}</p>
         {card.expires_at && issued ? <p className="note">Use by {new Date(card.expires_at).toLocaleDateString()}.</p> : null}
-        <p className="store-card-rule">This food is a gift. Do not mix it with a paid cart at checkout. Extra purchase is not required. If you can give money, give at Plenty — not here.</p>
+        <p className="store-card-rule">This food is a gift. Do not mix it with a paid cart at checkout. Extra purchase is not required. A handling donation, if you can, happens with Plenty — not here.</p>
         <p className="note">Want a person with this food — a prayer if you want one, a next step? Food does not depend on it. {card.volunteers_on_site ? "The volunteer at the store is that person today." : null} <a href="/become">After groceries</a>.</p>
       </section>
 

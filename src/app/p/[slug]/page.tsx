@@ -140,8 +140,8 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
       ) : null}
 
       <section className="panel">
-        <h2>Give if you can</h2>
-        <p className="note">Food is never held back because someone cannot give. Scan Cash App, Venmo, or Zelle if they are posted.</p>
+        <h2>Handling donation — requested, not required</h2>
+        <p className="note">The food is free. We request a donation for pickup, routing, and running the line — not for the groceries. Scan Cash App, Venmo, or Zelle if they are posted.</p>
         <PayBoard methods={pay} />
         <a className="button" href="/donate">Give by card</a>
       </section>

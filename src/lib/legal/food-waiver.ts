@@ -8,7 +8,7 @@ export const FOOD_WAIVER_PARAGRAPHS = [
   "Some donated food is close to a “best by,” “sell by,” or “use by” date, or it may not look like it would on a grocery shelf — a banana with spots, bread from yesterday’s bakery, a dented can that is still sealed. Date labels are often about peak quality, not a hard safety deadline. You decide whether to take an item, how to store it, how to cook it, and whether to eat it.",
   "You agree that you take the food as-is. You are responsible for your household’s use of the food. You will not hold Plenty, United Under God, pantry volunteers, or the stores, warehouses, farms, and people who donated the food responsible if someone in your household gets sick or is harmed after eating it, except where the law does not allow that kind of release (including gross negligence or intentional misconduct).",
   "Federal law already protects good-faith food donors and the pantry that gives the food out. This agreement is an extra record that you understood the nature of donated food and chose to receive it. It is not legal advice.",
-  "Food is never held back because you cannot give money. A small donation, if you can, helps keep the pantry going. If you cannot, you are still welcome."
+  "The food is free. We request a donation for handling and orchestration — pickup, routing, and running the line — not for the groceries. If you cannot help with handling, you are still welcome and you still get food."
 ] as const;
 
 export function foodWaiverPlainText() {

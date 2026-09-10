@@ -102,10 +102,10 @@ export function LineFlow({
   if (step === "give") {
     return (
       <section className="panel">
-        <h2>If you can give a little</h2>
+        <h2>Handling donation — requested, not required</h2>
         <p className="lede">
-          You are already checked in. Food is yours either way. If you can send a gift on Cash App, Venmo, Zelle,
-          or a card, it helps the next family. If you cannot, say so.
+          You are checked in. The food is free. We request a donation for handling and orchestration — pickup,
+          routing, and running this line — not for the groceries. Cash App, Venmo, Zelle, or card. If you cannot, say so.
         </p>
         {message ? <p className="note">{message}</p> : null}
         {cardLive ? (
@@ -117,7 +117,7 @@ export function LineFlow({
         <PayBoard methods={methods} empty="No Cash App, Venmo, or Zelle is posted for this pantry yet." />
         <div className="action-row">
           <button className="button leaf" type="button" onClick={waive} disabled={busy}>
-            I cannot give this time — still give me food
+            I cannot help with handling this time
           </button>
           <button className="button" type="button" onClick={() => { setStep("arrive"); setHouseholdId(""); setMessage(""); }}>
             Next household
@@ -185,7 +185,7 @@ export function LineFlow({
         {error ? <p className="note error" role="alert">{error}</p> : null}
         {message ? <p className="note">{message}</p> : null}
         <button className="button primary" type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Check in — then optional gift"}
+          {busy ? "Saving…" : "Check in"}
         </button>
       </form>
     </section>

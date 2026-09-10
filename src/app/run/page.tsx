@@ -81,7 +81,7 @@ export default async function RunPage() {
             </select>
           </label>
           <h3>What people need to know to receive food</h3>
-          <p className="note">These rules are this pantry's. They show on the public page and on every flyer and post. Food is never held back if someone cannot give.</p>
+          <p className="note">These rules are this pantry&apos;s. They show on the public page and on every flyer and post. The food is free. A handling donation is requested, not required.</p>
           <label className="field">
             <span>What is required to receive (ID, paperwork, none — say what is true)</span>
             <textarea className="input" name="receiveRules" defaultValue={pantry?.receive_rules || ""} placeholder="No income test at the door. Come and we will help you register." />
@@ -96,12 +96,12 @@ export default async function RunPage() {
             <input className="input" name="frequencyRules" defaultValue={pantry?.frequency_rules || ""} placeholder="Once a week, twice a month…" />
           </label>
           <label className="field">
-            <span>Donation expectation</span>
+            <span>Handling donation at the line</span>
             <select className="input" name="donationPolicy" defaultValue={pantry?.donation_policy || "welcome"}>
               <option value="none">None asked</option>
-              <option value="welcome">Welcome if they can</option>
-              <option value="suggested">Suggested when they can</option>
-              <option value="expected">Asked when they can — still not a condition for food</option>
+              <option value="welcome">Requested for handling — not for the food</option>
+              <option value="suggested">Suggested for handling when they can</option>
+              <option value="expected">Asked at the line for handling — still not a condition for food</option>
             </select>
           </label>
           <label className="field">

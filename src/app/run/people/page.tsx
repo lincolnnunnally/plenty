@@ -70,8 +70,8 @@ export default async function PeoplePage() {
       </section>
 
       <section className="panel">
-        <h2>Optional contribution — never a condition for food</h2>
-        <p className="note">Some households want to help keep the pantry going. If they cannot, waive it. Groceries still go out.</p>
+        <h2>Handling donation — requested, never a condition for food</h2>
+        <p className="note">This is for pickup, routing, and running the line — not a charge for groceries. If they cannot, waive it. Food still goes out.</p>
         {households.length ? (
           <PostForm action="/api/contributions" submitLabel="Record contribution">
             <label className="field">
@@ -83,7 +83,7 @@ export default async function PeoplePage() {
               </select>
             </label>
             <label className="field"><span>Amount in dollars (leave blank if waived)</span><input className="input" name="amountDollars" type="number" min="0" step="1" /></label>
-            <label className="check"><input type="checkbox" name="waived" /> Waive this time — they cannot afford it</label>
+            <label className="check"><input type="checkbox" name="waived" /> Waive handling this time — they still get food</label>
             <label className="field"><span>Note / waive reason</span><input className="input" name="waiveReason" /></label>
           </PostForm>
         ) : null}

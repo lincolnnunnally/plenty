@@ -212,7 +212,7 @@ function drawSlip(
   wrap(page, "YOU MAY STILL WANT (paid only if you choose)", x + 14, y + 150, 300, 11, fontBold, leaf);
   wrap(page, card.stillNeedText || "After you open the bag, buy only what is not already in it — if you want and if you can. You do not have to buy anything.", x + 14, y + 134, 300, 10, font, ink);
 
-  wrap(page, "Do not mix this gift with a paid cart at checkout. If you can give money to keep Plenty going, do that with us — not at this register.", x + 14, y + 70, 300, 10, font, ink);
+  wrap(page, "Do not mix this gift with a paid cart at checkout. A handling donation, if you can, happens with Plenty — not at this register. The bag is free.", x + 14, y + 70, 300, 10, font, ink);
   wrap(
     page,
     card.volunteersOnSite

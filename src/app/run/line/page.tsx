@@ -18,10 +18,10 @@ export default async function RunLinePage() {
   return (
     <main className="shell">
       <p className="eyebrow">Line</p>
-      <h1>Check people in. Take a gift if they can.</h1>
+      <h1>Check people in. Request a handling donation.</h1>
       <p className="lede">
-        If they have a phone, they scan the QR and do it themselves. If they do not, type their name here.
-        Food is never held back because they cannot give.
+        If they have a phone, they scan the QR. If they do not, type their name. The food is free. We request a
+        donation for handling and orchestration — not for the groceries. If they cannot, they still eat.
       </p>
       <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
       <section className="panel">
