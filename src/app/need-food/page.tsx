@@ -1,6 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantrySafe, householdForUser } from "@/lib/db/queries";
+import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,9 @@ export default async function NeedFoodPage() {
           {pantry?.hours_text ? <p>{pantry.hours_text}</p> : <p className="empty">Open hours will be posted here. We will not invent them.</p>}
           {pantry?.address ? <p>{pantry.address}{pantry.city ? `, ${pantry.city}, ${pantry.state} ${pantry.zip}` : ""}</p> : <p className="note">Address will be posted when it is set.</p>}
           <p className="note">How visits work: {(pantry?.visit_style || "walk_in").replace("_", " ")}</p>
+          {pantry?.slug ? (
+            <p className="note">Public page: <a href={`/p/${pantry.slug}`}>{pantryPublicUrl(pantry.slug)}</a></p>
+          ) : null}
         </article>
         <article className="card">
           <span>What you can get this week</span>

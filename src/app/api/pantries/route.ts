@@ -1,6 +1,7 @@
 import { fail, ok, readJson, requireUser, str } from "@/lib/api";
 import { addMembership, getDefaultPantry, isSteward, upsertPantry } from "@/lib/db/queries";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
+import { pantryPublicUrl } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,12 @@ export async function POST(request: Request) {
       created_by: user.id
     });
     await addMembership(pantry.id, user.id, "steward");
-    return ok({ pantryId: pantry.id, slug: pantry.slug, message: "Pantry saved. Hours stay blank until they are real." });
+    return ok({
+      pantryId: pantry.id,
+      slug: pantry.slug,
+      publicUrl: pantryPublicUrl(pantry.slug),
+      message: `Pantry saved. Public page: ${pantryPublicUrl(pantry.slug)}. Hours stay blank until they are real.`
+    });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save the pantry.", 503);
   }

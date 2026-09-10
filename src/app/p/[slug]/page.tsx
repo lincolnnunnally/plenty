@@ -1,6 +1,26 @@
 import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
+import { pantryPublicUrl } from "@/lib/public-url";
+import { pageMeta } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const pantry = await getPantryBySlug(slug);
+    if (pantry) {
+      const place = [pantry.city, pantry.state].filter(Boolean).join(", ") || "Vidalia, Georgia";
+      return pageMeta(
+        `${pantry.name} food pantry`,
+        pantry.about || `${pantry.name} is a food pantry in ${place}. Get groceries, volunteer, or give.`
+      );
+    }
+  } catch {
+    // fall through
+  }
+  return pageMeta("Food pantry", "Plenty food pantry. Hours and address are posted when they are real.");
+}
 
 export default async function PantryPublicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -31,6 +51,7 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
       <p className="eyebrow">Food pantry · {pantry.city}{pantry.state ? `, ${pantry.state}` : ""} · {pantry.status === "open" ? "Open" : "Getting established"}</p>
       <h1>{pantry.name} — free groceries in {pantry.city || "Vidalia"}</h1>
       <p className="lede">{pantry.about || "This is a food pantry. If you are having a hard time feeding your family, you can get groceries here. You can also volunteer or donate food, money, space, or a vehicle."}</p>
+      <p className="note">Share this pantry: <a href={`/p/${pantry.slug}`}>{pantryPublicUrl(pantry.slug)}</a></p>
       <div className="action-row">
         <a className="button primary" href="/need-food">I need food</a>
         <a className="button leaf" href="/volunteer">Volunteer</a>

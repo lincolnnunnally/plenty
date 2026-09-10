@@ -2,6 +2,7 @@ import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { pantryStats } from "@/lib/db/queries";
+import { pantryPublicPath, pantryPublicUrl } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,25 @@ export default async function RunPage() {
 
       <section className="panel">
         <h2>Pantry setup</h2>
+        <article className="card" style={{ marginBottom: 16 }}>
+          <span>Public pantry page</span>
+          <strong>
+            <a href={pantryPublicPath(pantry?.slug || "vidalia")} target="_blank" rel="noopener noreferrer">
+              {pantryPublicUrl(pantry?.slug || "vidalia")}
+            </a>
+          </strong>
+          <p className="note">
+            This is the page neighbors, volunteers, and donors can find and share. The home site
+            {" "}<a href="/">plenty.unitedundergod.org</a> also shows this pantry. The slug below is the last part of the public URL.
+          </p>
+        </article>
         <PostForm action="/api/pantries" submitLabel="Save pantry">
           <label className="field"><span>Name</span><input className="input" name="name" defaultValue={pantry?.name || "Vidalia Plenty"} required /></label>
-          <label className="field"><span>Slug (url)</span><input className="input" name="slug" defaultValue={pantry?.slug || "vidalia"} /></label>
+          <label className="field">
+            <span>Public URL name (slug)</span>
+            <input className="input" name="slug" defaultValue={pantry?.slug || "vidalia"} />
+            <p className="note">Becomes {pantryPublicUrl(pantry?.slug || "vidalia")}. Use lowercase letters with no spaces — vidalia stays vidalia.</p>
+          </label>
           <label className="field"><span>City</span><input className="input" name="city" defaultValue={pantry?.city || "Vidalia"} /></label>
           <label className="field"><span>State</span><input className="input" name="state" defaultValue={pantry?.state || "GA"} /></label>
           <label className="field"><span>ZIP</span><input className="input" name="zip" defaultValue={pantry?.zip || "30474"} /></label>

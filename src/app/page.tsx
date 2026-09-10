@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantry, weNeedList } from "@/lib/db/queries";
+import { pantryPublicUrl } from "@/lib/public-url";
 import { HOME_DESCRIPTION, pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export default async function HomePage() {
           <h2>{hours ? "Open hours" : "Hours will be posted here"}</h2>
           {hours ? <p>{hours}</p> : <p className="empty">We will not invent hours. When the pantry is open, the day and time will be on this page.</p>}
           {address ? <p>{address}{pantry?.city ? ` · ${pantry.city}, ${pantry.state} ${pantry.zip}` : ""}</p> : <p className="note">Street address not posted yet.</p>}
+          {pantry?.slug ? <p className="note">Share this pantry: <a href={`/p/${pantry.slug}`}>{pantryPublicUrl(pantry.slug)}</a></p> : null}
           <a className="button" href="/this-week">See this week's food</a>
         </article>
         <article className="card">
