@@ -19,7 +19,7 @@ export async function GET() {
       pantrySlug: ensured.pantrySlug || null,
       pantryStatus: ensured.pantryStatus || null,
       ...(ensured.error ? { error: ensured.error } : {}),
-      ...(!hasDatabase() && !ensured.error ? { error: "DATABASE_URL not configured" } : {})
+      ...(!hasDatabase() && !ensured.error ? { error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured" } : {})
     },
     { status }
   );

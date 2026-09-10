@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { passwordSignInConfigured } from "@/auth";
-import { getDatabase, hasDatabase } from "@/lib/db/client";
+import { hasDatabase } from "@/lib/db/client";
 import { roleForEmail } from "@/lib/auth/roles";
-import { addMembership, getDefaultPantry } from "@/lib/db/queries";
-import { ensurePlentySchema } from "@/lib/db/ensure-schema";
+import { addMembership, ensureUserProfile, getDefaultPantry } from "@/lib/db/queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,17 +78,8 @@ export async function POST(request: Request) {
 
   if (hasDatabase()) {
     try {
-      await ensurePlentySchema();
-      const sql = getDatabase();
       const role = roleForEmail(email);
-      await sql`
-        insert into plenty_user_profiles (id, email, name, role)
-        values (${userId}, ${email}, ${name || null}, ${role})
-        on conflict (id) do update set
-          email = excluded.email,
-          name = coalesce(excluded.name, plenty_user_profiles.name),
-          updated_at = now()
-      `;
+      await ensureUserProfile({ id: userId, email, name, role });
       if (role === "owner") {
         const pantry = await getDefaultPantry();
         if (pantry) await addMembership(pantry.id, userId, "steward");

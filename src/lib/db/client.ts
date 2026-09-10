@@ -1,44 +1,31 @@
-import postgres from "postgres";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Plenty persists to the shared Life Produces Life Supabase (one person, many
-// relationships, one ecosystem). All app tables carry the plenty_ prefix —
-// additive-only on the shared database. The connection goes through Supabase's
-// transaction pooler, so prepared statements stay off.
+// Plenty uses the shared Life Produces Life Supabase the same way Immerse,
+// Best Life, and Pulse do: URL + service-role key. Direct DATABASE_URL is not
+// required. Tables are plenty_* in public.
 
-export type DatabaseClient = {
-  <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]>;
-  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
-};
-
-let sqlSingleton: postgres.Sql | null = null;
-let clientSingleton: DatabaseClient | null = null;
-
-export function hasDatabase() {
-  return Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("USER:PASSWORD@HOST"));
+function supabaseUrl() {
+  return (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
 }
 
-export function getDatabase(): DatabaseClient {
+function serviceKey() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+}
+
+export function hasDatabase() {
+  return Boolean(supabaseUrl() && serviceKey());
+}
+
+let singleton: SupabaseClient | null = null;
+
+export function getSupabase(): SupabaseClient {
   if (!hasDatabase()) {
-    throw new Error("DATABASE_URL is required before using database persistence.");
+    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
   }
-
-  if (!clientSingleton) {
-    const connectionString = process.env.DATABASE_URL!.trim();
-    sqlSingleton = postgres(connectionString, {
-      ssl: "require",
-      prepare: false,
-      max: Number(process.env.DATABASE_POOL_MAX || 4),
-      idle_timeout: 20,
-      connect_timeout: 15
+  if (!singleton) {
+    singleton = createClient(supabaseUrl(), serviceKey(), {
+      auth: { persistSession: false, autoRefreshToken: false }
     });
-
-    const sql = sqlSingleton;
-    const tagged = (<T,>(strings: TemplateStringsArray, ...values: unknown[]) =>
-      sql(strings, ...(values as never[])) as unknown as Promise<T[]>) as DatabaseClient;
-    tagged.query = <T,>(text: string, params?: unknown[]) =>
-      sql.unsafe(text, (params ?? []) as never[]) as unknown as Promise<T[]>;
-    clientSingleton = tagged;
   }
-
-  return clientSingleton;
+  return singleton;
 }

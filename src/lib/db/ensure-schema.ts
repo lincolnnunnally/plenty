@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { getDatabase, hasDatabase } from "@/lib/db/client";
+import { getSupabase, hasDatabase } from "@/lib/db/client";
 
 let ensurePromise: Promise<EnsureResult> | null = null;
 
@@ -23,45 +21,46 @@ async function runEnsure(): Promise<EnsureResult> {
       schemaReady: false,
       seeded: false,
       pantryCount: 0,
-      error: "DATABASE_URL not configured"
+      error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured"
     };
   }
 
-  const sql = getDatabase();
-  const root = process.cwd();
-
   try {
-    const schemaSql = await readFile(join(root, "src/lib/db/schema.sql"), "utf8");
-    await sql.query(schemaSql);
-
-    const seedSql = await readFile(join(root, "src/lib/db/seed.sql"), "utf8");
-    await sql.query(seedSql);
-
-    const rows = await sql<{ c: number; slug: string; status: string }>`
-      select count(*)::int as c,
-             (select slug from plenty_pantries order by created_at asc limit 1) as slug,
-             (select status from plenty_pantries order by created_at asc limit 1) as status
-      from plenty_pantries
-    `;
-    const pantryCount = Number(rows[0]?.c || 0);
+    const sb = getSupabase();
+    const { data, error, count } = await sb
+      .from("plenty_pantries")
+      .select("slug, status", { count: "exact" })
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (error) {
+      return {
+        ok: false,
+        database: true,
+        schemaReady: false,
+        seeded: false,
+        pantryCount: 0,
+        error: error.message
+      };
+    }
+    const row = data?.[0];
+    const pantryCount = count ?? data?.length ?? 0;
     return {
       ok: true,
       database: true,
       schemaReady: true,
       seeded: pantryCount > 0,
       pantryCount,
-      pantrySlug: rows[0]?.slug,
-      pantryStatus: rows[0]?.status
+      pantrySlug: row?.slug,
+      pantryStatus: row?.status
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
     return {
       ok: false,
       database: true,
       schemaReady: false,
       seeded: false,
       pantryCount: 0,
-      error: message
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }

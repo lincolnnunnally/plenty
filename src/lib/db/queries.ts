@@ -1,5 +1,5 @@
 import { DEFAULT_PANTRY_SLUG } from "@/lib/app-brand";
-import { getDatabase } from "@/lib/db/client";
+import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 
 export type Pantry = {
@@ -147,12 +147,29 @@ export function isVolunteerRole(value: string): value is VolunteerRole {
   return (VOLUNTEER_ROLES as readonly string[]).includes(value);
 }
 
-async function sqlReady() {
+async function sb() {
   const ensured = await ensurePlentySchema();
   if (!ensured.ok) {
     throw new Error(ensured.error || "The pantry database is not ready yet.");
   }
-  return getDatabase();
+  return getSupabase();
+}
+
+function fail(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
+}
+
+function asRoles(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export async function getDefaultPantrySafe() {
@@ -163,131 +180,135 @@ export async function getDefaultPantrySafe() {
   }
 }
 
+const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source";
+const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes";
+const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes";
+const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at";
+const VISIT_COLS = "id, pantry_id, household_id, user_id, visited_at, items_summary, notes";
+const PATH_COLS = "id, pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app, status, created_at";
+const SHIFT_COLS = "id, pantry_id, title, role, starts_at, ends_at, location, capacity, notes, status";
+const DIST_COLS = "id, pantry_id, title, starts_at, ends_at, notes, status";
+const PROMO_COLS = "id, pantry_id, channel, title, body, created_at";
+
+
 export async function ensureUserProfile(user: { id: string; email: string; name: string; role: string }) {
-  const sql = await sqlReady();
-  await sql`
-    insert into plenty_user_profiles (id, email, name, role)
-    values (${user.id}, ${user.email}, ${user.name || null}, ${user.role})
-    on conflict (id) do update set
-      email = excluded.email,
-      name = coalesce(excluded.name, plenty_user_profiles.name),
-      updated_at = now()
-  `;
+  const client = await sb();
+  const { data: existing } = await client.from("plenty_user_profiles").select("id, name").eq("id", user.id).maybeSingle();
+  const { error } = await client.from("plenty_user_profiles").upsert({
+    id: user.id,
+    email: user.email,
+    name: user.name || existing?.name || null,
+    role: user.role,
+    updated_at: new Date().toISOString()
+  });
+  fail(error);
 }
 
 export async function getPantryBySlug(slug: string): Promise<Pantry | null> {
-  const sql = await sqlReady();
-  const rows = await sql<Pantry>`
-    select id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source
-    from plenty_pantries where slug = ${slug} limit 1
-  `;
-  return rows[0] ?? null;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).eq("slug", slug).maybeSingle();
+  fail(error);
+  return (data as Pantry | null) ?? null;
 }
 
 export async function getDefaultPantry(): Promise<Pantry | null> {
   const bySlug = await getPantryBySlug(DEFAULT_PANTRY_SLUG);
   if (bySlug) return bySlug;
-  const sql = await sqlReady();
-  const rows = await sql<Pantry>`
-    select id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source
-    from plenty_pantries order by created_at asc limit 1
-  `;
-  return rows[0] ?? null;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).order("created_at", { ascending: true }).limit(1);
+  fail(error);
+  return (data?.[0] as Pantry | undefined) ?? null;
 }
 
 export async function listPantries(): Promise<Pantry[]> {
-  const sql = await sqlReady();
-  return sql<Pantry>`
-    select id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source
-    from plenty_pantries order by created_at asc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).order("created_at", { ascending: true });
+  fail(error);
+  return (data as Pantry[]) || [];
 }
 
 export async function upsertPantry(
   id: string | null,
   fields: Partial<Pantry> & { name: string; slug: string; created_by?: string }
 ): Promise<Pantry> {
-  const sql = await sqlReady();
+  const client = await sb();
+  const payload = {
+    name: fields.name,
+    slug: fields.slug,
+    city: fields.city ?? "",
+    state: fields.state ?? "",
+    zip: fields.zip ?? "",
+    address: fields.address ?? "",
+    hours_text: fields.hours_text ?? "",
+    about: fields.about ?? "",
+    phone: fields.phone ?? "",
+    email: fields.email ?? "",
+    visit_style: fields.visit_style ?? "walk_in",
+    status: fields.status ?? "setup",
+    updated_at: new Date().toISOString()
+  };
   if (id) {
-    const rows = await sql<Pantry>`
-      update plenty_pantries set
-        name = ${fields.name},
-        slug = ${fields.slug},
-        city = ${fields.city ?? ""},
-        state = ${fields.state ?? ""},
-        zip = ${fields.zip ?? ""},
-        address = ${fields.address ?? ""},
-        hours_text = ${fields.hours_text ?? ""},
-        about = ${fields.about ?? ""},
-        phone = ${fields.phone ?? ""},
-        email = ${fields.email ?? ""},
-        visit_style = ${fields.visit_style ?? "walk_in"},
-        status = ${fields.status ?? "setup"},
-        updated_at = now()
-      where id = ${id}
-      returning id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source
-    `;
-    if (!rows[0]) throw new Error("Pantry not found.");
-    return rows[0];
+    const { data, error } = await client.from("plenty_pantries").update(payload).eq("id", id).select(PANTRY_COLS).single();
+    fail(error);
+    if (!data) throw new Error("Pantry not found.");
+    return data as Pantry;
   }
-  const rows = await sql<Pantry>`
-    insert into plenty_pantries (
-      slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, created_by
-    ) values (
-      ${fields.slug}, ${fields.name}, ${fields.city ?? ""}, ${fields.state ?? ""}, ${fields.zip ?? ""},
-      ${fields.address ?? ""}, ${fields.hours_text ?? ""}, ${fields.about ?? ""}, ${fields.phone ?? ""},
-      ${fields.email ?? ""}, ${fields.visit_style ?? "walk_in"}, ${fields.status ?? "setup"}, ${fields.created_by ?? null}
-    )
-    returning id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source
-  `;
-  return rows[0];
+  const { data, error } = await client.from("plenty_pantries").insert({ ...payload, created_by: fields.created_by ?? null }).select(PANTRY_COLS).single();
+  fail(error);
+  return data as Pantry;
 }
 
 export async function addMembership(pantryId: string, userId: string, role: string) {
-  const sql = await sqlReady();
-  await sql`
-    insert into plenty_memberships (pantry_id, user_id, role)
-    values (${pantryId}, ${userId}, ${role})
-    on conflict do nothing
-  `;
+  const client = await sb();
+  const { error } = await client.from("plenty_memberships").upsert(
+    { pantry_id: pantryId, user_id: userId, role },
+    { onConflict: "pantry_id,user_id,role", ignoreDuplicates: true }
+  );
+  fail(error);
 }
 
 export async function membershipsForUser(userId: string): Promise<Membership[]> {
-  const sql = await sqlReady();
-  return sql<Membership>`
-    select pantry_id, user_id, role from plenty_memberships where user_id = ${userId}
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_memberships").select("pantry_id, user_id, role").eq("user_id", userId);
+  fail(error);
+  return (data as Membership[]) || [];
 }
 
 export async function isSteward(pantryId: string, userId: string, appRole?: string | null) {
   if (appRole === "owner" || appRole === "admin") return true;
-  const sql = await sqlReady();
-  const rows = await sql<{ c: number }>`
-    select count(*)::int as c from plenty_memberships
-    where pantry_id = ${pantryId} and user_id = ${userId} and role = 'steward'
-  `;
-  return Number(rows[0]?.c || 0) > 0;
+  const client = await sb();
+  const { count, error } = await client
+    .from("plenty_memberships")
+    .select("user_id", { count: "exact", head: true })
+    .eq("pantry_id", pantryId)
+    .eq("user_id", userId)
+    .eq("role", "steward");
+  fail(error);
+  return (count || 0) > 0;
 }
 
 export async function listPeople(pantryId: string): Promise<PersonRow[]> {
-  const sql = await sqlReady();
-  const rows = await sql<{ user_id: string; email: string | null; name: string | null; roles: string }>`
-    select m.user_id,
-           p.email,
-           p.name,
-           string_agg(m.role, ',' order by m.role) as roles
-    from plenty_memberships m
-    left join plenty_user_profiles p on p.id = m.user_id
-    where m.pantry_id = ${pantryId}
-    group by m.user_id, p.email, p.name
-    order by p.name nulls last, p.email
-  `;
-  return rows.map((row) => ({
-    user_id: row.user_id,
-    email: row.email,
-    name: row.name,
-    roles: row.roles ? row.roles.split(",") : []
-  }));
+  const client = await sb();
+  const { data: memberships, error } = await client.from("plenty_memberships").select("user_id, role").eq("pantry_id", pantryId);
+  fail(error);
+  const ids = [...new Set((memberships || []).map((m) => m.user_id))];
+  const { data: profiles, error: pErr } = ids.length
+    ? await client.from("plenty_user_profiles").select("id, email, name").in("id", ids)
+    : { data: [], error: null };
+  fail(pErr);
+  const byId = new Map((profiles || []).map((p) => [p.id, p]));
+  const grouped = new Map<string, PersonRow>();
+  for (const m of memberships || []) {
+    const row = grouped.get(m.user_id) || {
+      user_id: m.user_id,
+      email: byId.get(m.user_id)?.email ?? null,
+      name: byId.get(m.user_id)?.name ?? null,
+      roles: [] as string[]
+    };
+    row.roles.push(String(m.role));
+    grouped.set(m.user_id, row);
+  }
+  return [...grouped.values()].sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || ""));
 }
 
 export async function upsertHousehold(input: {
@@ -299,69 +320,55 @@ export async function upsertHousehold(input: {
   phone: string;
   preferredContact: string;
 }): Promise<Household> {
-  const sql = await sqlReady();
-  const rows = await sql<Household>`
-    insert into plenty_households (
-      pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact
-    ) values (
-      ${input.pantryId}, ${input.userId}, ${input.displayName}, ${input.householdSize},
-      ${input.dietaryNotes}, ${input.phone}, ${input.preferredContact}
-    )
-    on conflict (pantry_id, user_id) do update set
-      display_name = excluded.display_name,
-      household_size = excluded.household_size,
-      dietary_notes = excluded.dietary_notes,
-      phone = excluded.phone,
-      preferred_contact = excluded.preferred_contact,
-      updated_at = now()
-    returning id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_households").upsert({
+    pantry_id: input.pantryId,
+    user_id: input.userId,
+    display_name: input.displayName,
+    household_size: input.householdSize,
+    dietary_notes: input.dietaryNotes,
+    phone: input.phone,
+    preferred_contact: input.preferredContact,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "pantry_id,user_id" }).select(HOUSEHOLD_COLS).single();
+  fail(error);
   await addMembership(input.pantryId, input.userId, "neighbor");
-  return rows[0];
+  return data as Household;
 }
 
 export async function householdForUser(pantryId: string, userId: string): Promise<Household | null> {
-  const sql = await sqlReady();
-  const rows = await sql<Household>`
-    select id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes
-    from plenty_households where pantry_id = ${pantryId} and user_id = ${userId} limit 1
-  `;
-  return rows[0] ?? null;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("pantry_id", pantryId).eq("user_id", userId).maybeSingle();
+  fail(error);
+  return (data as Household | null) ?? null;
 }
 
 export async function listHouseholds(pantryId: string): Promise<Household[]> {
-  const sql = await sqlReady();
-  return sql<Household>`
-    select id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes
-    from plenty_households where pantry_id = ${pantryId} order by display_name
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("pantry_id", pantryId).order("display_name");
+  fail(error);
+  return (data as Household[]) || [];
 }
 
 export async function listInventory(pantryId: string): Promise<InventoryItem[]> {
-  const sql = await sqlReady();
-  return sql<InventoryItem>`
-    select id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-    from plenty_inventory where pantry_id = ${pantryId} order by we_need desc, name
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_inventory").select(INV_COLS).eq("pantry_id", pantryId).order("name");
+  fail(error);
+  return ((data as InventoryItem[]) || []).sort((a, b) => Number(b.we_need) - Number(a.we_need) || a.name.localeCompare(b.name));
 }
 
 export async function availableThisWeek(pantryId: string): Promise<InventoryItem[]> {
-  const sql = await sqlReady();
-  return sql<InventoryItem>`
-    select id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-    from plenty_inventory
-    where pantry_id = ${pantryId} and available_this_week = true and we_need = false
-    order by category, name
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_inventory").select(INV_COLS).eq("pantry_id", pantryId).eq("available_this_week", true).eq("we_need", false).order("category").order("name");
+  fail(error);
+  return (data as InventoryItem[]) || [];
 }
 
 export async function weNeedList(pantryId: string): Promise<InventoryItem[]> {
-  const sql = await sqlReady();
-  return sql<InventoryItem>`
-    select id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-    from plenty_inventory where pantry_id = ${pantryId} and we_need = true
-    order by name
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_inventory").select(INV_COLS).eq("pantry_id", pantryId).eq("we_need", true).order("name");
+  fail(error);
+  return (data as InventoryItem[]) || [];
 }
 
 export async function addInventory(input: {
@@ -375,42 +382,38 @@ export async function addInventory(input: {
   lowAt: number | null;
   notes: string;
 }): Promise<InventoryItem> {
-  const sql = await sqlReady();
-  const rows = await sql<InventoryItem>`
-    insert into plenty_inventory (
-      pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-    ) values (
-      ${input.pantryId}, ${input.name}, ${input.category}, ${input.quantity}, ${input.unit},
-      ${input.availableThisWeek}, ${input.weNeed}, ${input.lowAt}, ${input.notes}
-    )
-    returning id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-  `;
-  return rows[0];
+  const client = await sb();
+  const { data, error } = await client.from("plenty_inventory").insert({
+    pantry_id: input.pantryId,
+    name: input.name,
+    category: input.category,
+    quantity: input.quantity,
+    unit: input.unit,
+    available_this_week: input.availableThisWeek,
+    we_need: input.weNeed,
+    low_at: input.lowAt,
+    notes: input.notes
+  }).select(INV_COLS).single();
+  fail(error);
+  return data as InventoryItem;
 }
 
 export async function updateInventory(
   id: string,
   fields: { quantity?: number; availableThisWeek?: boolean; weNeed?: boolean }
 ): Promise<InventoryItem | null> {
-  const sql = await sqlReady();
-  const current = await sql<InventoryItem>`
-    select id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-    from plenty_inventory where id = ${id} limit 1
-  `;
-  if (!current[0]) return null;
-  const quantity = fields.quantity ?? current[0].quantity;
-  const available = fields.availableThisWeek ?? current[0].available_this_week;
-  const weNeed = fields.weNeed ?? current[0].we_need;
-  const rows = await sql<InventoryItem>`
-    update plenty_inventory set
-      quantity = ${quantity},
-      available_this_week = ${available},
-      we_need = ${weNeed},
-      updated_at = now()
-    where id = ${id}
-    returning id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes
-  `;
-  return rows[0] ?? null;
+  const client = await sb();
+  const { data: current, error: cErr } = await client.from("plenty_inventory").select(INV_COLS).eq("id", id).maybeSingle();
+  fail(cErr);
+  if (!current) return null;
+  const { data, error } = await client.from("plenty_inventory").update({
+    quantity: fields.quantity ?? current.quantity,
+    available_this_week: fields.availableThisWeek ?? current.available_this_week,
+    we_need: fields.weNeed ?? current.we_need,
+    updated_at: new Date().toISOString()
+  }).eq("id", id).select(INV_COLS).single();
+  fail(error);
+  return data as InventoryItem;
 }
 
 export async function recordVisit(input: {
@@ -420,35 +423,34 @@ export async function recordVisit(input: {
   itemsSummary: string;
   notes: string;
 }): Promise<Visit> {
-  const sql = await sqlReady();
-  const rows = await sql<Visit>`
-    insert into plenty_visits (pantry_id, household_id, user_id, items_summary, notes)
-    values (${input.pantryId}, ${input.householdId}, ${input.userId}, ${input.itemsSummary}, ${input.notes})
-    returning id, pantry_id, household_id, user_id, visited_at, items_summary, notes
-  `;
-  return rows[0];
+  const client = await sb();
+  const { data, error } = await client.from("plenty_visits").insert({
+    pantry_id: input.pantryId,
+    household_id: input.householdId,
+    user_id: input.userId,
+    items_summary: input.itemsSummary,
+    notes: input.notes
+  }).select(VISIT_COLS).single();
+  fail(error);
+  return data as Visit;
 }
 
 export async function listVisits(pantryId: string, limit = 40): Promise<(Visit & { household_name: string })[]> {
-  const sql = await sqlReady();
-  return sql<Visit & { household_name: string }>`
-    select v.id, v.pantry_id, v.household_id, v.user_id, v.visited_at, v.items_summary, v.notes,
-           h.display_name as household_name
-    from plenty_visits v
-    join plenty_households h on h.id = v.household_id
-    where v.pantry_id = ${pantryId}
-    order by v.visited_at desc
-    limit ${limit}
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_visits").select(`${VISIT_COLS}, plenty_households(display_name)`).eq("pantry_id", pantryId).order("visited_at", { ascending: false }).limit(limit);
+  fail(error);
+  return ((data as Array<Visit & { plenty_households?: { display_name?: string } | { display_name?: string }[] }>) || []).map((row) => {
+    const hh = row.plenty_households;
+    const name = Array.isArray(hh) ? hh[0]?.display_name : hh?.display_name;
+    return { ...row, household_name: name || "—" };
+  });
 }
 
 export async function visitsForUser(pantryId: string, userId: string): Promise<Visit[]> {
-  const sql = await sqlReady();
-  return sql<Visit>`
-    select id, pantry_id, household_id, user_id, visited_at, items_summary, notes
-    from plenty_visits where pantry_id = ${pantryId} and user_id = ${userId}
-    order by visited_at desc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_visits").select(VISIT_COLS).eq("pantry_id", pantryId).eq("user_id", userId).order("visited_at", { ascending: false });
+  fail(error);
+  return (data as Visit[]) || [];
 }
 
 export async function addDonation(input: {
@@ -464,42 +466,41 @@ export async function addDonation(input: {
   contactPhone: string;
   contactEmail: string;
 }): Promise<Donation> {
-  const sql = await sqlReady();
-  const rows = await sql<Donation>`
-    insert into plenty_donations (
-      pantry_id, user_id, kind, title, description, quantity, amount_cents,
-      available_when, contact_name, contact_phone, contact_email
-    ) values (
-      ${input.pantryId}, ${input.userId}, ${input.kind}, ${input.title}, ${input.description},
-      ${input.quantity}, ${input.amountCents}, ${input.availableWhen}, ${input.contactName},
-      ${input.contactPhone}, ${input.contactEmail}
-    )
-    returning id, pantry_id, user_id, kind, title, description, quantity, amount_cents,
-              available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_donations").insert({
+    pantry_id: input.pantryId,
+    user_id: input.userId,
+    kind: input.kind,
+    title: input.title,
+    description: input.description,
+    quantity: input.quantity,
+    amount_cents: input.amountCents,
+    available_when: input.availableWhen,
+    contact_name: input.contactName,
+    contact_phone: input.contactPhone,
+    contact_email: input.contactEmail
+  }).select(DONATION_COLS).single();
+  fail(error);
   if (input.userId) await addMembership(input.pantryId, input.userId, "donor");
-  return rows[0];
+  return data as Donation;
 }
 
 export async function listDonations(pantryId: string): Promise<Donation[]> {
-  const sql = await sqlReady();
-  return sql<Donation>`
-    select id, pantry_id, user_id, kind, title, description, quantity, amount_cents,
-           available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at
-    from plenty_donations where pantry_id = ${pantryId}
-    order by created_at desc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_donations").select(DONATION_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as Donation[]) || [];
 }
 
 export async function setDonationStatus(id: string, status: string, stewardNotes: string): Promise<Donation | null> {
-  const sql = await sqlReady();
-  const rows = await sql<Donation>`
-    update plenty_donations set status = ${status}, steward_notes = ${stewardNotes}, updated_at = now()
-    where id = ${id}
-    returning id, pantry_id, user_id, kind, title, description, quantity, amount_cents,
-              available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at
-  `;
-  return rows[0] ?? null;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_donations").update({
+    status,
+    steward_notes: stewardNotes,
+    updated_at: new Date().toISOString()
+  }).eq("id", id).select(DONATION_COLS).maybeSingle();
+  fail(error);
+  return (data as Donation | null) ?? null;
 }
 
 export async function upsertVolunteer(input: {
@@ -509,74 +510,44 @@ export async function upsertVolunteer(input: {
   hasVehicle: boolean;
   notes: string;
 }): Promise<VolunteerProfile> {
-  const sql = await sqlReady();
-  const rows = await sql<{
-    id: string;
-    pantry_id: string;
-    user_id: string;
-    roles: string[] | string;
-    has_vehicle: boolean;
-    notes: string;
-  }>`
-    insert into plenty_volunteer_profiles (pantry_id, user_id, roles, has_vehicle, notes)
-    values (${input.pantryId}, ${input.userId}, ${JSON.stringify(input.roles)}::jsonb, ${input.hasVehicle}, ${input.notes})
-    on conflict (pantry_id, user_id) do update set
-      roles = excluded.roles,
-      has_vehicle = excluded.has_vehicle,
-      notes = excluded.notes,
-      updated_at = now()
-    returning id, pantry_id, user_id, roles, has_vehicle, notes
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_volunteer_profiles").upsert({
+    pantry_id: input.pantryId,
+    user_id: input.userId,
+    roles: input.roles,
+    has_vehicle: input.hasVehicle,
+    notes: input.notes,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "pantry_id,user_id" }).select("id, pantry_id, user_id, roles, has_vehicle, notes").single();
+  fail(error);
+  if (!data) throw new Error("Could not save the volunteer profile.");
   await addMembership(input.pantryId, input.userId, "volunteer");
-  const row = rows[0];
-  return {
-    ...row,
-    roles: Array.isArray(row.roles) ? row.roles : JSON.parse(String(row.roles || "[]"))
-  };
+  return { ...data, roles: asRoles(data.roles) } as VolunteerProfile;
 }
 
 export async function volunteerForUser(pantryId: string, userId: string): Promise<VolunteerProfile | null> {
-  const sql = await sqlReady();
-  const rows = await sql<{
-    id: string;
-    pantry_id: string;
-    user_id: string;
-    roles: string[] | string;
-    has_vehicle: boolean;
-    notes: string;
-  }>`
-    select id, pantry_id, user_id, roles, has_vehicle, notes
-    from plenty_volunteer_profiles where pantry_id = ${pantryId} and user_id = ${userId} limit 1
-  `;
-  if (!rows[0]) return null;
-  const row = rows[0];
-  return {
-    ...row,
-    roles: Array.isArray(row.roles) ? row.roles : JSON.parse(String(row.roles || "[]"))
-  };
+  const client = await sb();
+  const { data, error } = await client.from("plenty_volunteer_profiles").select("id, pantry_id, user_id, roles, has_vehicle, notes").eq("pantry_id", pantryId).eq("user_id", userId).maybeSingle();
+  fail(error);
+  if (!data) return null;
+  return { ...data, roles: asRoles(data.roles) } as VolunteerProfile;
 }
 
 export async function listVolunteers(pantryId: string): Promise<(VolunteerProfile & { name: string | null; email: string | null })[]> {
-  const sql = await sqlReady();
-  const rows = await sql<{
-    id: string;
-    pantry_id: string;
-    user_id: string;
-    roles: string[] | string;
-    has_vehicle: boolean;
-    notes: string;
-    name: string | null;
-    email: string | null;
-  }>`
-    select v.id, v.pantry_id, v.user_id, v.roles, v.has_vehicle, v.notes, p.name, p.email
-    from plenty_volunteer_profiles v
-    left join plenty_user_profiles p on p.id = v.user_id
-    where v.pantry_id = ${pantryId}
-    order by p.name nulls last
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_volunteer_profiles").select("id, pantry_id, user_id, roles, has_vehicle, notes").eq("pantry_id", pantryId);
+  fail(error);
+  const rows = data || [];
+  const ids = rows.map((r) => r.user_id);
+  const { data: profiles } = ids.length
+    ? await client.from("plenty_user_profiles").select("id, name, email").in("id", ids)
+    : { data: [] };
+  const byId = new Map((profiles || []).map((p) => [p.id, p]));
   return rows.map((row) => ({
     ...row,
-    roles: Array.isArray(row.roles) ? row.roles : JSON.parse(String(row.roles || "[]"))
+    roles: asRoles(row.roles),
+    name: byId.get(row.user_id)?.name ?? null,
+    email: byId.get(row.user_id)?.email ?? null
   }));
 }
 
@@ -591,55 +562,53 @@ export async function addShift(input: {
   notes: string;
   createdBy: string | null;
 }): Promise<Shift> {
-  const sql = await sqlReady();
-  const rows = await sql<Omit<Shift, "signup_count">>`
-    insert into plenty_shifts (
-      pantry_id, title, role, starts_at, ends_at, location, capacity, notes, created_by
-    ) values (
-      ${input.pantryId}, ${input.title}, ${input.role}, ${input.startsAt}, ${input.endsAt},
-      ${input.location}, ${input.capacity}, ${input.notes}, ${input.createdBy}
-    )
-    returning id, pantry_id, title, role, starts_at, ends_at, location, capacity, notes, status
-  `;
-  return { ...rows[0], signup_count: 0 };
+  const client = await sb();
+  const { data, error } = await client.from("plenty_shifts").insert({
+    pantry_id: input.pantryId,
+    title: input.title,
+    role: input.role,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+    location: input.location,
+    capacity: input.capacity,
+    notes: input.notes,
+    created_by: input.createdBy
+  }).select(SHIFT_COLS).single();
+  fail(error);
+  return { ...(data as Omit<Shift, "signup_count">), signup_count: 0 };
 }
 
 export async function listShifts(pantryId: string): Promise<Shift[]> {
-  const sql = await sqlReady();
-  return sql<Shift>`
-    select s.id, s.pantry_id, s.title, s.role, s.starts_at, s.ends_at, s.location, s.capacity, s.notes, s.status,
-           count(u.user_id)::int as signup_count
-    from plenty_shifts s
-    left join plenty_shift_signups u on u.shift_id = s.id
-    where s.pantry_id = ${pantryId} and s.status = 'open'
-    group by s.id
-    order by s.starts_at asc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_shifts").select(SHIFT_COLS).eq("pantry_id", pantryId).eq("status", "open").order("starts_at", { ascending: true });
+  fail(error);
+  const shifts = (data as Omit<Shift, "signup_count">[]) || [];
+  if (!shifts.length) return [];
+  const { data: signups } = await client.from("plenty_shift_signups").select("shift_id").in("shift_id", shifts.map((s) => s.id));
+  const counts = new Map<string, number>();
+  for (const row of signups || []) counts.set(row.shift_id, (counts.get(row.shift_id) || 0) + 1);
+  return shifts.map((s) => ({ ...s, signup_count: counts.get(s.id) || 0 }));
 }
 
 export async function signupForShift(shiftId: string, userId: string) {
-  const sql = await sqlReady();
-  const shift = await sql<{ pantry_id: string; capacity: number | null; status: string }>`
-    select pantry_id, capacity, status from plenty_shifts where id = ${shiftId} limit 1
-  `;
-  if (!shift[0]) throw new Error("That shift is not on the board.");
-  if (shift[0].status !== "open") throw new Error("That shift is no longer open.");
-  const count = await sql<{ c: number }>`select count(*)::int as c from plenty_shift_signups where shift_id = ${shiftId}`;
-  if (shift[0].capacity != null && Number(count[0]?.c || 0) >= shift[0].capacity) {
-    throw new Error("That shift is full.");
-  }
-  await sql`
-    insert into plenty_shift_signups (shift_id, user_id)
-    values (${shiftId}, ${userId})
-    on conflict do nothing
-  `;
-  await addMembership(shift[0].pantry_id, userId, "volunteer");
+  const client = await sb();
+  const { data: shift, error } = await client.from("plenty_shifts").select("pantry_id, capacity, status").eq("id", shiftId).maybeSingle();
+  fail(error);
+  if (!shift) throw new Error("That shift is not on the board.");
+  if (shift.status !== "open") throw new Error("That shift is no longer open.");
+  const { count, error: cErr } = await client.from("plenty_shift_signups").select("user_id", { count: "exact", head: true }).eq("shift_id", shiftId);
+  fail(cErr);
+  if (shift.capacity != null && (count || 0) >= shift.capacity) throw new Error("That shift is full.");
+  const { error: sErr } = await client.from("plenty_shift_signups").upsert({ shift_id: shiftId, user_id: userId }, { onConflict: "shift_id,user_id", ignoreDuplicates: true });
+  fail(sErr);
+  await addMembership(shift.pantry_id, userId, "volunteer");
 }
 
 export async function myShiftIds(userId: string): Promise<string[]> {
-  const sql = await sqlReady();
-  const rows = await sql<{ shift_id: string }>`select shift_id from plenty_shift_signups where user_id = ${userId}`;
-  return rows.map((r) => r.shift_id);
+  const client = await sb();
+  const { data, error } = await client.from("plenty_shift_signups").select("shift_id").eq("user_id", userId);
+  fail(error);
+  return (data || []).map((r) => r.shift_id);
 }
 
 export async function addDistribution(input: {
@@ -649,31 +618,30 @@ export async function addDistribution(input: {
   endsAt: string | null;
   notes: string;
 }): Promise<Distribution> {
-  const sql = await sqlReady();
-  const rows = await sql<Distribution>`
-    insert into plenty_distributions (pantry_id, title, starts_at, ends_at, notes)
-    values (${input.pantryId}, ${input.title}, ${input.startsAt}, ${input.endsAt}, ${input.notes})
-    returning id, pantry_id, title, starts_at, ends_at, notes, status
-  `;
-  return rows[0];
+  const client = await sb();
+  const { data, error } = await client.from("plenty_distributions").insert({
+    pantry_id: input.pantryId,
+    title: input.title,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+    notes: input.notes
+  }).select(DIST_COLS).single();
+  fail(error);
+  return data as Distribution;
 }
 
 export async function listDistributions(pantryId: string): Promise<Distribution[]> {
-  const sql = await sqlReady();
-  return sql<Distribution>`
-    select id, pantry_id, title, starts_at, ends_at, notes, status
-    from plenty_distributions where pantry_id = ${pantryId}
-    order by starts_at desc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_distributions").select(DIST_COLS).eq("pantry_id", pantryId).order("starts_at", { ascending: false });
+  fail(error);
+  return (data as Distribution[]) || [];
 }
 
 export async function setDistributionStatus(id: string, status: string): Promise<Distribution | null> {
-  const sql = await sqlReady();
-  const rows = await sql<Distribution>`
-    update plenty_distributions set status = ${status} where id = ${id}
-    returning id, pantry_id, title, starts_at, ends_at, notes, status
-  `;
-  return rows[0] ?? null;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_distributions").update({ status }).eq("id", id).select(DIST_COLS).maybeSingle();
+  fail(error);
+  return (data as Distribution | null) ?? null;
 }
 
 export async function addPath(input: {
@@ -685,33 +653,32 @@ export async function addPath(input: {
   nextStep: string;
   handoffApp: string;
 }): Promise<PathRow> {
-  const sql = await sqlReady();
-  const rows = await sql<PathRow>`
-    insert into plenty_paths (
-      pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app
-    ) values (
-      ${input.pantryId}, ${input.householdId}, ${input.userId}, ${input.whatsHard},
-      ${input.whoTheyWantToBecome}, ${input.nextStep}, ${input.handoffApp}
-    )
-    returning id, pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app, status, created_at
-  `;
-  return rows[0];
+  const client = await sb();
+  const { data, error } = await client.from("plenty_paths").insert({
+    pantry_id: input.pantryId,
+    household_id: input.householdId,
+    user_id: input.userId,
+    whats_hard: input.whatsHard,
+    who_they_want_to_become: input.whoTheyWantToBecome,
+    next_step: input.nextStep,
+    handoff_app: input.handoffApp
+  }).select(PATH_COLS).single();
+  fail(error);
+  return data as PathRow;
 }
 
 export async function pathsForUser(userId: string): Promise<PathRow[]> {
-  const sql = await sqlReady();
-  return sql<PathRow>`
-    select id, pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app, status, created_at
-    from plenty_paths where user_id = ${userId} order by created_at desc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_paths").select(PATH_COLS).eq("user_id", userId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as PathRow[]) || [];
 }
 
 export async function listPaths(pantryId: string): Promise<PathRow[]> {
-  const sql = await sqlReady();
-  return sql<PathRow>`
-    select id, pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app, status, created_at
-    from plenty_paths where pantry_id = ${pantryId} order by created_at desc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_paths").select(PATH_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as PathRow[]) || [];
 }
 
 export async function addPromo(input: {
@@ -721,40 +688,45 @@ export async function addPromo(input: {
   body: string;
   createdBy: string | null;
 }): Promise<Promo> {
-  const sql = await sqlReady();
-  const rows = await sql<Promo>`
-    insert into plenty_promos (pantry_id, channel, title, body, created_by)
-    values (${input.pantryId}, ${input.channel}, ${input.title}, ${input.body}, ${input.createdBy})
-    returning id, pantry_id, channel, title, body, created_at
-  `;
-  return rows[0];
+  const client = await sb();
+  const { data, error } = await client.from("plenty_promos").insert({
+    pantry_id: input.pantryId,
+    channel: input.channel,
+    title: input.title,
+    body: input.body,
+    created_by: input.createdBy
+  }).select(PROMO_COLS).single();
+  fail(error);
+  return data as Promo;
 }
 
 export async function listPromos(pantryId: string): Promise<Promo[]> {
-  const sql = await sqlReady();
-  return sql<Promo>`
-    select id, pantry_id, channel, title, body, created_at
-    from plenty_promos where pantry_id = ${pantryId} order by created_at desc
-  `;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_promos").select(PROMO_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as Promo[]) || [];
 }
 
 export async function pantryStats(pantryId: string) {
-  const sql = await sqlReady();
-  const rows = await sql<{
-    households: number;
-    visits: number;
-    volunteers: number;
-    open_offers: number;
-    available_items: number;
-    we_need: number;
-  }>`
-    select
-      (select count(*)::int from plenty_households where pantry_id = ${pantryId}) as households,
-      (select count(*)::int from plenty_visits where pantry_id = ${pantryId}) as visits,
-      (select count(*)::int from plenty_volunteer_profiles where pantry_id = ${pantryId}) as volunteers,
-      (select count(*)::int from plenty_donations where pantry_id = ${pantryId} and status = 'offered') as open_offers,
-      (select count(*)::int from plenty_inventory where pantry_id = ${pantryId} and available_this_week = true and we_need = false) as available_items,
-      (select count(*)::int from plenty_inventory where pantry_id = ${pantryId} and we_need = true) as we_need
-  `;
-  return rows[0];
+  const client = await sb();
+  const { count: households, error: e1 } = await client.from("plenty_households").select("id", { count: "exact", head: true }).eq("pantry_id", pantryId);
+  fail(e1);
+  const { count: visits, error: e2 } = await client.from("plenty_visits").select("id", { count: "exact", head: true }).eq("pantry_id", pantryId);
+  fail(e2);
+  const { count: volunteers, error: e3 } = await client.from("plenty_volunteer_profiles").select("id", { count: "exact", head: true }).eq("pantry_id", pantryId);
+  fail(e3);
+  const { count: open_offers, error: e4 } = await client.from("plenty_donations").select("id", { count: "exact", head: true }).eq("pantry_id", pantryId).eq("status", "offered");
+  fail(e4);
+  const { count: available_items, error: e5 } = await client.from("plenty_inventory").select("id", { count: "exact", head: true }).eq("pantry_id", pantryId).eq("available_this_week", true).eq("we_need", false);
+  fail(e5);
+  const { count: we_need, error: e6 } = await client.from("plenty_inventory").select("id", { count: "exact", head: true }).eq("pantry_id", pantryId).eq("we_need", true);
+  fail(e6);
+  return {
+    households: households || 0,
+    visits: visits || 0,
+    volunteers: volunteers || 0,
+    open_offers: open_offers || 0,
+    available_items: available_items || 0,
+    we_need: we_need || 0
+  };
 }

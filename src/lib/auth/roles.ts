@@ -34,11 +34,10 @@ export async function resolveRole(user: { id?: string | null; email?: string | n
   const authUserId = typeof user.id === "string" && UUID_PATTERN.test(user.id) ? user.id : undefined;
   if (authUserId) {
     try {
-      const { hasDatabase, getDatabase } = await import("@/lib/db/client");
+      const { hasDatabase, getSupabase } = await import("@/lib/db/client");
       if (hasDatabase()) {
-        const sql = getDatabase();
-        const rows = await sql<{ role?: unknown }>`select role from plenty_user_profiles where id = ${authUserId} limit 1`;
-        const role = normalizeRole(rows[0]?.role);
+        const { data } = await getSupabase().from("plenty_user_profiles").select("role").eq("id", authUserId).maybeSingle();
+        const role = normalizeRole(data?.role);
         if (role) return role;
       }
     } catch {

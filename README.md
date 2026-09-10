@@ -6,7 +6,7 @@ Plenty is the United Under God / Life Produces Life food-pantry app. First pantr
 
 Live: https://plenty.unitedundergod.org
 
-Persistence uses the shared Life Produces Life Supabase (`plenty_*` tables). The production `DATABASE_URL` lives on Live On Mission as a Vercel **sensitive** env var (not readable later). Until that URL is copied onto the Plenty Vercel project, health reports the database password failure honestly and public pages stay up with empty hours/shelves.
+Persistence uses the shared Life Produces Life Supabase (`plenty_*` tables) through the same URL + service-role keys as Immerse, Best Life, and Pulse.
 
 ## Doors
 

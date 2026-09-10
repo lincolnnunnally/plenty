@@ -7,9 +7,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   turbopack: { root },
-  outputFileTracingIncludes: {
-    "/*": ["./src/lib/db/**/*"]
-  },
+
   async redirects() {
     return [
       { source: "/signup", destination: "/sign-in", permanent: false },
