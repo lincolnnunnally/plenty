@@ -279,6 +279,36 @@ create table if not exists plenty_assets (
   donation_id uuid,
   created_at timestamptz not null default now()
 );
+alter table plenty_pantries add column if not exists receive_rules text not null default '';
+alter table plenty_pantries add column if not exists donation_policy text not null default 'welcome';
+alter table plenty_pantries add column if not exists donation_note text not null default '';
+alter table plenty_pantries add column if not exists residency_rules text not null default '';
+alter table plenty_pantries add column if not exists id_required boolean not null default false;
+alter table plenty_pantries add column if not exists frequency_rules text not null default '';
+
+create table if not exists plenty_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  audience text not null,
+  extra text not null default '',
+  kit jsonb not null default '{}'::jsonb,
+  created_by uuid,
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_campaigns_pantry_idx on plenty_campaigns (pantry_id, created_at desc);
+
+create table if not exists plenty_promo_sends (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  campaign_id uuid,
+  channel text not null,
+  audience text not null default '',
+  to_count integer not null default 0,
+  status text not null,
+  error text not null default '',
+  created_at timestamptz not null default now()
+);
+
 alter table plenty_assets add column if not exists description text not null default '';
 alter table plenty_assets add column if not exists tenure text not null default 'donated';
 alter table plenty_assets add column if not exists status text not null default 'active';

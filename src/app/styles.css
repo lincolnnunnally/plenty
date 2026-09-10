@@ -157,3 +157,22 @@ textarea.input { min-height: 96px; resize: vertical; }
   .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+.print-sheet { width: min(900px, 100%); margin: 0 auto; padding: 24px; }
+.print-kicker { color: var(--leaf); text-transform: uppercase; letter-spacing: .08em; font-family: Inter, sans-serif; font-size: .75rem; font-weight: 700; }
+.print-flyer, .print-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 28px;
+  border-radius: 12px;
+  margin-top: 16px;
+  break-inside: avoid;
+}
+.print-flyer h1, .print-card h1 { font-size: 2rem; }
+.print-qr { margin-top: 18px; display: grid; justify-items: start; gap: 8px; }
+.print-qr img { width: 160px; height: 160px; }
+.print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media print {
+  .app-header, .app-footer, .print-hide, .subnav { display: none !important; }
+  body { background: #fff; }
+  .print-flyer, .print-card { box-shadow: none; }
+}

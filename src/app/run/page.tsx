@@ -74,6 +74,34 @@ export default async function RunPage() {
               <option value="paused">Paused</option>
             </select>
           </label>
+          <h3>What people need to know to receive food</h3>
+          <p className="note">These rules are this pantry's. They show on the public page and on every flyer and post. Food is never held back if someone cannot give.</p>
+          <label className="field">
+            <span>What is required to receive (ID, paperwork, none — say what is true)</span>
+            <textarea className="input" name="receiveRules" defaultValue={pantry?.receive_rules || ""} placeholder="No income test at the door. Come and we will help you register." />
+          </label>
+          <label className="field">
+            <span>Residency</span>
+            <textarea className="input" name="residencyRules" defaultValue={pantry?.residency_rules || ""} placeholder="Toombs County and nearby. If you are traveling through, still come — we will not turn you away hungry." />
+          </label>
+          <label className="check"><input type="checkbox" name="idRequired" defaultChecked={Boolean(pantry?.id_required)} /> Ask for a photo ID</label>
+          <label className="field">
+            <span>How often a household may come</span>
+            <input className="input" name="frequencyRules" defaultValue={pantry?.frequency_rules || ""} placeholder="Once a week, twice a month…" />
+          </label>
+          <label className="field">
+            <span>Donation expectation</span>
+            <select className="input" name="donationPolicy" defaultValue={pantry?.donation_policy || "welcome"}>
+              <option value="none">None asked</option>
+              <option value="welcome">Welcome if they can</option>
+              <option value="suggested">Suggested when they can</option>
+              <option value="expected">Asked when they can — still not a condition for food</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Donation note (optional)</span>
+            <input className="input" name="donationNote" defaultValue={pantry?.donation_note || ""} />
+          </label>
         </PostForm>
       </section>
     </main>

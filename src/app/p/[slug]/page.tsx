@@ -1,4 +1,5 @@
 import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
+import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
 import type { Metadata } from "next";
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       const place = [pantry.city, pantry.state].filter(Boolean).join(", ") || "Vidalia, Georgia";
       return pageMeta(
         `${pantry.name} food pantry`,
-        pantry.about || `${pantry.name} is a food pantry in ${place}. Get groceries, volunteer, or give.`
+        pantry.about || `${pantry.name} is a food pantry in ${place}. Get groceries, volunteer, or give. Scan the page QR for this week's food.`
       );
     }
   } catch {
@@ -75,6 +76,19 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
           )}
         </article>
       </div>
+
+      <section className="panel">
+        <h2>To receive food at this pantry</h2>
+        <p>{receiveRulesCopy(pantry)}</p>
+        <p className="note">{donationPolicyCopy(pantry)}</p>
+        <div className="grid">
+          <article className="card">
+            <span>Scan for this page anytime</span>
+            <img src={`/api/promote/qr?to=${encodeURIComponent(pantryPublicUrl(pantry.slug))}&format=png&size=360`} alt="QR code for this pantry" width={160} height={160} />
+            <p className="note">Hours, this week's food, and these rules stay current when you scan.</p>
+          </article>
+        </div>
+      </section>
 
       <section className="panel">
         <p className="eyebrow">Distribution days</p>

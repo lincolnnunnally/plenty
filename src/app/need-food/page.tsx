@@ -1,6 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantrySafe, householdForUser } from "@/lib/db/queries";
+import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
 
@@ -37,6 +38,8 @@ export default async function NeedFoodPage() {
           {pantry?.slug ? (
             <p className="note">Public page: <a href={`/p/${pantry.slug}`}>{pantryPublicUrl(pantry.slug)}</a></p>
           ) : null}
+          {pantry ? <p className="note">{receiveRulesCopy(pantry)}</p> : null}
+          {pantry ? <p className="note">{donationPolicyCopy(pantry)}</p> : null}
         </article>
         <article className="card">
           <span>What you can get this week</span>

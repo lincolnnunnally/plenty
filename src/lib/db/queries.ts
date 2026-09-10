@@ -18,6 +18,12 @@ export type Pantry = {
   visit_style: string;
   status: string;
   source: string;
+  receive_rules: string;
+  donation_policy: string;
+  donation_note: string;
+  residency_rules: string;
+  id_required: boolean;
+  frequency_rules: string;
 };
 
 export type Household = {
@@ -198,7 +204,7 @@ export async function getDefaultPantrySafe() {
   }
 }
 
-const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source";
+const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source, receive_rules, donation_policy, donation_note, residency_rules, id_required, frequency_rules";
 const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes";
 const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
 const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent, tenure, asset_kind";
@@ -272,6 +278,12 @@ export async function upsertPantry(
     email: fields.email ?? "",
     visit_style: fields.visit_style ?? "walk_in",
     status: fields.status ?? "setup",
+    receive_rules: fields.receive_rules ?? "",
+    donation_policy: fields.donation_policy ?? "welcome",
+    donation_note: fields.donation_note ?? "",
+    residency_rules: fields.residency_rules ?? "",
+    id_required: Boolean(fields.id_required),
+    frequency_rules: fields.frequency_rules ?? "",
     updated_at: new Date().toISOString()
   };
   if (id) {
@@ -1317,4 +1329,115 @@ export async function visitCountsByHousehold(pantryId: string): Promise<Map<stri
     map.set(visit.household_id, current);
   }
   return map;
+}
+
+export type Campaign = {
+  id: string;
+  pantry_id: string;
+  audience: string;
+  extra: string;
+  kit: Record<string, unknown>;
+  created_at: string;
+};
+
+export type PromoSend = {
+  id: string;
+  pantry_id: string;
+  channel: string;
+  audience: string;
+  to_count: number;
+  status: string;
+  error: string;
+  created_at: string;
+};
+
+export async function saveCampaign(input: {
+  pantryId: string;
+  audience: string;
+  extra: string;
+  kit: Record<string, unknown>;
+  createdBy: string | null;
+}): Promise<Campaign> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_campaigns").insert({
+    pantry_id: input.pantryId,
+    audience: input.audience,
+    extra: input.extra,
+    kit: input.kit,
+    created_by: input.createdBy
+  }).select("id, pantry_id, audience, extra, kit, created_at").single();
+  fail(error);
+  return data as Campaign;
+}
+
+export async function listCampaigns(pantryId: string): Promise<Campaign[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_campaigns").select("id, pantry_id, audience, extra, kit, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false }).limit(20);
+  fail(error);
+  return (data as Campaign[]) || [];
+}
+
+export async function recordPromoSend(input: {
+  pantryId: string;
+  campaignId?: string | null;
+  channel: string;
+  audience: string;
+  toCount: number;
+  status: string;
+  error?: string;
+}): Promise<void> {
+  const client = await sb();
+  const { error } = await client.from("plenty_promo_sends").insert({
+    pantry_id: input.pantryId,
+    campaign_id: input.campaignId || null,
+    channel: input.channel,
+    audience: input.audience,
+    to_count: input.toCount,
+    status: input.status,
+    error: input.error || ""
+  });
+  fail(error);
+}
+
+export async function listPromoSends(pantryId: string): Promise<PromoSend[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_promo_sends").select("id, pantry_id, channel, audience, to_count, status, error, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false }).limit(30);
+  fail(error);
+  return (data as PromoSend[]) || [];
+}
+
+function validEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export async function emailsForAudience(pantryId: string, audience: string): Promise<{ email: string; name: string }[]> {
+  const client = await sb();
+  const found = new Map<string, string>();
+  function add(email: string, name: string) {
+    const key = email.trim().toLowerCase();
+    if (!validEmail(key)) return;
+    if (!found.has(key)) found.set(key, name || key);
+  }
+
+  if (audience === "families" || audience === "all") {
+    const households = await listHouseholds(pantryId);
+    for (const h of households) add(h.email, h.display_name);
+  }
+  if (audience === "volunteers" || audience === "all") {
+    const volunteers = await listVolunteers(pantryId);
+    for (const v of volunteers) if (v.email) add(v.email, v.name || v.email);
+  }
+  if (audience === "donors" || audience === "all") {
+    const gifts = await listDonations(pantryId);
+    for (const g of gifts) add(g.contact_email, g.contact_name);
+  }
+
+  const { data: memberships } = await client.from("plenty_memberships").select("user_id, role").eq("pantry_id", pantryId);
+  const roleWanted = audience === "families" ? "neighbor" : audience === "volunteers" ? "volunteer" : audience === "donors" ? "donor" : null;
+  const ids = [...new Set((memberships || []).filter((m) => !roleWanted || m.role === roleWanted || audience === "all").map((m) => m.user_id))];
+  if (ids.length) {
+    const { data: profiles } = await client.from("plenty_user_profiles").select("id, email, name").in("id", ids);
+    for (const p of profiles || []) if (p.email) add(p.email, p.name || p.email);
+  }
+  return [...found.entries()].map(([email, name]) => ({ email, name }));
 }

@@ -30,6 +30,7 @@ Shared LPL GoTrue + `plenty_*` tables on the shared Supabase (prefix, additive-o
 - Pantry desk: super admin **or** explicit `steward`/`admin` membership. Recipients, volunteers, and donors never get the desk by signing up.
 - Super admin grants/revokes pantry admin. Do not treat `APP_ENGINE_OWNER_EMAIL` or JWT `owner` as desk access.
 - Food is never gated on a donation, waiver, or growth form.
+- Promote is enter-once (flyers, QR, social kits, email). Do not ship copy-only boxes as "promotion." Auto-post to Meta needs a page token; until then generate complete posts and assets.
 
 ## Live URL
 

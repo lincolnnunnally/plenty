@@ -42,6 +42,12 @@ export async function POST(request: Request) {
       email: str(body.email),
       visit_style: str(body.visitStyle) || "walk_in",
       status: str(body.status) || (str(body.hoursText) && str(body.address) ? "open" : "setup"),
+      receive_rules: str(body.receiveRules),
+      donation_policy: str(body.donationPolicy) || "welcome",
+      donation_note: str(body.donationNote),
+      residency_rules: str(body.residencyRules),
+      id_required: body.idRequired === true || body.idRequired === "true" || body.idRequired === "on",
+      frequency_rules: str(body.frequencyRules),
       created_by: user.id
     });
     await addMembership(pantry.id, user.id, "steward");
