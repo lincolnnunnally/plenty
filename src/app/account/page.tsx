@@ -1,3 +1,4 @@
+import { SignOutForm } from "@/components/sign-out-form";
 import { membershipLabel } from "@/lib/auth/roles";
 import { requireCustomerAccess } from "@/lib/auth/session";
 import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, isSteward, membershipsForUser, myShiftSignups, visitsForUser } from "@/lib/db/queries";
@@ -87,7 +88,11 @@ export default async function AccountPage() {
         ) : null}
       </section>
 
-      <a className="button" href="/api/auth/signout">Sign out</a>
+      <section className="panel">
+        <h2>Sign out</h2>
+        <p className="note">This ends your session on this device. You can sign back in any time with the same email.</p>
+        <SignOutForm buttonClassName="button" />
+      </section>
     </main>
   );
 }

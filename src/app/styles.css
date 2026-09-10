@@ -121,8 +121,19 @@ textarea.input { min-height: 96px; resize: vertical; }
 .app-brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: var(--ink); text-decoration: none; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 .app-logo-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-size: .85rem; font-weight: 800; }
 .app-nav { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; margin-left: auto; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-.app-nav a { color: var(--ink); text-decoration: none; font-size: .9rem; font-weight: 600; padding: 6px 10px; border-radius: 999px; }
-.app-nav a:hover { background: #efe4d0; }
+.app-nav a, .app-nav button.app-nav-signout {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: .9rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+.app-nav a:hover, .app-nav button.app-nav-signout:hover { background: #efe4d0; }
 .app-nav a.app-nav-cta { background: var(--accent); color: var(--accent-ink); }
 .app-footer { border-top: 1px solid var(--line); background: var(--panel); margin-top: 48px; }
 .app-footer-inner { width: min(1120px, 100%); margin: 0 auto; padding: 18px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; color: var(--muted); font-size: .88rem; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }

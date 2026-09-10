@@ -1,3 +1,4 @@
+import { SignOutForm } from "@/components/sign-out-form";
 import { requireCustomerAccess } from "@/lib/auth/session";
 import { getDefaultPantry, householdForUser, membershipsForUser, pathsForUser, visitsForUser, volunteerForUser } from "@/lib/db/queries";
 
@@ -47,6 +48,9 @@ export default async function AppHome() {
           {paths[0] ? <p>{paths[0].next_step || paths[0].who_they_want_to_become || "Started"}</p> : <p className="empty">No path written yet. Optional.</p>}
           <a className="button" href="/become">Open the path</a>
         </article>
+      </div>
+      <div className="action-row">
+        <SignOutForm />
       </div>
     </main>
   );

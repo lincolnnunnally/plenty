@@ -1,6 +1,7 @@
 import { appBrand } from "@/lib/app-brand";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
+import { SignOutForm } from "@/components/sign-out-form";
 import { getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
 
 const NAV = [
@@ -31,7 +32,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               <a key={item.href} href={item.href}>{item.label}</a>
             ))}
             {steward ? <a href="/run">Pantry desk</a> : null}
-            {user ? null : <a className="app-nav-cta" href="/sign-in">Create an account</a>}
+            {user ? (
+              <SignOutForm buttonClassName="app-nav-signout" />
+            ) : (
+              <a className="app-nav-cta" href="/sign-in">Create an account</a>
+            )}
           </nav>
         </div>
       </header>
