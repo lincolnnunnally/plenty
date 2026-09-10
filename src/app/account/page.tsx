@@ -1,7 +1,7 @@
 import { SignOutForm } from "@/components/sign-out-form";
 import { membershipLabel } from "@/lib/auth/roles";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, isSteward, membershipsForUser, myShiftSignups, visitsForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listStoreVouchers, membershipsForUser, myShiftSignups, visitsForUser } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,8 @@ export default async function AccountPage() {
   const visits = pantry ? await visitsForUser(pantry.id, user.id) : [];
   const hours = pantry ? await hoursForUser(pantry.id, user.id) : [];
   const myShifts = await myShiftSignups(user.id);
+  const household = pantry ? await householdForUser(pantry.id, user.id) : null;
+  const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
   const roleLabel = roles.includes("neighbor") && roles.includes("volunteer")
     ? "You get food here and you also volunteer."
     : roles.includes("neighbor")
@@ -44,6 +46,23 @@ export default async function AccountPage() {
         <a className="button" href="/donate">Give</a>
         {steward ? <a className="button leaf" href="/run">Open pantry desk</a> : null}
       </div>
+
+      {storeCards.length ? (
+        <section className="panel">
+          <h2>Your grocery store card</h2>
+          <p className="note">Show this at customer service. You do not have to buy anything else.</p>
+          <div className="grid">
+            {storeCards.map((card) => (
+              <article className="card" key={card.id}>
+                <span>{card.code} · {card.partner_name}</span>
+                <strong>{card.hold_desk || "Customer service"}</strong>
+                <p>{card.items_text || "This week's hold"}</p>
+                <a className="button primary" href={`/api/store-card?voucherId=${card.id}`}>Print this card</a>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel">
         <h2>Your visits</h2>

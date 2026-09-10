@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
-import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser } from "@/lib/db/queries";
+import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listStoreVouchers } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -18,6 +18,7 @@ export default async function NeedFoodPage() {
   const available = pantry ? await availableThisWeek(pantry.id) : [];
   const household = user && pantry ? await householdForUser(pantry.id, user.id) : null;
   const waiver = user && pantry ? await latestWaiverForUser(pantry.id, user.id) : null;
+  const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
   const waiverOk =
     (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at)) ||
     waiver?.version === FOOD_WAIVER_VERSION;
@@ -161,6 +162,23 @@ export default async function NeedFoodPage() {
                   It protects the stores that gave the food. It is not a bill. <a className="button primary" href="/waiver">Sign the agreement</a>
                 </p>
               )}
+              {storeCards.length ? (
+                <>
+                  <h3 style={{ marginTop: 24 }}>Your grocery store card</h3>
+                  <p className="note">Carry this like a membership card. Show it at customer service. You do not have to buy anything else.</p>
+                  <div className="grid">
+                    {storeCards.map((card) => (
+                      <article className="card" key={card.id}>
+                        <span>{card.code} · {card.partner_name}</span>
+                        <strong>{card.hold_desk || "Customer service"}</strong>
+                        <p>{card.items_text || "This week's hold"}</p>
+                        {card.hours_text ? <p className="note">{card.hours_text}</p> : null}
+                        <a className="button primary" href={`/api/store-card?voucherId=${card.id}`}>Print this card</a>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : null}
               <h3 style={{ marginTop: 24 }}>Check in when you pick up food</h3>
               <PostForm action="/api/visits" submitLabel="Check in this visit">
                 <input type="hidden" name="householdId" value={household.id} />

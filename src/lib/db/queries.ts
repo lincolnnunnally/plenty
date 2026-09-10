@@ -1497,3 +1497,391 @@ export async function latestWaiverForUser(pantryId: string, userId: string): Pro
   fail(error);
   return (data as WaiverRow | null) ?? null;
 }
+
+const STORE_PARTNER_COLS =
+  "id, pantry_id, name, address, city, state, zip, phone, contact_name, contact_email, pickup_mode, hold_desk, hours_text, pin_hash, notes, status, extra_purchase_required, created_at";
+const STORE_VOUCHER_COLS =
+  "id, pantry_id, partner_id, household_id, code, items_text, status, issued_at, expires_at, redeemed_at, redeemed_note, created_by, created_at";
+
+export type StorePartner = {
+  id: string;
+  pantry_id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  contact_name: string;
+  contact_email: string;
+  pickup_mode: string;
+  hold_desk: string;
+  hours_text: string;
+  pin_set: boolean;
+  notes: string;
+  status: string;
+  extra_purchase_required: boolean;
+  created_at: string;
+};
+
+type StorePartnerRow = Omit<StorePartner, "pin_set"> & { pin_hash: string };
+
+export type StoreVoucher = {
+  id: string;
+  pantry_id: string;
+  partner_id: string;
+  household_id: string;
+  code: string;
+  items_text: string;
+  status: string;
+  issued_at: string;
+  expires_at: string | null;
+  redeemed_at: string | null;
+  redeemed_note: string;
+  created_by: string | null;
+  created_at: string;
+  partner_name?: string;
+  household_name?: string;
+  hold_desk?: string;
+  hours_text?: string;
+  pickup_mode?: string;
+  partner_address?: string;
+};
+
+export type PublicStoreCard = {
+  code: string;
+  status: string;
+  items_text: string;
+  expires_at: string | null;
+  redeemed_at: string | null;
+  household_name: string;
+  partner_name: string;
+  hold_desk: string;
+  hours_text: string;
+  pickup_mode: string;
+  partner_address: string;
+  extra_purchase_required: false;
+};
+
+function toPartner(row: StorePartnerRow): StorePartner {
+  const { pin_hash, ...rest } = row;
+  return { ...rest, pin_set: Boolean(pin_hash), extra_purchase_required: false };
+}
+
+export async function householdById(id: string): Promise<Household | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("id", id).maybeSingle();
+  fail(error);
+  return (data as Household | null) ?? null;
+}
+
+export async function listStorePartners(pantryId: string): Promise<StorePartner[]> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_store_partners")
+    .select(STORE_PARTNER_COLS)
+    .eq("pantry_id", pantryId)
+    .order("name");
+  fail(error);
+  return ((data as StorePartnerRow[]) || []).map(toPartner);
+}
+
+export async function addStorePartner(input: {
+  pantryId: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  contactName: string;
+  contactEmail: string;
+  pickupMode: string;
+  holdDesk: string;
+  hoursText: string;
+  notes: string;
+  status: string;
+  pin?: string;
+}): Promise<StorePartner> {
+  const { hashStaffPin } = await import("@/lib/store-card/code");
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_store_partners")
+    .insert({
+      pantry_id: input.pantryId,
+      name: input.name,
+      address: input.address,
+      city: input.city,
+      state: input.state,
+      zip: input.zip,
+      phone: input.phone,
+      contact_name: input.contactName,
+      contact_email: input.contactEmail,
+      pickup_mode: input.pickupMode,
+      hold_desk: input.holdDesk || "Customer service",
+      hours_text: input.hoursText,
+      notes: input.notes,
+      status: input.status,
+      extra_purchase_required: false,
+      pin_hash: input.pin ? hashStaffPin(input.pin) : ""
+    })
+    .select(STORE_PARTNER_COLS)
+    .single();
+  fail(error);
+  return toPartner(data as StorePartnerRow);
+}
+
+export async function updateStorePartner(
+  id: string,
+  pantryId: string,
+  patch: {
+    name?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    phone?: string;
+    contactName?: string;
+    contactEmail?: string;
+    pickupMode?: string;
+    holdDesk?: string;
+    hoursText?: string;
+    notes?: string;
+    status?: string;
+    pin?: string;
+  }
+): Promise<StorePartner | null> {
+  const client = await sb();
+  const row: Record<string, unknown> = {
+    extra_purchase_required: false,
+    updated_at: new Date().toISOString()
+  };
+  if (patch.name != null) row.name = patch.name;
+  if (patch.address != null) row.address = patch.address;
+  if (patch.city != null) row.city = patch.city;
+  if (patch.state != null) row.state = patch.state;
+  if (patch.zip != null) row.zip = patch.zip;
+  if (patch.phone != null) row.phone = patch.phone;
+  if (patch.contactName != null) row.contact_name = patch.contactName;
+  if (patch.contactEmail != null) row.contact_email = patch.contactEmail;
+  if (patch.pickupMode != null) row.pickup_mode = patch.pickupMode;
+  if (patch.holdDesk != null) row.hold_desk = patch.holdDesk;
+  if (patch.hoursText != null) row.hours_text = patch.hoursText;
+  if (patch.notes != null) row.notes = patch.notes;
+  if (patch.status != null) row.status = patch.status;
+  if (patch.pin) {
+    const { hashStaffPin } = await import("@/lib/store-card/code");
+    row.pin_hash = hashStaffPin(patch.pin);
+  }
+  const { data, error } = await client
+    .from("plenty_store_partners")
+    .update(row)
+    .eq("id", id)
+    .eq("pantry_id", pantryId)
+    .select(STORE_PARTNER_COLS)
+    .maybeSingle();
+  fail(error);
+  return data ? toPartner(data as StorePartnerRow) : null;
+}
+
+export async function partnerWithPin(id: string): Promise<(StorePartnerRow & { pin_hash: string }) | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_store_partners").select(STORE_PARTNER_COLS).eq("id", id).maybeSingle();
+  fail(error);
+  return (data as StorePartnerRow | null) ?? null;
+}
+
+export async function listStoreVouchers(pantryId: string, opts?: { householdId?: string; partnerId?: string }): Promise<StoreVoucher[]> {
+  const client = await sb();
+  let q = client.from("plenty_store_vouchers").select(STORE_VOUCHER_COLS).eq("pantry_id", pantryId).order("issued_at", { ascending: false }).limit(200);
+  if (opts?.householdId) q = q.eq("household_id", opts.householdId);
+  if (opts?.partnerId) q = q.eq("partner_id", opts.partnerId);
+  const { data, error } = await q;
+  fail(error);
+  const rows = (data as StoreVoucher[]) || [];
+  if (!rows.length) return [];
+  const [partners, households] = await Promise.all([listStorePartners(pantryId), listHouseholds(pantryId)]);
+  const partnerMap = new Map(partners.map((p) => [p.id, p]));
+  const householdMap = new Map(households.map((h) => [h.id, h]));
+  return rows.map((row) => {
+    const partner = partnerMap.get(row.partner_id);
+    const household = householdMap.get(row.household_id);
+    return {
+      ...row,
+      partner_name: partner?.name,
+      household_name: household?.display_name,
+      hold_desk: partner?.hold_desk,
+      hours_text: partner?.hours_text,
+      pickup_mode: partner?.pickup_mode,
+      partner_address: [partner?.address, partner?.city, partner?.state].filter(Boolean).join(", ")
+    };
+  });
+}
+
+export async function getStoreVoucher(id: string): Promise<StoreVoucher | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_store_vouchers").select(STORE_VOUCHER_COLS).eq("id", id).maybeSingle();
+  fail(error);
+  if (!data) return null;
+  const row = data as StoreVoucher;
+  const [partner, household] = await Promise.all([
+    client.from("plenty_store_partners").select(STORE_PARTNER_COLS).eq("id", row.partner_id).maybeSingle(),
+    householdById(row.household_id)
+  ]);
+  const p = partner.data as StorePartnerRow | null;
+  return {
+    ...row,
+    partner_name: p?.name,
+    household_name: household?.display_name,
+    hold_desk: p?.hold_desk,
+    hours_text: p?.hours_text,
+    pickup_mode: p?.pickup_mode,
+    partner_address: p ? [p.address, p.city, p.state].filter(Boolean).join(", ") : ""
+  };
+}
+
+export async function issueStoreVoucher(input: {
+  pantryId: string;
+  partnerId: string;
+  householdId: string;
+  itemsText: string;
+  expiresAt: string | null;
+  createdBy: string | null;
+}): Promise<StoreVoucher> {
+  const { newCardCode } = await import("@/lib/store-card/code");
+  const client = await sb();
+  const partner = await partnerWithPin(input.partnerId);
+  if (!partner || partner.pantry_id !== input.pantryId) throw new Error("That store is not on this pantry.");
+  if (partner.status !== "active") throw new Error("Activate the store partner before issuing a card.");
+  if (partner.pickup_mode === "dock_pickup") throw new Error("This store asked us to pick up at the dock — not in-store cards.");
+  const household = await householdById(input.householdId);
+  if (!household || household.pantry_id !== input.pantryId) throw new Error("That household is not registered here.");
+
+  const { error: voidErr } = await client
+    .from("plenty_store_vouchers")
+    .update({ status: "void", redeemed_note: "Replaced by a new card" })
+    .eq("pantry_id", input.pantryId)
+    .eq("partner_id", input.partnerId)
+    .eq("household_id", input.householdId)
+    .eq("status", "issued");
+  fail(voidErr);
+
+  let lastError: Error | null = null;
+  for (let i = 0; i < 6; i++) {
+    const code = newCardCode();
+    const { data, error } = await client
+      .from("plenty_store_vouchers")
+      .insert({
+        pantry_id: input.pantryId,
+        partner_id: input.partnerId,
+        household_id: input.householdId,
+        code,
+        items_text: input.itemsText,
+        status: "issued",
+        expires_at: input.expiresAt,
+        created_by: input.createdBy
+      })
+      .select(STORE_VOUCHER_COLS)
+      .single();
+    if (!error && data) {
+      return {
+        ...(data as StoreVoucher),
+        partner_name: partner.name,
+        household_name: household.display_name,
+        hold_desk: partner.hold_desk,
+        hours_text: partner.hours_text,
+        pickup_mode: partner.pickup_mode
+      };
+    }
+    lastError = new Error(error?.message || "Could not issue the card.");
+    if (error && !/duplicate|unique/i.test(error.message)) throw lastError;
+  }
+  throw lastError || new Error("Could not issue a unique card code.");
+}
+
+export async function setStoreVoucherStatus(id: string, pantryId: string, status: string, note = ""): Promise<StoreVoucher | null> {
+  const client = await sb();
+  const patch: Record<string, unknown> = { status, redeemed_note: note };
+  if (status === "redeemed") patch.redeemed_at = new Date().toISOString();
+  const { data, error } = await client
+    .from("plenty_store_vouchers")
+    .update(patch)
+    .eq("id", id)
+    .eq("pantry_id", pantryId)
+    .select(STORE_VOUCHER_COLS)
+    .maybeSingle();
+  fail(error);
+  return (data as StoreVoucher | null) ?? null;
+}
+
+export async function publicStoreCardByCode(code: string): Promise<PublicStoreCard | null> {
+  const { normalizeCardCode } = await import("@/lib/store-card/code");
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_store_vouchers")
+    .select(STORE_VOUCHER_COLS)
+    .eq("code", normalizeCardCode(code))
+    .maybeSingle();
+  fail(error);
+  if (!data) return null;
+  const row = data as StoreVoucher;
+  const [partnerRes, household] = await Promise.all([
+    client.from("plenty_store_partners").select(STORE_PARTNER_COLS).eq("id", row.partner_id).maybeSingle(),
+    householdById(row.household_id)
+  ]);
+  const partner = partnerRes.data as StorePartnerRow | null;
+  if (!partner) return null;
+  let status = row.status;
+  if (status === "issued" && row.expires_at && new Date(row.expires_at).getTime() < Date.now()) status = "expired";
+  return {
+    code: row.code,
+    status,
+    items_text: row.items_text,
+    expires_at: row.expires_at,
+    redeemed_at: row.redeemed_at,
+    household_name: household?.display_name || "Household",
+    partner_name: partner.name,
+    hold_desk: partner.hold_desk || "Customer service",
+    hours_text: partner.hours_text,
+    pickup_mode: partner.pickup_mode,
+    partner_address: [partner.address, partner.city, partner.state].filter(Boolean).join(", "),
+    extra_purchase_required: false
+  };
+}
+
+export async function redeemStoreCardWithPin(code: string, pin: string, note: string): Promise<StoreVoucher> {
+  const { normalizeCardCode, staffPinMatches } = await import("@/lib/store-card/code");
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_store_vouchers")
+    .select(STORE_VOUCHER_COLS)
+    .eq("code", normalizeCardCode(code))
+    .maybeSingle();
+  fail(error);
+  if (!data) throw new Error("This is not a Plenty card.");
+  const row = data as StoreVoucher;
+  if (row.status === "redeemed") throw new Error("This card was already collected.");
+  if (row.status === "void") throw new Error("This card is no longer valid.");
+  if (row.status === "expired" || (row.expires_at && new Date(row.expires_at).getTime() < Date.now())) {
+    throw new Error("This card has expired. The pantry can issue a new one.");
+  }
+  if (row.status !== "issued") throw new Error("This card cannot be collected.");
+  const partner = await partnerWithPin(row.partner_id);
+  if (!partner || partner.status !== "active") throw new Error("This store is not collecting Plenty cards right now.");
+  if (!partner.pin_hash) throw new Error("This store does not have a pickup PIN yet. Call the pantry.");
+  if (!staffPinMatches(pin, partner.pin_hash)) throw new Error("That store PIN did not match.");
+  const { data: updated, error: upErr } = await client
+    .from("plenty_store_vouchers")
+    .update({
+      status: "redeemed",
+      redeemed_at: new Date().toISOString(),
+      redeemed_note: note || "Collected in store"
+    })
+    .eq("id", row.id)
+    .eq("status", "issued")
+    .select(STORE_VOUCHER_COLS)
+    .maybeSingle();
+  fail(upErr);
+  if (!updated) throw new Error("This card was already collected.");
+  return updated as StoreVoucher;
+}

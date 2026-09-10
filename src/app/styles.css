@@ -252,3 +252,11 @@ textarea.input { min-height: 96px; resize: vertical; }
   .brief-grid { grid-template-columns: 1fr 1fr; }
   .brief-foot { grid-template-columns: 1fr auto; }
 }
+.store-card-sheet h2 { margin-bottom: 8px; }
+.store-card-rule {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #efe4d0;
+  font-weight: 700;
+}

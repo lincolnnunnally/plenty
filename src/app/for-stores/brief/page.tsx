@@ -42,10 +42,14 @@ export default function StoreBriefPage() {
           ))}
         </div>
 
+        <p className="note" style={{ marginTop: 16 }}>
+          Two ways: we pick up at the dock, or families come in with a Plenty card and collect a hold at customer service. Extra purchase is not required. People who walk the aisles tend to spend the money they saved — that is proximity, not a condition.
+        </p>
+
         <footer className="brief-foot brief-foot-qr">
           <div>
-            <strong>We pick up. You get a receipt.</strong>
-            <p>We pick up in Vidalia. You get a receipt.</p>
+            <strong>We pick up. Or they come to you.</strong>
+            <p>Dock pickup, or a hold at customer service. Receipt either way.</p>
             <p className="brief-fine">Not legal or tax advice. Show this to your accountant.</p>
           </div>
           <div className="brief-qr">

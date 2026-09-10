@@ -40,7 +40,7 @@ export default async function DonatePage() {
         </article>
         <article className="card">
           <strong>Grocery store or warehouse</strong>
-          <p>Better business than the dumpster. You benefit. You are protected. That’s why the national chains donate.</p>
+          <p>Better business than the dumpster. We pick up — or families come in with a Plenty card and collect a hold. Extra purchase is never required.</p>
           <a className="button" href="/for-stores">See why it pays</a>
         </article>
       </div>

@@ -357,3 +357,48 @@ create table if not exists plenty_contributions (
   created_at timestamptz not null default now()
 );
 create index if not exists plenty_contributions_pantry_idx on plenty_contributions (pantry_id, created_at desc);
+
+-- In-store pickup: the store donates on paper; the household carries a card
+-- and collects at customer service. Extra purchase is never a condition.
+create table if not exists plenty_store_partners (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  name text not null,
+  address text not null default '',
+  city text not null default '',
+  state text not null default '',
+  zip text not null default '',
+  phone text not null default '',
+  contact_name text not null default '',
+  contact_email text not null default '',
+  pickup_mode text not null default 'hold_desk',
+  hold_desk text not null default 'Customer service',
+  hours_text text not null default '',
+  pin_hash text not null default '',
+  notes text not null default '',
+  status text not null default 'invited',
+  extra_purchase_required boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists plenty_store_partners_pantry_idx on plenty_store_partners (pantry_id, status);
+
+create table if not exists plenty_store_vouchers (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  partner_id uuid not null references plenty_store_partners(id) on delete cascade,
+  household_id uuid not null references plenty_households(id) on delete cascade,
+  code text not null unique,
+  items_text text not null default '',
+  status text not null default 'issued',
+  issued_at timestamptz not null default now(),
+  expires_at timestamptz,
+  redeemed_at timestamptz,
+  redeemed_note text not null default '',
+  created_by uuid,
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_store_vouchers_pantry_idx on plenty_store_vouchers (pantry_id, status, issued_at desc);
+create index if not exists plenty_store_vouchers_partner_idx on plenty_store_vouchers (partner_id, status);
+create index if not exists plenty_store_vouchers_household_idx on plenty_store_vouchers (household_id, status);
+create unique index if not exists plenty_store_vouchers_code_idx on plenty_store_vouchers (code);
