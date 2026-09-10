@@ -1,13 +1,13 @@
 import { PostForm } from "@/components/post-form";
 import { SignupButton } from "@/components/signup-button";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantry, listShifts, myShiftIds, volunteerForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, listShifts, myShiftIds, volunteerForUser } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function VolunteerPage() {
   const user = await getCurrentUser().catch(() => null);
-  const pantry = await getDefaultPantry();
+  const pantry = await getDefaultPantrySafe();
   const shifts = pantry ? await listShifts(pantry.id) : [];
   const mine = user && pantry ? await volunteerForUser(pantry.id, user.id) : null;
   const signed = user ? await myShiftIds(user.id) : [];

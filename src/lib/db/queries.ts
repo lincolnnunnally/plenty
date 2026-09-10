@@ -148,8 +148,19 @@ export function isVolunteerRole(value: string): value is VolunteerRole {
 }
 
 async function sqlReady() {
-  await ensurePlentySchema();
+  const ensured = await ensurePlentySchema();
+  if (!ensured.ok) {
+    throw new Error(ensured.error || "The pantry database is not ready yet.");
+  }
   return getDatabase();
+}
+
+export async function getDefaultPantrySafe() {
+  try {
+    return await getDefaultPantry();
+  } catch {
+    return null;
+  }
 }
 
 export async function ensureUserProfile(user: { id: string; email: string; name: string; role: string }) {

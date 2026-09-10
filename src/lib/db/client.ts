@@ -23,7 +23,8 @@ export function getDatabase(): DatabaseClient {
   }
 
   if (!clientSingleton) {
-    sqlSingleton = postgres(process.env.DATABASE_URL!, {
+    const connectionString = process.env.DATABASE_URL!.trim();
+    sqlSingleton = postgres(connectionString, {
       ssl: "require",
       prepare: false,
       max: Number(process.env.DATABASE_POOL_MAX || 4),

@@ -1,12 +1,12 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { availableThisWeek, getDefaultPantry, householdForUser } from "@/lib/db/queries";
+import { availableThisWeek, getDefaultPantrySafe, householdForUser } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function NeedFoodPage() {
   const user = await getCurrentUser().catch(() => null);
-  const pantry = await getDefaultPantry();
+  const pantry = await getDefaultPantrySafe();
   const available = pantry ? await availableThisWeek(pantry.id) : [];
   const household = user && pantry ? await householdForUser(pantry.id, user.id) : null;
 

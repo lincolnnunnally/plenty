@@ -1,12 +1,12 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantry, weNeedList } from "@/lib/db/queries";
+import { getDefaultPantrySafe, weNeedList } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function DonatePage() {
   const user = await getCurrentUser().catch(() => null);
-  const pantry = await getDefaultPantry();
+  const pantry = await getDefaultPantrySafe();
   const needs = pantry ? await weNeedList(pantry.id) : [];
 
   return (

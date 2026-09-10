@@ -1,12 +1,25 @@
 import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
-import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function PantryPublicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const pantry = await getPantryBySlug(slug);
-  if (!pantry) notFound();
+  let pantry = null;
+  try {
+    pantry = await getPantryBySlug(slug);
+  } catch {
+    pantry = null;
+  }
+  if (!pantry) {
+    return (
+      <main className="shell">
+        <p className="eyebrow">Vidalia</p>
+        <h1>This pantry page is getting established</h1>
+        <p className="empty">Hours, address, and shelves will show here once the pantry database is connected and a steward types what is real. We will not invent them.</p>
+        <a className="button primary" href="/">Back to Plenty</a>
+      </main>
+    );
+  }
   const available = await availableThisWeek(pantry.id);
   const needs = await weNeedList(pantry.id);
   const shifts = await listShifts(pantry.id);
