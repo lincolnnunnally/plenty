@@ -10,6 +10,7 @@ import {
   householdByPass,
   recordVisit,
   searchHouseholds,
+  takeBagFromShelves,
   unusedHandling
 } from "@/lib/db/queries";
 
@@ -17,6 +18,24 @@ export const dynamic = "force-dynamic";
 
 function on(value: unknown) {
   return value === true || value === "true" || value === "on" || value === "yes" || value === "1";
+}
+
+function parseBag(raw: unknown): { id: string; qty: number }[] {
+  let value: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      const rec = row as { id?: unknown; qty?: unknown };
+      return { id: String(rec.id || ""), qty: Number(rec.qty) || 0 };
+    })
+    .filter((row) => row.id && row.qty > 0);
 }
 
 export async function POST(request: Request) {
@@ -102,12 +121,13 @@ export async function POST(request: Request) {
       phone: str(body.phone),
       notes: "Came through without a full registration"
     });
+    const bag = asSteward ? await takeBagFromShelves(pantry.id, parseBag(body.bag), steward.user?.id || null) : "";
     const visit = await recordVisit({
       pantryId: pantry.id,
       householdId: household.id,
       userId: steward.user?.id || null,
-      itemsSummary: "",
-      notes: "Unregistered walk-through"
+      itemsSummary: bag,
+      notes: bag ? `Unregistered walk-through. Took: ${bag}` : "Unregistered walk-through"
     });
     await shareHouseholdToEcosystem({ household, pantry, event: "visit" }).catch(() => ({ ok: false, error: "" }));
     return ok({
@@ -156,11 +176,12 @@ export async function POST(request: Request) {
     });
   }
 
+  const bag = asSteward ? await takeBagFromShelves(pantry.id, parseBag(body.bag), steward.user?.id || household.user_id) : "";
   const visit = await recordVisit({
     pantryId: pantry.id,
     householdId: household.id,
     userId: household.user_id || steward.user?.id || null,
-    itemsSummary: str(body.itemsSummary),
+    itemsSummary: bag || str(body.itemsSummary),
     notes: str(body.notes),
     locationId: str(body.locationId) || null
   });

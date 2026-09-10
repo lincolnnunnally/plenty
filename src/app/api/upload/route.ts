@@ -1,13 +1,11 @@
-import { fail, ok, requireStewardFor } from "@/lib/api";
-import { getDefaultPantry } from "@/lib/db/queries";
+import { fail, ok, requireDeskPantry } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const { error } = await requireStewardFor(pantry.id);
-  if (error) return error;
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
   const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!url || !key) return fail("Uploads are not configured.", 503);

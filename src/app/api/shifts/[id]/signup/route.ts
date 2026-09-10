@@ -1,5 +1,6 @@
 import { fail, ok, readJson, requireUser, str } from "@/lib/api";
-import { signupForShift, updateShiftSignup } from "@/lib/db/queries";
+import { getShift, signupForShift, updateShiftSignup } from "@/lib/db/queries";
+import { notifyDesk } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const body = (await readJson(request)) || {};
   const action = str(body.action) || "signup";
   try {
+    const shift = await getShift(id);
     if (action === "signup") {
       await signupForShift(id, user.id);
+      if (shift) {
+        await notifyDesk({
+          pantryId: shift.pantry_id,
+          subject: `Volunteer signed up: ${shift.title}`,
+          text: `${user.name || user.email} signed up for ${shift.title} at ${shift.location || "the pantry"}.\nhttps://plenty.unitedundergod.org/run/shifts`
+        }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+      }
       return ok({ message: "You are on this shift. Confirm when you know you can come." });
     }
     if (action === "confirm" || action === "need_cover" || action === "cancel") {
       await updateShiftSignup({ shiftId: id, userId: user.id, action, actorId: user.id });
+      if (shift && (action === "need_cover" || action === "cancel")) {
+        await notifyDesk({
+          pantryId: shift.pantry_id,
+          subject: action === "need_cover" ? `Cover needed: ${shift.title}` : `Volunteer cancelled: ${shift.title}`,
+          text: `${user.name || user.email} ${action === "need_cover" ? "needs cover" : "cancelled"} for ${shift.title}.\nhttps://plenty.unitedundergod.org/volunteer`
+        }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+      }
       const messages = {
         confirm: "Thanks — we will look for you.",
         need_cover: "Cover requested. Other volunteers can take this shift.",
@@ -27,6 +43,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const fromUserId = str(body.userId);
       if (!fromUserId) return fail("Which volunteer needs cover?");
       await updateShiftSignup({ shiftId: id, userId: fromUserId, action: "take_cover", actorId: user.id });
+      if (shift) {
+        await notifyDesk({
+          pantryId: shift.pantry_id,
+          subject: `Cover filled: ${shift.title}`,
+          text: `${user.name || user.email} took the cover for ${shift.title}.\nhttps://plenty.unitedundergod.org/run/shifts`
+        }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+      }
       return ok({ message: "You have that shift now. Thank you for covering." });
     }
     return fail("Unknown shift action.");

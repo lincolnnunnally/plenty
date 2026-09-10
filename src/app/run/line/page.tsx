@@ -1,7 +1,7 @@
 import { LineFlow } from "@/components/line-flow";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
-import { effectivePayMethods } from "@/lib/db/queries";
+import { availableThisWeek, effectivePayMethods, visitsTodayCount } from "@/lib/db/queries";
 import { pantryLineUrl } from "@/lib/public-url";
 import { stripeConfigured } from "@/lib/stripe-give";
 import { redirect } from "next/navigation";
@@ -15,14 +15,16 @@ export default async function RunLinePage({ searchParams }: { searchParams: Prom
   const methods = await effectivePayMethods(pantry).catch(() => []);
   const cardLive = await stripeConfigured();
   const line = pantryLineUrl(pantry.slug);
+  const week = await availableThisWeek(pantry.id).catch(() => []);
+  const today = await visitsTodayCount(pantry.id).catch(() => 0);
 
   return (
     <main className="shell">
       <p className="eyebrow">Line</p>
       <h1>Check people in. Request a handling donation.</h1>
       <p className="lede">
-        If they have a phone, they scan the QR. If they do not, type their name. The food is free. We request a
-        donation for handling and orchestration — not for the groceries. If they cannot, they still eat.
+        {today} {today === 1 ? "household" : "households"} through the line today. The food is free. We request a
+        donation for handling — not for the groceries. If they cannot, they still eat.
       </p>
       <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
       <section className="panel">
@@ -40,7 +42,7 @@ export default async function RunLinePage({ searchParams }: { searchParams: Prom
           <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(line)}&size=640`}>Download QR</a>
         </div>
       </section>
-      <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} desk initialPass={pass} />
+      <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} desk initialPass={pass} week={week.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, unit: i.unit }))} />
     </main>
   );
 }

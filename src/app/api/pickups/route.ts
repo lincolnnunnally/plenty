@@ -1,6 +1,6 @@
-import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
-import { addPickup, getDefaultPantry, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
-import { notifyCrew, notifyPeople } from "@/lib/notify";
+import { fail, ok, readJson, requireDeskPantry, requireStewardFor, requireUser, str } from "@/lib/api";
+import { addPickup, getDefaultPantry, getPickup, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
+import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -8,44 +8,47 @@ function on(value: unknown) {
   return value === true || value === "true" || value === "on" || value === "yes";
 }
 
+async function pingHousehold(phone: string, when: string | null, extra: string) {
+  if (!phone) return;
+  const time = when ? new Date(when).toLocaleString() : "soon";
+  await sendSms(phone, `Plenty: food is coming ${time}. ${extra} If plans change, call the pantry.`.slice(0, 1500)).catch(() => ({ ok: false, error: "" }));
+}
+
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
-  if (str(body.id) && str(body.address) && !str(body.status)) {
-    const steward = await requireStewardFor(pantry.id);
-    if (steward.error) return steward.error;
+  if (str(body.id) && (str(body.address) || str(body.status))) {
+    const desk = await requireDeskPantry(body);
+    if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+    const pantry = desk.pantry;
     try {
-      const address = str(body.address);
-      const when = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
-      await patchPickup(str(body.id), {
-        address,
-        notes: str(body.notes) || undefined,
-        scheduledFor: when,
-        windowText: str(body.windowText) || undefined
-      });
-      const crew = await listVolunteers(pantry.id);
-      const assigned = str(body.assignedUserId);
-      const people = assigned ? crew.filter((v) => v.user_id === assigned) : crew.filter((v) => v.roles.includes("pickup") || v.roles.includes("delivery"));
-      const ping = await notifyPeople({
-        pantryId: pantry.id,
-        people,
-        subject: "Plenty pickup location changed",
-        text: `Go here: ${address}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
-        audience: assigned ? "assigned driver" : "pickup"
-      });
-      return ok({
-        message: `Pickup moved. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
-      });
-    } catch (err) {
-      return fail(err instanceof Error ? err.message : "Could not move the pickup.", 503);
-    }
-  }
-  if (str(body.id) && str(body.status)) {
-    const steward = await requireStewardFor(pantry.id);
-    if (steward.error) return steward.error;
-    try {
+      if (str(body.address) && !str(body.status)) {
+        const address = str(body.address);
+        const when = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
+        await patchPickup(str(body.id), {
+          address,
+          notes: str(body.notes) || undefined,
+          scheduledFor: when,
+          windowText: str(body.windowText) || undefined
+        });
+        const crew = await listVolunteers(pantry.id);
+        const assigned = str(body.assignedUserId);
+        const people = assigned ? crew.filter((v) => v.user_id === assigned) : crew.filter((v) => v.roles.includes("pickup") || v.roles.includes("delivery"));
+        const ping = await notifyPeople({
+          pantryId: pantry.id,
+          people,
+          subject: "Plenty pickup location changed",
+          text: `Go here: ${address}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
+          audience: assigned ? "assigned driver" : "pickup"
+        });
+        const moved = await getPickup(str(body.id), pantry.id);
+        if (moved?.kind === "household_delivery") {
+          await pingHousehold(moved.contact_phone, moved.scheduled_for, moved.address);
+        }
+        return ok({
+          message: `Pickup moved. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
+        });
+      }
       const scheduledFor = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : undefined;
       await setPickupStatus(str(body.id), str(body.status), {
         assignedUserId: str(body.assignedUserId) || undefined,
@@ -70,8 +73,12 @@ export async function POST(request: Request) {
               subject: "Plenty pickup scheduled",
               text: `A pickup is on the board.\nWhen: ${scheduledFor ? new Date(scheduledFor).toLocaleString() : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`
             });
+        const row = await getPickup(str(body.id), pantry.id);
+        if (row?.kind === "household_delivery") {
+          await pingHousehold(row.contact_phone, row.scheduled_for, [row.address, row.window_text].filter(Boolean).join(" · "));
+        }
         return ok({
-          message: `Pickup updated. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
+          message: `Pickup updated. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."} The household was texted if we have a phone.`
         });
       }
       return ok({ message: "Pickup updated." });
@@ -79,6 +86,8 @@ export async function POST(request: Request) {
       return fail(err instanceof Error ? err.message : "Could not update the pickup.", 503);
     }
   }
+  const pantry = await getDefaultPantry();
+  if (!pantry) return fail("No pantry is set up yet.", 503);
   const { error, user } = await requireUser();
   if (error || !user) return error || fail("Sign in first.", 401);
   const kind = str(body.kind);

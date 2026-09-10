@@ -1,4 +1,4 @@
-import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
+import { fail, ok, readJson, requireStewardFor, requireUser, resolvePantry, str } from "@/lib/api";
 import { addContribution, getDefaultPantry, householdForUser } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -8,12 +8,12 @@ function on(value: unknown) {
 }
 
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
   const { error, user } = await requireUser();
   if (error || !user) return error || fail("Sign in first.", 401);
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
+  const pantry = (await resolvePantry(body)) || (await getDefaultPantry());
+  if (!pantry) return fail("No pantry is set up yet.", 503);
 
   const waived = on(body.waived);
   const dollars = str(body.amountDollars);

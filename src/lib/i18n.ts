@@ -37,7 +37,10 @@ export const MESSAGES = {
     everyone:
       "This food is for everyone. There is no income requirement. You know your household better than a form does.",
     delivery: "Need food brought to you?",
-    moreHelp: "More help after groceries — optional"
+    moreHelp: "More help after groceries — optional",
+    bagTitle: "What went in the bag",
+    bagLede: "Check what they took. This comes off the shelf and stays on this visit.",
+    noBag: "Nothing is marked for this week yet. Check in anyway — food is never gated on a list."
   },
   es: {
     langName: "Español",
@@ -75,7 +78,10 @@ export const MESSAGES = {
     everyone:
       "Esta comida es para todos. No hay requisito de ingresos. Usted conoce su casa mejor que un formulario.",
     delivery: "¿Necesita que le llevemos la comida?",
-    moreHelp: "Más ayuda después de la comida — opcional"
+    moreHelp: "Más ayuda después de la comida — opcional",
+    bagTitle: "Lo que se llevaron",
+    bagLede: "Anote lo que tomaron. Sale del estante y queda en esta visita.",
+    noBag: "Todavía no hay lista de esta semana. Igual se registran — la comida no depende de una lista."
   }
 } as const;
 

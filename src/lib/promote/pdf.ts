@@ -77,3 +77,29 @@ function wrap(
   }
   return cursor;
 }
+
+export async function receiptPdf(input: {
+  legalName: string;
+  ein: string;
+  pantryName: string;
+  donorName: string;
+  amount: string;
+  date: string;
+  year: number;
+}) {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.TimesRoman);
+  const fontBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const page = pdf.addPage([612, 792]);
+  page.drawRectangle({ x: 0, y: 0, width: 612, height: 792, color: paper });
+  page.drawRectangle({ x: 0, y: 730, width: 612, height: 62, color: leaf });
+  page.drawText("PLENTY FOOD PANTRY", { x: 40, y: 762, size: 14, font: fontBold, color: rgb(1, 0.992, 0.973) });
+  page.drawText("GIFT RECEIPT", { x: 40, y: 742, size: 12, font, color: rgb(1, 0.992, 0.973) });
+  wrap(page, input.legalName, 40, 680, 520, 18, fontBold, ink);
+  wrap(page, `EIN ${input.ein} · 501(c)(3)`, 40, 650, 520, 12, font, ink);
+  wrap(page, `Thank you, ${input.donorName || "friend"}.`, 40, 600, 520, 16, fontBold, ink);
+  wrap(page, `We received a gift of ${input.amount} on ${input.date} for ${input.pantryName}. No goods or services were provided in exchange for this gift.`, 40, 560, 520, 13, font, ink);
+  wrap(page, `Keep this letter for your ${input.year} records.`, 40, 500, 520, 12, font, ink);
+  wrap(page, "Plenty is a program of United Under God, Inc.", 40, 60, 520, 11, font, leaf);
+  return pdf.save();
+}

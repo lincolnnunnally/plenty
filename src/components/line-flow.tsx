@@ -7,6 +7,7 @@ import { useLang } from "@/lib/use-lang";
 import { passUrl } from "@/lib/pass";
 
 type Found = { id: string; displayName: string; size: number; phone: string; handlingPrepaid?: boolean; passCode?: string };
+type WeekItem = { id: string; name: string; quantity: number; unit: string };
 
 export function LineFlow({
   slug,
@@ -14,7 +15,8 @@ export function LineFlow({
   methods,
   cardLive,
   desk,
-  initialPass
+  initialPass,
+  week = []
 }: {
   slug: string;
   pantryName: string;
@@ -22,6 +24,7 @@ export function LineFlow({
   cardLive: boolean;
   desk?: boolean;
   initialPass?: string;
+  week?: WeekItem[];
 }) {
   const [step, setStep] = useState<"arrive" | "give">("arrive");
   const [name, setName] = useState("");
@@ -38,6 +41,7 @@ export function LineFlow({
   const [busy, setBusy] = useState(false);
   const [deliverAddr, setDeliverAddr] = useState("");
   const [passCode, setPassCode] = useState("");
+  const [bag, setBag] = useState<Record<string, number>>({});
   const { t } = useLang();
 
   useEffect(() => {
@@ -50,6 +54,14 @@ export function LineFlow({
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPass]);
+
+  function bagPayload() {
+    return JSON.stringify(
+      Object.entries(bag)
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => ({ id, qty }))
+    );
+  }
 
   async function post(body: Record<string, string>) {
     const res = await fetch("/api/line", {
@@ -96,13 +108,15 @@ export function LineFlow({
         displayName: name,
         phone,
         householdSize: size,
-        pass
+        pass,
+        bag: bagPayload()
       });
       setHouseholdId(payload.householdId || "");
       setVisitId(payload.visitId || "");
       setPrepaid(Boolean(payload.handlingPrepaid));
       setPassCode(payload.passCode || "");
       setMessage(payload.message || "Checked in.");
+      setBag({});
       setStep("give");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not check in.");
@@ -147,7 +161,8 @@ export function LineFlow({
         action: "walkthrough",
         displayName: name || "Walk-in",
         householdSize: size,
-        phone
+        phone,
+        bag: bagPayload()
       });
       setHouseholdId(payload.householdId || "");
       setVisitId(payload.visitId || "");
@@ -199,7 +214,7 @@ export function LineFlow({
             </button>
           )}
           <a className="button" href="/become">{t("moreHelp")}</a>
-          <button className="button" type="button" onClick={() => { setStep("arrive"); setHouseholdId(""); setMessage(""); setPrepaid(false); setPassCode(""); }}>
+          <button className="button" type="button" onClick={() => { setStep("arrive"); setHouseholdId(""); setMessage(""); setPrepaid(false); setPassCode(""); setBag({}); }}>
             {t("nextHousehold")}
           </button>
         </div>
@@ -268,6 +283,30 @@ export function LineFlow({
           <button className="button" type="submit" disabled={busy}>{busy ? t("saving") : t("findMe")}</button>
         </form>
       )}
+      {desk && week.length ? (
+        <div style={{ marginTop: 16 }}>
+          <h3>{t("bagTitle")}</h3>
+          <p className="note">{t("bagLede")}</p>
+          <div className="grid">
+            {week.map((item) => (
+              <label className="check" key={item.id}>
+                <input
+                  type="number"
+                  className="input"
+                  min={0}
+                  max={item.quantity}
+                  value={bag[item.id] ?? 0}
+                  onChange={(e) => setBag((prev) => ({ ...prev, [item.id]: Number(e.target.value) || 0 }))}
+                  style={{ width: 72, display: "inline-block", marginRight: 8 }}
+                />
+                {item.name} ({item.quantity} {item.unit})
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : desk ? (
+        <p className="note">{t("noBag")}</p>
+      ) : null}
       {matches.length ? (
         <div className="grid" style={{ marginTop: 16 }}>
           {matches.map((h) => (

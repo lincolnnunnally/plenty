@@ -47,7 +47,7 @@ export default async function ReceiptsPage() {
                     <td>${((g.amount_cents || 0) / 100).toFixed(0)}</td>
                     <td>
                       {g.receipt_sent ? "sent" : (
-                        <PostForm action="/api/receipts" submitLabel="Mark sent">
+                        <PostForm action="/api/receipts" submitLabel="Email receipt">
                           <input type="hidden" name="id" value={g.id} />
                         </PostForm>
                       )}

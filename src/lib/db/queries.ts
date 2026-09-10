@@ -1081,6 +1081,65 @@ export type TaxProfile = {
   posted: boolean;
 };
 
+export async function takeBagFromShelves(
+  pantryId: string,
+  items: { id: string; qty: number }[],
+  createdBy: string | null
+): Promise<string> {
+  const shelves = await listInventory(pantryId);
+  const taken: string[] = [];
+  for (const item of items) {
+    const row = shelves.find((s) => s.id === item.id);
+    const qty = Math.min(Math.max(0, Math.round(item.qty)), Math.max(0, Number(row?.quantity || 0)));
+    if (!row || qty < 1) continue;
+    await recordStockMove({
+      pantryId,
+      inventoryId: row.id,
+      direction: "out",
+      quantity: qty,
+      itemName: row.name,
+      note: "Line",
+      createdBy
+    });
+    row.quantity = Number(row.quantity) - qty;
+    if (row.quantity <= 0) {
+      await updateInventory(row.id, { availableThisWeek: false, quantity: 0 });
+    }
+    taken.push(`${qty} ${row.unit || "item"} ${row.name}`);
+  }
+  return taken.join(", ");
+}
+
+export async function getShift(id: string): Promise<Shift | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_shifts").select(SHIFT_COLS).eq("id", id).maybeSingle();
+  fail(error);
+  return data ? { ...(data as Omit<Shift, "signup_count">), signup_count: 0 } : null;
+}
+
+export async function getDonation(id: string, pantryId: string): Promise<Donation | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_donations").select(DONATION_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
+  fail(error);
+  return (data as Donation | null) ?? null;
+}
+
+export async function getPickup(id: string, pantryId: string): Promise<Pickup | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pickups").select(PICKUP_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
+  fail(error);
+  return (data as Pickup | null) ?? null;
+}
+
+export async function visitsTodayCount(pantryId: string): Promise<number> {
+  const rows = await listVisits(pantryId, 80);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  return rows.filter((v) => {
+    const d = new Date(v.visited_at).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    return d === today;
+  }).length;
+}
+
 export async function recordStockMove(input: {
   pantryId: string;
   inventoryId: string | null;
