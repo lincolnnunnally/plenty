@@ -57,7 +57,7 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
         <a className="button primary" href="/need-food">I need food</a>
         <a className="button leaf" href="/volunteer">Volunteer</a>
         <a className="button" href="/donate">Give</a>
-        <a className="button" href="/for-stores">Grocery stores</a>
+        <a className="button" href="/for-stores">Stores: donate food</a>
       </div>
 
       <div className="grid">

@@ -240,10 +240,15 @@ textarea.input { min-height: 96px; resize: vertical; }
   margin-top: 18px;
   padding-top: 14px;
   border-top: 2px solid var(--leaf);
+  align-items: center;
 }
 .brief-foot p { margin: 2px 0; }
-.brief-fine { margin: 12px 0 0; color: var(--muted); font-size: .8rem; }
+.brief-fine { margin: 8px 0 0; color: var(--muted); font-size: .8rem; }
+.brief-qr { text-align: center; }
+.brief-qr img { width: 140px; height: 140px; }
+.brief-qr p { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: .85rem; margin: 6px 0 0; }
+.brief-grid h2 { font-size: 1.25rem; line-height: 1.2; }
 @media (min-width: 720px) {
   .brief-grid { grid-template-columns: 1fr 1fr; }
-  .brief-foot { grid-template-columns: 1fr 1fr; }
+  .brief-foot { grid-template-columns: 1fr auto; }
 }

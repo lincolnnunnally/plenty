@@ -40,8 +40,8 @@ export default async function DonatePage() {
         </article>
         <article className="card">
           <strong>Grocery store or warehouse</strong>
-          <p>Federal Good Samaritan law and Georgia law protect a good-faith food gift. Donating unsold food can beat throwing it away on taxes. Recipients sign a digital waiver.</p>
-          <a className="button" href="/for-stores">For stores: law, tax, and the waiver</a>
+          <p>Sales stay. Better write-off than trash. The law covers you.</p>
+          <a className="button" href="/for-stores">Four reasons, one page</a>
         </article>
       </div>
 
