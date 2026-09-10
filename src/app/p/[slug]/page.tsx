@@ -28,9 +28,9 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
 
   return (
     <main className="shell">
-      <p className="eyebrow">{pantry.city}{pantry.state ? `, ${pantry.state}` : ""} · {pantry.status === "open" ? "Open" : "Getting established"}</p>
-      <h1>{pantry.name}</h1>
-      <p className="lede">{pantry.about || "A pantry that feeds people today and walks with them toward the person they want to become."}</p>
+      <p className="eyebrow">Food pantry · {pantry.city}{pantry.state ? `, ${pantry.state}` : ""} · {pantry.status === "open" ? "Open" : "Getting established"}</p>
+      <h1>{pantry.name} — free groceries in {pantry.city || "Vidalia"}</h1>
+      <p className="lede">{pantry.about || "This is a food pantry. If you are having a hard time feeding your family, you can get groceries here. You can also volunteer or donate food, money, space, or a vehicle."}</p>
       <div className="action-row">
         <a className="button primary" href="/need-food">I need food</a>
         <a className="button leaf" href="/volunteer">Volunteer</a>

@@ -183,3 +183,57 @@ create table if not exists plenty_promos (
   created_at timestamptz not null default now()
 );
 create index if not exists plenty_promos_pantry_idx on plenty_promos (pantry_id, created_at desc);
+
+alter table plenty_inventory add column if not exists image_url text not null default '';
+
+create table if not exists plenty_stock_moves (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  inventory_id uuid references plenty_inventory(id) on delete set null,
+  direction text not null,
+  quantity integer not null default 1,
+  item_name text not null default '',
+  note text not null default '',
+  visit_id uuid,
+  created_by uuid,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists plenty_locations (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  name text not null,
+  address text not null default '',
+  hours_text text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists plenty_pickups (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  location_id uuid,
+  kind text not null,
+  scheduled_for timestamptz,
+  address text not null default '',
+  contact_name text not null default '',
+  contact_phone text not null default '',
+  notes text not null default '',
+  status text not null default 'requested',
+  created_by uuid,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists plenty_tax_profiles (
+  pantry_id uuid primary key references plenty_pantries(id) on delete cascade,
+  legal_name text not null default '',
+  ein text not null default '',
+  letter_url text not null default '',
+  letter_text text not null default '',
+  posted boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+alter table plenty_donations add column if not exists received_at timestamptz;
+alter table plenty_donations add column if not exists receipt_sent boolean not null default false;
+alter table plenty_distributions add column if not exists location_id uuid;

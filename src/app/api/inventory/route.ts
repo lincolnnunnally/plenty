@@ -22,7 +22,8 @@ export async function POST(request: Request) {
       availableThisWeek: body.availableThisWeek === "on" || body.availableThisWeek === true || body.availableThisWeek === "true",
       weNeed: body.weNeed === "on" || body.weNeed === true || body.weNeed === "true",
       lowAt: body.lowAt === "" || body.lowAt == null ? null : Number(body.lowAt),
-      notes: str(body.notes)
+      notes: str(body.notes),
+      imageUrl: str(body.imageUrl)
     });
     return ok({ itemId: item.id, message: "Shelf updated." });
   } catch (err) {

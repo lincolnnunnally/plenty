@@ -19,7 +19,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const weNeed =
     body.weNeed == null ? undefined : body.weNeed === "on" || body.weNeed === true || body.weNeed === "true";
   try {
-    const item = await updateInventory(id, { quantity, availableThisWeek: available, weNeed });
+    const imageUrl = body.imageUrl == null ? undefined : String(body.imageUrl);
+    const item = await updateInventory(id, { quantity, availableThisWeek: available, weNeed, imageUrl });
     if (!item) return fail("Item not found.", 404);
     return ok({ message: "Updated." });
   } catch (err) {

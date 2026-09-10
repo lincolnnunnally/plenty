@@ -2,8 +2,13 @@ import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { HANDOFFS, suggestHandoffs } from "@/lib/handoffs";
 import { pathsForUser } from "@/lib/db/queries";
+import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+export const metadata = pageMeta(
+  "More help after groceries",
+  "After you get food at the Vidalia food pantry, you can write one next step. Optional. Food is never held back."
+);
 
 export default async function BecomePage() {
   const user = await getCurrentUser().catch(() => null);
@@ -13,22 +18,22 @@ export default async function BecomePage() {
 
   return (
     <main className="shell">
-      <p className="eyebrow">A path</p>
-      <h1>Become the person you want to be</h1>
+      <p className="eyebrow">After groceries</p>
+      <h1>More help, if you want it</h1>
       <p className="lede">
-        Groceries keep you going this week. This page is for the longer work: what is hard, who you
-        want to become, and one next faithful step. It is optional. Food is never gated on it.
-        We will not turn this into points.
+        The pantry's first job is food. If you also want help with work, bills, loneliness, or the
+        person you want to become, you can write that here. It is optional. We will never hold
+        groceries until you fill this out.
       </p>
 
       {!user ? (
         <section className="panel">
-          <a className="button primary" href="/sign-in?next=/become">Sign in to write a path</a>
+          <a className="button primary" href="/sign-in?next=/become">Create an account to write a next step</a>
         </section>
       ) : (
         <section className="panel">
           <h2>Write this season down</h2>
-          <PostForm action="/api/paths" submitLabel="Save this path">
+          <PostForm action="/api/paths" submitLabel="Save this next step">
             <label className="field">
               <span>What is making this season hard</span>
               <textarea className="input" name="whatsHard" defaultValue={latest?.whats_hard || ""} placeholder="Work, bills, health, loneliness, a closed door…" />
@@ -39,31 +44,32 @@ export default async function BecomePage() {
             </label>
             <label className="field">
               <span>One next step this week</span>
-              <input className="input" name="nextStep" defaultValue={latest?.next_step || ""} placeholder="Call about that job. Come volunteer Saturday. Tell a friend." />
+              <input className="input" name="nextStep" defaultValue={latest?.next_step || ""} placeholder="Call about that job. Come volunteer Saturday." />
             </label>
           </PostForm>
         </section>
       )}
 
       <section className="panel">
-        <p className="eyebrow">Doors into the rest of the ecosystem</p>
-        <h2>You are not only a pantry visitor</h2>
+        <p className="eyebrow">Other help</p>
+        <h2>Places that can walk with you</h2>
+        <p className="note">These open in a new tab. You can come back here for groceries anytime.</p>
         <div className="grid">
           {suggested.map((h) => (
             <article className="card" key={h.id}>
               <strong>{h.name}</strong>
               <p>{h.when}</p>
-              <a className="button" href={h.href}>Open {h.name}</a>
+              <a className="button" href={h.href} target="_blank" rel="noopener noreferrer">Open {h.name}</a>
             </article>
           ))}
         </div>
-        <p className="note">When you are ready, the most powerful next step is often to volunteer here — recipient of help becoming an encourager of others.</p>
-        <a className="button leaf" href="/volunteer">I can help someone else</a>
+        <p className="note">When you are ready, volunteering here is how receiving help becomes helping someone else.</p>
+        <a className="button leaf" href="/volunteer">Volunteer at this food pantry</a>
       </section>
 
       {paths.length ? (
         <section className="panel">
-          <p className="eyebrow">Your earlier paths</p>
+          <p className="eyebrow">Your earlier notes</p>
           {paths.map((path) => (
             <article className="card" key={path.id}>
               <span>{new Date(path.created_at).toLocaleDateString()}</span>

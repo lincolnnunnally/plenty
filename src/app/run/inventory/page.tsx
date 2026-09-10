@@ -1,7 +1,8 @@
+import { PhotoField } from "@/components/photo-field";
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantry, isSteward, listInventory } from "@/lib/db/queries";
+import { getDefaultPantry, isSteward, listInventory, listStockMoves } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -12,15 +13,17 @@ export default async function InventoryPage() {
   if (!pantry) redirect("/run");
   if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const items = await listInventory(pantry.id);
+  const moves = await listStockMoves(pantry.id);
 
   return (
     <main className="shell">
-      <p className="eyebrow">Shelves</p>
-      <h1>What we have and what we need</h1>
+      <p className="eyebrow">Pantry desk</p>
+      <h1>Inventory — in, on hand, out</h1>
+      <p className="lede">Record what you bring in, what is on the shelf, and what you give out. Add a photo so families can see this week's food.</p>
       <RunNav />
 
       <section className="panel">
-        <h2>Add an item</h2>
+        <h2>Add an item to the shelf</h2>
         <PostForm action="/api/inventory" submitLabel="Add to shelves">
           <label className="field"><span>Name</span><input className="input" name="name" required /></label>
           <label className="field">
@@ -35,11 +38,37 @@ export default async function InventoryPage() {
               <option value="other">Other</option>
             </select>
           </label>
-          <label className="field"><span>Quantity</span><input className="input" name="quantity" type="number" min={0} defaultValue={0} /></label>
+          <label className="field"><span>Quantity on hand</span><input className="input" name="quantity" type="number" min={0} defaultValue={0} /></label>
           <label className="field"><span>Unit</span><input className="input" name="unit" defaultValue="item" /></label>
-          <label className="check"><input type="checkbox" name="availableThisWeek" defaultChecked /> Available this week (neighbors will see it)</label>
+          <label className="check"><input type="checkbox" name="availableThisWeek" defaultChecked /> Show on this week's food list (families will see it)</label>
           <label className="check"><input type="checkbox" name="weNeed" /> We need this (donors will see it)</label>
+          <PhotoField />
           <label className="field"><span>Notes</span><input className="input" name="notes" /></label>
+        </PostForm>
+      </section>
+
+      <section className="panel">
+        <h2>Record food in or out</h2>
+        <PostForm action="/api/stock" submitLabel="Record">
+          <label className="field">
+            <span>In or out</span>
+            <select className="input" name="direction" defaultValue="in">
+              <option value="in">Came in (donation, purchase, pickup)</option>
+              <option value="out">Went out (given to a family)</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Item on the shelf (optional)</span>
+            <select className="input" name="inventoryId" defaultValue="">
+              <option value="">Not on the list yet</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>{item.name} ({item.quantity} {item.unit})</option>
+              ))}
+            </select>
+          </label>
+          <label className="field"><span>Name if not on the list</span><input className="input" name="itemName" /></label>
+          <label className="field"><span>How many</span><input className="input" name="quantity" type="number" min={1} defaultValue={1} /></label>
+          <label className="field"><span>Note</span><input className="input" name="note" placeholder="Saturday line, store pickup, leftover" /></label>
         </PostForm>
       </section>
 
@@ -49,24 +78,26 @@ export default async function InventoryPage() {
           <div className="table-scroll">
             <table className="table">
               <thead>
-                <tr><th>Item</th><th>Qty</th><th>This week</th><th>We need</th><th></th></tr>
+                <tr><th>Item</th><th>Qty</th><th>This week</th><th>Photo</th><th></th></tr>
               </thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.name}<div className="note">{item.category}</div></td>
+                    <td>{item.name}<div className="note">{item.category}{item.we_need ? " · needed" : ""}</div></td>
                     <td>
-                      <PostForm action={`/api/inventory/${item.id}`} submitLabel="Save">
+                      <PostForm action={`/api/inventory/${item.id}`} submitLabel="Save qty">
                         <input className="input" name="quantity" type="number" min={0} defaultValue={item.quantity} />
-                        <input type="hidden" name="availableThisWeek" value={item.available_this_week ? "true" : "false"} />
-                        <input type="hidden" name="weNeed" value={item.we_need ? "true" : "false"} />
                       </PostForm>
                     </td>
-                    <td>{item.available_this_week ? "yes" : "no"}</td>
-                    <td>{item.we_need ? "yes" : "no"}</td>
                     <td>
                       <PostForm action={`/api/inventory/${item.id}`} submitLabel={item.available_this_week ? "Hide this week" : "Show this week"}>
                         <input type="hidden" name="availableThisWeek" value={item.available_this_week ? "false" : "true"} />
+                      </PostForm>
+                    </td>
+                    <td>{item.image_url ? <img className="thumb" src={item.image_url} alt="" /> : "—"}</td>
+                    <td>
+                      <PostForm action={`/api/inventory/${item.id}`} submitLabel="Save photo">
+                        <PhotoField defaultUrl={item.image_url} />
                       </PostForm>
                     </td>
                   </tr>
@@ -75,7 +106,31 @@ export default async function InventoryPage() {
             </table>
           </div>
         ) : (
-          <p className="empty">No items yet. Add the first real thing on the shelf — do not invent stock.</p>
+          <p className="empty">No items yet. Add the first real thing on the shelf.</p>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>In / out log</h2>
+        {moves.length ? (
+          <div className="table-scroll">
+            <table className="table">
+              <thead><tr><th>When</th><th></th><th>Item</th><th>Qty</th><th>Note</th></tr></thead>
+              <tbody>
+                {moves.map((m) => (
+                  <tr key={m.id}>
+                    <td>{new Date(m.created_at).toLocaleString()}</td>
+                    <td>{m.direction === "in" ? "IN" : "OUT"}</td>
+                    <td>{m.item_name || "—"}</td>
+                    <td>{m.quantity}</td>
+                    <td>{m.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="empty">No in/out records yet.</p>
         )}
       </section>
     </main>

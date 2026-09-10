@@ -10,16 +10,22 @@ function SignInForm() {
   const initialMode = searchParams.get("mode") === "signin" ? "signin" : "join";
   const nextParam = searchParams.get("next");
   const next = nextParam && nextParam.startsWith("/") ? nextParam : "/app";
+  const preset = searchParams.get("as") || "";
 
   const [mode, setMode] = useState<"join" | "signin">(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [comingAs, setComingAs] = useState<string[]>(preset ? [preset] : []);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+
+  function toggle(role: string) {
+    setComingAs((current) => (current.includes(role) ? current.filter((r) => r !== role) : [...current, role]));
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -29,13 +35,17 @@ function SignInForm() {
       setError("Please agree to the Terms of Service and Privacy Policy to continue.");
       return;
     }
+    if (mode === "join" && comingAs.length === 0) {
+      setError("Tell us if you need food, want to volunteer, or want to give. You can pick more than one.");
+      return;
+    }
     setBusy(true);
     try {
       if (mode === "join") {
         const response = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password })
+          body: JSON.stringify({ name, email, password, comingAs })
         });
         const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; message?: string };
         if (!response.ok || !payload.ok) {
@@ -88,12 +98,12 @@ function SignInForm() {
 
   return (
     <main className="shell hero">
-      <p className="eyebrow">{mode === "join" ? "Join Plenty" : "Welcome back"}</p>
-      <h1>{mode === "join" ? "One table. One account." : "Sign in to Plenty"}</h1>
+      <p className="eyebrow">{mode === "join" ? "Vidalia food pantry" : "Welcome back"}</p>
+      <h1>{mode === "join" ? "Create a free account" : "Sign in"}</h1>
       <p>
         {mode === "join"
-          ? "The same United Under God account works across the ecosystem. Create it here if you do not have one yet."
-          : "Pick up where you left off — groceries, a shift, a gift, or a next step."}
+          ? "Everyone who uses this pantry — families getting food, volunteers, and donors — creates an account. Tell us how you are coming. You can change that later."
+          : "Sign in to pick up food, take a volunteer shift, or record a gift."}
       </p>
 
       {error ? <p className="note error" role="alert">{error}</p> : null}
@@ -101,7 +111,13 @@ function SignInForm() {
 
       <form className="stack" onSubmit={submit}>
         {mode === "join" ? (
-          <input className="input" type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" aria-label="Your name" />
+          <>
+            <input className="input" type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" aria-label="Your name" />
+            <p className="note">I am here to: (pick all that apply)</p>
+            <label className="check"><input type="checkbox" checked={comingAs.includes("neighbor")} onChange={() => toggle("neighbor")} /> Get food for my household</label>
+            <label className="check"><input type="checkbox" checked={comingAs.includes("volunteer")} onChange={() => toggle("volunteer")} /> Volunteer at the pantry</label>
+            <label className="check"><input type="checkbox" checked={comingAs.includes("donor")} onChange={() => toggle("donor")} /> Donate food, money, space, or a vehicle</label>
+          </>
         ) : null}
         <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" aria-label="Email" required />
         <input
@@ -122,7 +138,7 @@ function SignInForm() {
           </label>
         ) : null}
         <button className="button primary" type="submit" disabled={busy || (mode === "join" && !agreed)}>
-          {busy ? "One moment…" : mode === "join" ? "Join Plenty" : "Sign in"}
+          {busy ? "One moment…" : mode === "join" ? "Create my account" : "Sign in"}
         </button>
         {mode === "signin" ? (
           <button className="button" type="button" disabled={resetBusy} onClick={() => void requestReset()}>
@@ -135,7 +151,7 @@ function SignInForm() {
         {mode === "join" ? (
           <>Already have an account? <a href="#" onClick={(event) => { event.preventDefault(); setError(null); setInfo(null); setMode("signin"); }}>Sign in</a></>
         ) : (
-          <>New here? <a href="#" onClick={(event) => { event.preventDefault(); setError(null); setInfo(null); setMode("join"); }}>Join Plenty</a></>
+          <>New here? <a href="#" onClick={(event) => { event.preventDefault(); setError(null); setInfo(null); setMode("join"); }}>Create a free account</a></>
         )}
       </p>
     </main>

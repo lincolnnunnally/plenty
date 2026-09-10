@@ -1,18 +1,23 @@
 import { appBrand } from "@/lib/app-brand";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canAccessAdmin } from "@/lib/auth/roles";
+import { getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
 
 const NAV = [
-  { href: "/need-food", label: "Need food" },
+  { href: "/need-food", label: "Get food" },
+  { href: "/this-week", label: "This week" },
   { href: "/volunteer", label: "Volunteer" },
   { href: "/donate", label: "Give" },
-  { href: "/become", label: "A path" },
-  { href: "/run", label: "Run" },
   { href: "/account", label: "Account" }
 ];
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser().catch(() => null);
+  const pantry = await getDefaultPantrySafe();
+  let steward = Boolean(user && canAccessAdmin(user.role));
+  if (user && pantry && !steward) {
+    steward = await isSteward(pantry.id, user.id, user.role).catch(() => false);
+  }
   return (
     <>
       <header className="app-header">
@@ -25,20 +30,21 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             {NAV.map((item) => (
               <a key={item.href} href={item.href}>{item.label}</a>
             ))}
-            {user && canAccessAdmin(user.role) ? <a href="/run">Steward</a> : null}
-            {user ? null : <a className="app-nav-cta" href="/sign-in">Join</a>}
+            {steward ? <a href="/run">Pantry desk</a> : null}
+            {user ? null : <a className="app-nav-cta" href="/sign-in">Create an account</a>}
           </nav>
         </div>
       </header>
       {children}
       <footer className="app-footer">
         <div className="app-footer-inner">
-          <span>&copy; {new Date().getFullYear()} {appBrand.name} · United Under God</span>
+          <span>Plenty food pantry · Vidalia, Georgia</span>
           <nav className="app-footer-nav" aria-label="Legal and site links">
             <a href="/">Home</a>
-            <a href="/p/vidalia">Vidalia pantry</a>
-            <a href="https://liveonmission.unitedundergod.org/">Live On Mission</a>
-            <a href="https://neighborly.unitedundergod.org/">Neighborly</a>
+            <a href="/need-food">Get food</a>
+            <a href="/volunteer">Volunteer</a>
+            <a href="/donate">Give</a>
+            <a href="/tax-exempt">Tax-exempt info</a>
             <a href="/terms">Terms</a>
             <a href="/privacy">Privacy</a>
           </nav>

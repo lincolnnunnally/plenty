@@ -18,8 +18,8 @@ export default async function AppHome() {
       <p className="eyebrow">Your place</p>
       <h1>{user.name}</h1>
       <p className="lede">
-        One person can be a neighbor, a volunteer, a donor, and a steward. Movement from receiving
-        to contributing is the win — never a score.
+        This is your place at the Vidalia food pantry. You can get groceries, volunteer, and give —
+        sometimes all three.
       </p>
       <div className="chip-row">
         {roles.length ? roles.map((role) => <span className="chip active" key={role}>{role}</span>) : <span className="note">No pantry roles yet.</span>}

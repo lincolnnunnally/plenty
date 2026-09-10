@@ -1,6 +1,7 @@
 import "./styles.css";
 import { AppShell } from "@/components/app-shell";
 import { appBrand } from "@/lib/app-brand";
+import { HOME_DESCRIPTION } from "@/lib/seo";
 import { Telemetry } from "../lib/TelemetryProvider";
 
 export const viewport = {
@@ -11,11 +12,20 @@ export const viewport = {
 };
 
 export const metadata = {
-  title: { default: appBrand.name, template: "%s — " + appBrand.name },
-  description: appBrand.tagline,
+  title: { default: "Plenty food pantry — Vidalia, Georgia", template: "%s — Plenty" },
+  description: HOME_DESCRIPTION,
+  keywords: [
+    "Vidalia food pantry",
+    "food pantry Vidalia Georgia",
+    "free groceries Vidalia",
+    "Toombs County food pantry",
+    "help feeding my family Vidalia",
+    "donate food Vidalia",
+    "volunteer food pantry Vidalia"
+  ],
   icons: { icon: "/favicon.svg" },
-  openGraph: { title: appBrand.name, description: appBrand.tagline, type: "website" },
-  twitter: { card: "summary_large_image", title: appBrand.name, description: appBrand.tagline }
+  openGraph: { title: "Plenty food pantry — Vidalia, Georgia", description: HOME_DESCRIPTION, type: "website" },
+  twitter: { card: "summary_large_image", title: appBrand.name, description: HOME_DESCRIPTION }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

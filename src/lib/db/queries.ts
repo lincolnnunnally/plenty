@@ -42,6 +42,7 @@ export type InventoryItem = {
   we_need: boolean;
   low_at: number | null;
   notes: string;
+  image_url: string;
 };
 
 export type Donation = {
@@ -60,6 +61,8 @@ export type Donation = {
   status: string;
   steward_notes: string;
   created_at: string;
+  received_at?: string | null;
+  receipt_sent?: boolean;
 };
 
 export type Shift = {
@@ -182,8 +185,8 @@ export async function getDefaultPantrySafe() {
 
 const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source";
 const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes";
-const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes";
-const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at";
+const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
+const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent";
 const VISIT_COLS = "id, pantry_id, household_id, user_id, visited_at, items_summary, notes";
 const PATH_COLS = "id, pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app, status, created_at";
 const SHIFT_COLS = "id, pantry_id, title, role, starts_at, ends_at, location, capacity, notes, status";
@@ -381,6 +384,7 @@ export async function addInventory(input: {
   weNeed: boolean;
   lowAt: number | null;
   notes: string;
+  imageUrl?: string;
 }): Promise<InventoryItem> {
   const client = await sb();
   const { data, error } = await client.from("plenty_inventory").insert({
@@ -392,7 +396,8 @@ export async function addInventory(input: {
     available_this_week: input.availableThisWeek,
     we_need: input.weNeed,
     low_at: input.lowAt,
-    notes: input.notes
+    notes: input.notes,
+    image_url: input.imageUrl || ""
   }).select(INV_COLS).single();
   fail(error);
   return data as InventoryItem;
@@ -400,7 +405,7 @@ export async function addInventory(input: {
 
 export async function updateInventory(
   id: string,
-  fields: { quantity?: number; availableThisWeek?: boolean; weNeed?: boolean }
+  fields: { quantity?: number; availableThisWeek?: boolean; weNeed?: boolean; imageUrl?: string }
 ): Promise<InventoryItem | null> {
   const client = await sb();
   const { data: current, error: cErr } = await client.from("plenty_inventory").select(INV_COLS).eq("id", id).maybeSingle();
@@ -410,6 +415,7 @@ export async function updateInventory(
     quantity: fields.quantity ?? current.quantity,
     available_this_week: fields.availableThisWeek ?? current.available_this_week,
     we_need: fields.weNeed ?? current.we_need,
+    image_url: fields.imageUrl ?? current.image_url,
     updated_at: new Date().toISOString()
   }).eq("id", id).select(INV_COLS).single();
   fail(error);
@@ -497,6 +503,7 @@ export async function setDonationStatus(id: string, status: string, stewardNotes
   const { data, error } = await client.from("plenty_donations").update({
     status,
     steward_notes: stewardNotes,
+    received_at: status === "received" ? new Date().toISOString() : null,
     updated_at: new Date().toISOString()
   }).eq("id", id).select(DONATION_COLS).maybeSingle();
   fail(error);
@@ -729,4 +736,183 @@ export async function pantryStats(pantryId: string) {
     available_items: available_items || 0,
     we_need: we_need || 0
   };
+}
+
+export type StockMove = {
+  id: string;
+  pantry_id: string;
+  inventory_id: string | null;
+  direction: string;
+  quantity: number;
+  item_name: string;
+  note: string;
+  created_at: string;
+};
+
+export type LocationRow = {
+  id: string;
+  pantry_id: string;
+  name: string;
+  address: string;
+  hours_text: string;
+  notes: string;
+};
+
+export type Pickup = {
+  id: string;
+  pantry_id: string;
+  kind: string;
+  scheduled_for: string | null;
+  address: string;
+  contact_name: string;
+  contact_phone: string;
+  notes: string;
+  status: string;
+  created_at: string;
+};
+
+export type TaxProfile = {
+  pantry_id: string;
+  legal_name: string;
+  ein: string;
+  letter_url: string;
+  letter_text: string;
+  posted: boolean;
+};
+
+export async function recordStockMove(input: {
+  pantryId: string;
+  inventoryId: string | null;
+  direction: "in" | "out";
+  quantity: number;
+  itemName: string;
+  note: string;
+  createdBy: string | null;
+}): Promise<StockMove> {
+  const client = await sb();
+  const qty = Math.max(1, input.quantity);
+  if (input.inventoryId) {
+    const { data: item } = await client.from("plenty_inventory").select("id, quantity").eq("id", input.inventoryId).maybeSingle();
+    if (item) {
+      const next = input.direction === "in" ? Number(item.quantity) + qty : Math.max(0, Number(item.quantity) - qty);
+      await client.from("plenty_inventory").update({ quantity: next, updated_at: new Date().toISOString() }).eq("id", item.id);
+    }
+  }
+  const { data, error } = await client.from("plenty_stock_moves").insert({
+    pantry_id: input.pantryId,
+    inventory_id: input.inventoryId,
+    direction: input.direction,
+    quantity: qty,
+    item_name: input.itemName,
+    note: input.note,
+    created_by: input.createdBy
+  }).select("id, pantry_id, inventory_id, direction, quantity, item_name, note, created_at").single();
+  fail(error);
+  return data as StockMove;
+}
+
+export async function listStockMoves(pantryId: string, limit = 40): Promise<StockMove[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_stock_moves").select("id, pantry_id, inventory_id, direction, quantity, item_name, note, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false }).limit(limit);
+  fail(error);
+  return (data as StockMove[]) || [];
+}
+
+export async function addLocation(input: { pantryId: string; name: string; address: string; hoursText: string; notes: string }): Promise<LocationRow> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_locations").insert({
+    pantry_id: input.pantryId,
+    name: input.name,
+    address: input.address,
+    hours_text: input.hoursText,
+    notes: input.notes
+  }).select("id, pantry_id, name, address, hours_text, notes").single();
+  fail(error);
+  return data as LocationRow;
+}
+
+export async function listLocations(pantryId: string): Promise<LocationRow[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_locations").select("id, pantry_id, name, address, hours_text, notes").eq("pantry_id", pantryId).order("name");
+  fail(error);
+  return (data as LocationRow[]) || [];
+}
+
+export async function addPickup(input: {
+  pantryId: string;
+  kind: string;
+  scheduledFor: string | null;
+  address: string;
+  contactName: string;
+  contactPhone: string;
+  notes: string;
+  createdBy: string | null;
+}): Promise<Pickup> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pickups").insert({
+    pantry_id: input.pantryId,
+    kind: input.kind,
+    scheduled_for: input.scheduledFor,
+    address: input.address,
+    contact_name: input.contactName,
+    contact_phone: input.contactPhone,
+    notes: input.notes,
+    created_by: input.createdBy
+  }).select("id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at").single();
+  fail(error);
+  return data as Pickup;
+}
+
+export async function listPickups(pantryId: string): Promise<Pickup[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pickups").select("id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as Pickup[]) || [];
+}
+
+export async function setPickupStatus(id: string, status: string): Promise<Pickup | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pickups").update({ status }).eq("id", id).select("id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at").maybeSingle();
+  fail(error);
+  return (data as Pickup | null) ?? null;
+}
+
+export async function getTaxProfile(pantryId: string): Promise<TaxProfile | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_tax_profiles").select("pantry_id, legal_name, ein, letter_url, letter_text, posted").eq("pantry_id", pantryId).maybeSingle();
+  fail(error);
+  return (data as TaxProfile | null) ?? null;
+}
+
+export async function upsertTaxProfile(input: TaxProfile): Promise<TaxProfile> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_tax_profiles").upsert({
+    ...input,
+    updated_at: new Date().toISOString()
+  }).select("pantry_id, legal_name, ein, letter_url, letter_text, posted").single();
+  fail(error);
+  return data as TaxProfile;
+}
+
+export async function receivedMoneyGifts(pantryId: string, year?: number): Promise<Donation[]> {
+  const client = await sb();
+  let q = client.from("plenty_donations").select(DONATION_COLS).eq("pantry_id", pantryId).eq("kind", "money").eq("status", "received").order("created_at", { ascending: false });
+  const { data, error } = await q;
+  fail(error);
+  const rows = (data as Donation[]) || [];
+  if (!year) return rows;
+  return rows.filter((row) => new Date(row.received_at || row.created_at).getFullYear() === year);
+}
+
+export async function giftsForUser(userId: string): Promise<Donation[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_donations").select(DONATION_COLS).eq("user_id", userId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as Donation[]) || [];
+}
+
+export async function markReceiptSent(id: string) {
+  const client = await sb();
+  const { error } = await client.from("plenty_donations").update({ receipt_sent: true }).eq("id", id);
+  fail(error);
 }

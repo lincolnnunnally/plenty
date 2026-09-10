@@ -1,16 +1,10 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantry, isSteward, listPromos, weNeedList } from "@/lib/db/queries";
+import { availableThisWeek, getDefaultPantry, isSteward, listPromos, weNeedList } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-
-function defaultCopy(name: string, city: string, hours: string, needs: string[]) {
-  const when = hours.trim() || "hours will be posted when they are real";
-  const needLine = needs.length ? `We especially need: ${needs.join(", ")}.` : "Food, space, vehicles, and volunteers are welcome.";
-  return `${name} in ${city} is a food pantry with a next step — groceries today, and a path toward the person you want to become. ${when}. ${needLine} Come, volunteer, or give: https://plenty.unitedundergod.org/p/vidalia`;
-}
 
 export default async function PromotePage() {
   const user = await requireCustomerAccess("/run/promote");
@@ -18,60 +12,64 @@ export default async function PromotePage() {
   if (!pantry) redirect("/run");
   if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const needs = await weNeedList(pantry.id);
+  const week = await availableThisWeek(pantry.id);
   const promos = await listPromos(pantry.id);
-  const draft = defaultCopy(pantry.name, pantry.city || "Vidalia", pantry.hours_text, needs.map((n) => n.name));
+  const hours = pantry.hours_text.trim() || "hours will be posted on the website";
+  const place = pantry.address ? `${pantry.address}, ${pantry.city}` : `${pantry.city || "Vidalia"}, Georgia`;
+  const weekLine = week.length ? `This week we have: ${week.map((i) => i.name).join(", ")}.` : "";
+  const needLine = needs.length ? `We especially need: ${needs.map((i) => i.name).join(", ")}.` : "";
+  const family = `Need groceries in Vidalia? Plenty is a food pantry. Free food for households who are having a hard time feeding their family. ${hours}. ${place}. ${weekLine} https://plenty.unitedundergod.org/need-food`;
+  const volunteer = `Volunteer at the Vidalia food pantry. Pick up donated food, pack bags, welcome families, or drive a delivery. No experience needed. ${hours}. Sign up: https://plenty.unitedundergod.org/volunteer`;
+  const donor = `Donate to Plenty, a food pantry in Vidalia. Food, money, space, or a vehicle — it goes on a family's table, not in one person's pocket. ${needLine} Give: https://plenty.unitedundergod.org/donate`;
 
   return (
     <main className="shell">
-      <p className="eyebrow">Promote</p>
-      <h1>Tell Vidalia we are here</h1>
-      <p className="lede">
-        Free is manual and complete: write the words, copy them to Facebook, Nextdoor, a flyer, or a
-        church bulletin. We do not auto-post. Do not invent hours in the copy if they are blank above.
-      </p>
+      <p className="eyebrow">Pantry desk</p>
+      <h1>Tell people, in three pastes</h1>
+      <p className="lede">Copy one block for families, one for volunteers, one for donors. Paste to Facebook, Nextdoor, a flyer, or a bulletin. Do not add hours that are not posted on the site.</p>
       <RunNav />
 
       <section className="panel">
-        <h2>Public page</h2>
-        <p><a href={`/p/${pantry.slug}`}>https://plenty.unitedundergod.org/p/{pantry.slug}</a></p>
-        <p className="note">List this pantry on Neighborly only after hours and address are real.</p>
-        <a className="button" href="https://neighborly.unitedundergod.org/">Open Neighborly</a>
-      </section>
-
-      <section className="panel">
-        <h2>Save copy for a channel</h2>
-        <PostForm action="/api/promos" submitLabel="Save this copy">
-          <label className="field">
-            <span>Channel</span>
-            <select className="input" name="channel" defaultValue="social">
-              <option value="social">Social / Nextdoor</option>
-              <option value="flyer">Flyer</option>
-              <option value="email">Email</option>
-              <option value="bulletin">Church bulletin</option>
-              <option value="neighborly">Neighborly listing notes</option>
-            </select>
-          </label>
-          <label className="field"><span>Title</span><input className="input" name="title" defaultValue={`${pantry.name} — come for groceries`} required /></label>
-          <label className="field"><span>Words</span><textarea className="input" name="body" defaultValue={draft} required /></label>
+        <h2>For families who need food</h2>
+        <textarea className="input" readOnly value={family} rows={5} />
+        <PostForm action="/api/promos" submitLabel="Save this version">
+          <input type="hidden" name="channel" value="families" />
+          <input type="hidden" name="title" value="Families — need food" />
+          <input type="hidden" name="body" value={family} />
         </PostForm>
       </section>
-
       <section className="panel">
-        <h2>Saved copy</h2>
-        {promos.length ? (
-          <div className="grid">
-            {promos.map((promo) => (
-              <article className="card" key={promo.id}>
-                <span>{promo.channel} · {new Date(promo.created_at).toLocaleDateString()}</span>
-                <strong>{promo.title}</strong>
-                <p>{promo.body}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="empty">No promo copy saved yet. Save the draft above so you can paste it later.</p>
-        )}
+        <h2>For volunteers</h2>
+        <textarea className="input" readOnly value={volunteer} rows={5} />
+        <PostForm action="/api/promos" submitLabel="Save this version">
+          <input type="hidden" name="channel" value="volunteers" />
+          <input type="hidden" name="title" value="Volunteers" />
+          <input type="hidden" name="body" value={volunteer} />
+        </PostForm>
       </section>
+      <section className="panel">
+        <h2>For donors</h2>
+        <textarea className="input" readOnly value={donor} rows={5} />
+        <PostForm action="/api/promos" submitLabel="Save this version">
+          <input type="hidden" name="channel" value="donors" />
+          <input type="hidden" name="title" value="Donors" />
+          <input type="hidden" name="body" value={donor} />
+        </PostForm>
+      </section>
+      <p className="note">This week's food photos live on <a href="/this-week">/this-week</a>. Add pictures under Inventory so that page fills in.</p>
+
+      {promos.length ? (
+        <section className="panel">
+          <h2>Saved copy</h2>
+          {promos.map((promo) => (
+            <article className="card" key={promo.id}>
+              <span>{promo.channel} · {new Date(promo.created_at).toLocaleDateString()}</span>
+              <strong>{promo.title}</strong>
+              <p>{promo.body}</p>
+            </article>
+          ))}
+        </section>
+      ) : null}
     </main>
   );
 }

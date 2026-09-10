@@ -136,6 +136,12 @@ textarea.input { min-height: 96px; resize: vertical; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+.photo-card { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+.photo-card img, .thumb { width: 100%; height: 140px; object-fit: cover; display: block; }
+.thumb { width: 64px; height: 64px; border-radius: 8px; }
+.photo-fallback { height: 140px; display: grid; place-items: center; background: #efe4d0; font-size: 2rem; font-weight: 700; color: var(--leaf); }
+.photo-card figcaption { padding: 8px 10px 12px; font-size: .9rem; }
 @media (min-width: 960px) {
   .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }

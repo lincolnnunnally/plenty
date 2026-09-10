@@ -4,7 +4,7 @@ export const appBrand = {
   logoUrl: "",
   accent: "#c46a1d",
   accentInk: "#1f2a22",
-  tagline: "Food for today. A next step toward the person you want to become."
+  tagline: "Vidalia food pantry — groceries for your family, and a next step if you want one."
 } as const;
 
 export const DEFAULT_PANTRY_SLUG = "vidalia";

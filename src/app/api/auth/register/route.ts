@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Sign-up isn't configured yet." }, { status: 503 });
   }
 
-  let body: { name?: unknown; email?: unknown; password?: unknown };
+  let body: { name?: unknown; email?: unknown; password?: unknown; comingAs?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -80,9 +80,14 @@ export async function POST(request: Request) {
     try {
       const role = roleForEmail(email);
       await ensureUserProfile({ id: userId, email, name, role });
-      if (role === "owner") {
-        const pantry = await getDefaultPantry();
-        if (pantry) await addMembership(pantry.id, userId, "steward");
+      const pantry = await getDefaultPantry();
+      const coming = Array.isArray(body.comingAs) ? body.comingAs.map(String) : String(body.comingAs || "").split(",");
+      const allowed = new Set(["neighbor", "volunteer", "donor"]);
+      if (pantry) {
+        for (const item of coming) {
+          if (allowed.has(item.trim())) await addMembership(pantry.id, userId, item.trim());
+        }
+        if (role === "owner") await addMembership(pantry.id, userId, "steward");
       }
     } catch (error) {
       console.error("plenty_user_profiles upsert failed", error);

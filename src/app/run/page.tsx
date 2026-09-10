@@ -15,9 +15,9 @@ export default async function RunPage() {
   if (!steward) {
     return (
       <main className="shell">
-        <p className="eyebrow">Run</p>
-        <h1>This desk is for stewards</h1>
-        <p>You can still volunteer, give, or register a household. Ask Lincoln to add you as a steward if you help run the pantry.</p>
+        <p className="eyebrow">Pantry desk</p>
+        <h1>This desk is for people who operate the pantry</h1>
+        <p>You can still get food, volunteer, or give. Ask the pantry operator to add you here if you help run distribution.</p>
         <a className="button" href="/app">Back to my place</a>
       </main>
     );
@@ -25,9 +25,9 @@ export default async function RunPage() {
 
   return (
     <main className="shell">
-      <p className="eyebrow">Steward</p>
-      <h1>Set up and run the pantry</h1>
-      <p className="lede">Vidalia first. Hours and address stay blank until they are real. Empty shelves are honest.</p>
+      <p className="eyebrow">Pantry desk</p>
+      <h1>Operate the Vidalia food pantry</h1>
+      <p className="lede">Hours, address, inventory photos, pickups, gifts, and promotion. Leave hours blank until they are real.</p>
       <RunNav />
 
       {stats ? (
