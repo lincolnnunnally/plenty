@@ -18,7 +18,7 @@ export default async function ServePage() {
       <main className="shell">
         <p className="eyebrow">Allied pantry</p>
         <h1>This desk is for a pantry Plenty has handed off</h1>
-        <p className="lede">If you run a Toombs pantry and want to claim grocery food and pickups, ask Plenty to grant you this desk.</p>
+        <p className="lede">If you run a Toombs pantry, claim it on Around, then post hours and what you offer here.</p>
       </main>
     );
   }
@@ -38,8 +38,17 @@ export default async function ServePage() {
         <section className="panel" key={a.id}>
           <h2>{a.name}</h2>
           <p className="note">Next distribution tells the system you can take produce that would otherwise go to compost.</p>
-          <PostForm action={`/api/allies/${a.id}`} submitLabel="Save capacity">
+          <PostForm action={`/api/allies/${a.id}`} submitLabel="Save hours and what we offer">
+            <label className="field"><span>Hours neighbors should see</span><input className="input" name="hoursText" defaultValue={a.hours_text} placeholder="Mon–Wed 10 a.m.–2 p.m." /></label>
+            <label className="field"><span>Address</span><input className="input" name="address" defaultValue={a.address} /></label>
+            <label className="field"><span>Phone</span><input className="input" name="phone" defaultValue={a.phone} /></label>
             <label className="field"><span>Next distribution</span><input className="input" type="datetime-local" name="nextDistributionAt" defaultValue={a.next_distribution_at ? a.next_distribution_at.slice(0, 16) : ""} /></label>
+            <input type="hidden" name="listedPublicly" value="0" />
+            <label className="check"><input type="checkbox" name="listedPublicly" value="1" defaultChecked={a.listed_publicly} /> Show these hours on the public list</label>
+            <input type="hidden" name="wantsVolunteers" value="0" />
+            <label className="check"><input type="checkbox" name="wantsVolunteers" value="1" defaultChecked={a.wants_volunteers} /> We need volunteers</label>
+            <input type="hidden" name="wantsFood" value="0" />
+            <label className="check"><input type="checkbox" name="wantsFood" value="1" defaultChecked={a.wants_food} /> We want grocery food if Plenty can get it</label>
             <input type="hidden" name="acceptsDry" value="0" />
             <label className="check"><input type="checkbox" name="acceptsDry" value="1" defaultChecked={a.accepts_dry} /> Dry</label>
             <input type="hidden" name="acceptsRefrigerated" value="0" />
@@ -51,7 +60,6 @@ export default async function ServePage() {
             <input type="hidden" name="hasFreezer" value="0" />
             <label className="check"><input type="checkbox" name="hasFreezer" value="1" defaultChecked={a.has_freezer} /> We have a freezer</label>
             <input type="hidden" name="canPickup" value="1" />
-            <input type="hidden" name="wantsFood" value="1" />
           </PostForm>
         </section>
       ))}

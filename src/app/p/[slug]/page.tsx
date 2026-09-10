@@ -1,4 +1,6 @@
+import { DriveLink } from "@/components/drive-link";
 import { PayBoard } from "@/components/pay-board";
+import { coordsForName } from "@/lib/maps";
 import { availableThisWeek, effectivePayMethods, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
 import { ABUNDANCE_SHARE, DELIVERY_INVITE, donationPolicyCopy, EVERYONE_WELCOME, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
@@ -69,7 +71,17 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
           <span>When and where</span>
           {pantry.hours_text ? <p>{pantry.hours_text}</p> : <p className="empty">Hours not posted yet — we will not invent them.</p>}
           {pantry.address ? <p>{pantry.address}<br />{pantry.city}, {pantry.state} {pantry.zip}</p> : <p className="note">Address not posted yet.</p>}
-          {pantry.phone ? <p>{pantry.phone}</p> : null}
+          {pantry.phone ? <p><a href={`tel:${pantry.phone.replace(/[^\d+]/g, "")}`}>{pantry.phone}</a></p> : null}
+          {pantry.address ? (
+            <DriveLink
+              address={pantry.address}
+              city={pantry.city}
+              state={pantry.state}
+              zip={pantry.zip}
+              lat={coordsForName(pantry.name)?.lat}
+              lon={coordsForName(pantry.name)?.lon}
+            />
+          ) : null}
           <p className="note">Visit style: {pantry.visit_style.replace("_", " ")}</p>
         </article>
         <article className="card">

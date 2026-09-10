@@ -1,3 +1,4 @@
+import { DriveLink } from "@/components/drive-link";
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
@@ -89,7 +90,14 @@ export default async function AroundDeskPage() {
                 <span>{a.kind} · {a.city} · {relLabel(a.relationship)}{a.listed_publicly ? " · public" : " · desk only"}{a.last_visited_at ? ` · ${new Date(a.last_visited_at).toLocaleDateString()}` : ""}</span>
                 <strong>{a.name}</strong>
                 {a.address ? <p>{a.address}</p> : null}
-                {a.phone ? <p><a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`}>{a.phone}</a></p> : null}
+                {a.address ? (
+                  <div className="action-row">
+                    <DriveLink address={a.address} city={a.city} state={a.state || "GA"} zip={a.zip} />
+                    {a.phone ? <a className="button" href={`tel:${a.phone.replace(/[^\d+]/g, "")}`}>Call</a> : null}
+                  </div>
+                ) : a.phone ? (
+                  <p><a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`}>{a.phone}</a></p>
+                ) : null}
                 {a.hours_hint ? <p className="note">Unverified: {a.hours_hint}</p> : null}
                 {a.source_note ? <p className="note">{a.source_note}</p> : null}
                 <PostForm action={`/api/allies/${a.id}`} submitLabel="Save visit">

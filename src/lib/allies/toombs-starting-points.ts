@@ -210,6 +210,21 @@ export const FIELD_VISITS: FieldVisit[] = [
       "Visited in person 10 Sep 2026. The building is empty and for sale. Either out of business or moved. Do not send people here.",
     sourceNote: "Last known address 2200 Center Drive. Directories still print a 2022 move from 300 McIntosh St.",
     visitedOn: "2026-09-10"
+  },
+  {
+    names: ["His Works Ministry Outreach and Food Bank", "His Works Ministry Outreach & Food Bank", "His Works"],
+    kind: "pantry",
+    address: "120 E Liberty Avenue",
+    city: "Lyons",
+    zip: "30436",
+    phone: "(912) 388-8043",
+    hoursText: "Monday, Tuesday, Wednesday 10:00 a.m. – 2:00 p.m. In the back of the old warehouse.",
+    relationship: "running_own",
+    listedPublicly: true,
+    visitNotes:
+      "Visited in person 10 Sep 2026. Sign on the door: Monday, Tuesday, Wednesday 10 AM to 2 PM. Still in operation. They are in the back of some old warehouse.",
+    sourceNote: "Hours from the sign on the door. Directories had been listing 10–1.",
+    visitedOn: "2026-09-10"
   }
 ];
 
