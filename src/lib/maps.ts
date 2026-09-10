@@ -47,7 +47,9 @@ export const TOOMBS_COORDS: Record<string, { lat: number; lon: number }> = {
   "southeastgeorgiacommunitiesproject": { lat: 32.198511, lon: -82.320815 },
   "breadofheavenoutreach": { lat: 32.235071, lon: -82.401575 },
   "solomontabernaclebaptistchurch": { lat: 32.227602, lon: -82.409263 },
-  "boysgirlscluboftoombscounty": { lat: 32.211105, lon: -82.404859 }
+  "boysgirlscluboftoombscounty": { lat: 32.211105, lon: -82.404859 },
+  "dotfoods": { lat: 32.223511, lon: -82.430865 },
+  "dotfoodsvidaliadistributioncenter": { lat: 32.223511, lon: -82.430865 },
 };
 
 export function coordsForName(name: string) {

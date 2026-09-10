@@ -2515,6 +2515,62 @@ export async function ensureToombsStartingPoints(pantryId: string): Promise<numb
   return added;
 }
 
+export async function ensureFoodDonors(pantryId: string): Promise<number> {
+  const { FOOD_DONOR_STARTING, donorNameKey, encodeDonorMeta } = await import("@/lib/donors/starting");
+  const existing = await listStorePartners(pantryId);
+  const names = new Set(existing.map((p) => donorNameKey(p.name)));
+  let added = 0;
+  for (const row of FOOD_DONOR_STARTING) {
+    if (row.names.some((n) => names.has(donorNameKey(n)))) continue;
+    try {
+      const partner = await addStorePartner({
+        pantryId,
+        name: row.name,
+        address: row.address,
+        city: row.city,
+        state: "GA",
+        zip: row.zip,
+        phone: row.phone,
+        contactName: row.contactName,
+        contactEmail: "",
+        pickupMode: "dock_pickup",
+        holdDesk: row.contactRole || "Dock",
+        hoursText: "",
+        notes: `${encodeDonorMeta({ kind: row.kind, gives: row.gives })}\n${row.notes}`,
+        status: "invited"
+      });
+      await addDonation({
+        pantryId,
+        userId: null,
+        kind: "donor_note",
+        title: partner.name,
+        description: row.notes,
+        quantity: row.gives.join(", "),
+        amountCents: null,
+        availableWhen: "",
+        contactName: row.contactName,
+        contactPhone: row.phone,
+        contactEmail: ""
+      }).catch(() => null);
+      names.add(donorNameKey(row.name));
+      added += 1;
+    } catch {
+      continue;
+    }
+  }
+  return added;
+}
+
+export async function listDonorActivity(pantryId: string, donorName?: string): Promise<Donation[]> {
+  const { isDonorActivity } = await import("@/lib/donors/starting");
+  const all = await listDonations(pantryId).catch(() => []);
+  const rows = all.filter((d) => isDonorActivity(d.kind));
+  if (!donorName) return rows;
+  const { donorNameKey } = await import("@/lib/donors/starting");
+  const key = donorNameKey(donorName);
+  return rows.filter((d) => donorNameKey(d.title) === key || donorNameKey(d.title).includes(key) || key.includes(donorNameKey(d.title)));
+}
+
 export async function listOpsNeeds(pantryId: string): Promise<OpsNeed[]> {
   const client = await sb();
   const { data, error } = await client.from("plenty_ops_needs").select("id, pantry_id, kind, title, details, status, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false });

@@ -18,6 +18,7 @@ export function RunNav({
         <a href="/run/people">People</a>
         <a href="/run/inventory">Shelves</a>
         <a href="/run/food">Rescue</a>
+        <a href="/run/donors">Donors</a>
         <a href="/run/stores">Stores</a>
         <a href="/run/donations">Gifts</a>
         <a href="/run/around">Around</a>
