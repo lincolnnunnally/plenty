@@ -4,8 +4,8 @@ import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-static";
 export const metadata = pageMeta(
-  "Why grocery stores donate surplus food — one page",
-  `Donating unsold food to Plenty (a program of ${LEGAL_NAME}, EIN ${EIN}) is a win: sales stay, taxes can beat the dumpster, and the law covers you.`
+  "Donating leftover food is better business than throwing it away",
+  `You benefit and you are protected. That’s why Publix, Kroger, Walmart, and Costco donate. Plenty is a program of ${LEGAL_NAME}, EIN ${EIN}.`
 );
 
 const WINS = [
@@ -27,7 +27,8 @@ export default function StoreBriefPage() {
       <article className="brief-sheet">
         <header className="brief-top">
           <p className="brief-kicker">Plenty food pantry · {LEGAL_NAME} · 501(c)(3)</p>
-          <h1>Donating leftover food is a win for your store</h1>
+          <h1 className="store-pop">Donating leftover food is better business than throwing it away</h1>
+          <p className="lede">You benefit. You are protected. That’s why Publix, Kroger, Walmart, and Costco already do it.</p>
           <p className="brief-ein">EIN {EIN} · A gift to Plenty is a gift to {LEGAL_NAME}</p>
         </header>
 
@@ -44,7 +45,7 @@ export default function StoreBriefPage() {
         <footer className="brief-foot brief-foot-qr">
           <div>
             <strong>We pick up. You get a receipt.</strong>
-            <p>Same rules Kroger, Publix, Walmart, and Costco already use.</p>
+            <p>We pick up in Vidalia. You get a receipt.</p>
             <p className="brief-fine">Not legal or tax advice. Show this to your accountant.</p>
           </div>
           <div className="brief-qr">

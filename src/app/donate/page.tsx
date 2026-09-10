@@ -40,8 +40,8 @@ export default async function DonatePage() {
         </article>
         <article className="card">
           <strong>Grocery store or warehouse</strong>
-          <p>Sales stay. Better write-off than trash. The law covers you.</p>
-          <a className="button" href="/for-stores">Four reasons, one page</a>
+          <p>Better business than the dumpster. You benefit. You are protected. That’s why the national chains donate.</p>
+          <a className="button" href="/for-stores">See why it pays</a>
         </article>
       </div>
 

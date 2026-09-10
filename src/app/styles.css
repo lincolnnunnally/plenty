@@ -194,7 +194,7 @@ textarea.input { min-height: 96px; resize: vertical; }
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-.brief-sheet h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); margin-bottom: 10px; }
+.brief-sheet h1, h1.store-pop { font-size: clamp(2.1rem, 5.5vw, 3.1rem); margin-bottom: 10px; line-height: 1.05; }
 .brief-sub { margin: 0; font-size: 1.05rem; }
 .brief-ein {
   margin: 14px 0 0;
