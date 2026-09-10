@@ -1,7 +1,8 @@
+import { PayBoard } from "@/components/pay-board";
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
-import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listedAllies, listStoreVouchers } from "@/lib/db/queries";
+import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listedAllies, listStoreVouchers, postedPayMethods } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -20,6 +21,7 @@ export default async function NeedFoodPage() {
   const waiver = user && pantry ? await latestWaiverForUser(pantry.id, user.id) : null;
   const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
   const nearby = pantry ? (await listedAllies(pantry.id).catch(() => [])).filter((a) => a.kind === "pantry") : [];
+  const pay = pantry ? await postedPayMethods(pantry.id).catch(() => []) : [];
   const waiverOk =
     (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at)) ||
     waiver?.version === FOOD_WAIVER_VERSION;
@@ -228,7 +230,9 @@ export default async function NeedFoodPage() {
                 <label className="field"><span>Anything else</span><input className="input" name="notes" defaultValue={household.porch_notes} /></label>
               </PostForm>
               <h3 style={{ marginTop: 24 }}>If you can help keep the pantry going</h3>
-              <p className="note">Some families give a little when they pick up food. If you cannot, say so. You still get groceries.</p>
+              <p className="note">Some families give a little when they pick up food — Cash App, Venmo, Zelle, card, or cash. If you cannot, say so. You still get groceries.</p>
+              <PayBoard methods={pay} empty="No Cash App, Venmo, or Zelle is posted yet. You can still give cash in person, or say you cannot. Food does not depend on it." />
+              <p className="note"><a href="/donate">Give by card</a></p>
               <PostForm action="/api/contributions" submitLabel="Record this">
                 <label className="field"><span>Amount in dollars (optional)</span><input className="input" name="amountDollars" type="number" min="0" step="1" /></label>
                 <label className="check"><input type="checkbox" name="waived" /> I cannot give this time</label>

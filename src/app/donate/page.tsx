@@ -1,20 +1,26 @@
+import { GiveCardForm } from "@/components/give-card";
+import { PayBoard } from "@/components/pay-board";
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, getTaxProfile, openOpsNeeds, weNeedList } from "@/lib/db/queries";
+import { getDefaultPantrySafe, getTaxProfile, openOpsNeeds, postedPayMethods, weNeedList } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
+import { stripeConfigured } from "@/lib/stripe-give";
 
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Donate to the Vidalia food pantry",
-  "Donate food, money, space, or a vehicle to Plenty food pantry in Vidalia, Georgia. Gifts go on a family's table. We record every gift and can issue a year-end receipt when tax-exempt status is posted."
+  "Give by card, Cash App, Venmo, or Zelle to Plenty food pantry in Vidalia, Georgia. Food is never held back because someone cannot give."
 );
 
-export default async function DonatePage() {
+export default async function DonatePage({ searchParams }: { searchParams: Promise<{ cancelled?: string }> }) {
+  const { cancelled } = await searchParams;
   const user = await getCurrentUser().catch(() => null);
   const pantry = await getDefaultPantrySafe();
   const needs = pantry ? await weNeedList(pantry.id) : [];
   const tax = pantry ? await getTaxProfile(pantry.id) : null;
   const opsNeeds = pantry ? await openOpsNeeds(pantry.id).catch(() => []) : [];
+  const pay = pantry ? await postedPayMethods(pantry.id).catch(() => []) : [];
+  const cardLive = stripeConfigured();
 
   return (
     <main className="shell">
@@ -33,7 +39,7 @@ export default async function DonatePage() {
         </article>
         <article className="card">
           <strong>Money</strong>
-          <p>Buys what we are short on — milk, eggs, protein. A money gift is recorded. We do not charge cards in this app yet; we receive the gift with you and keep a receipt record.</p>
+          <p>Buys what we are short on — milk, eggs, protein. Card, Cash App, Venmo, Zelle, or cash. Food is never held back because someone cannot give.</p>
         </article>
         <article className="card">
           <strong>Space, a freezer, or a vehicle</strong>
@@ -45,6 +51,24 @@ export default async function DonatePage() {
           <a className="button" href="/for-stores">See why it pays</a>
         </article>
       </div>
+
+      {cancelled ? <p className="note error" role="status">Card checkout was cancelled. Nothing was charged.</p> : null}
+
+      <section className="panel">
+        <p className="eyebrow">Pay how you already pay</p>
+        <h2>Card, Cash App, Venmo, or Zelle</h2>
+        <p className="lede">
+          Many neighbors do not carry a credit card. Scan the QR that matches the app on your phone.
+          A pantry admin posts the real handles — we will not invent them.
+        </p>
+        {cardLive ? (
+          <GiveCardForm signedInEmail={user?.email} />
+        ) : (
+          <p className="empty">Card charging is not live on this host yet. Use Cash App, Venmo, or Zelle if they are posted below, or give in person.</p>
+        )}
+        <h3 style={{ marginTop: 24 }}>Scan to send</h3>
+        <PayBoard methods={pay} />
+      </section>
 
       {opsNeeds.length ? (
         <section className="panel">

@@ -63,7 +63,13 @@ export default async function ShiftsAdminPage() {
                 <span>{shift.role}</span>
                 <strong>{shift.title}</strong>
                 <p>{new Date(shift.starts_at).toLocaleString()}</p>
-                <p className="note">{shift.signup_count}{shift.capacity ? ` / ${shift.capacity}` : ""} signed up</p>
+                <p className="note">{shift.location || "No place set"} · {shift.signup_count}{shift.capacity ? ` / ${shift.capacity}` : ""} signed up</p>
+                <PostForm action="/api/shifts" submitLabel="Change where they go">
+                  <input type="hidden" name="id" value={shift.id} />
+                  <input type="hidden" name="role" value={shift.role} />
+                  <label className="field"><span>Where</span><input className="input" name="location" defaultValue={shift.location} required /></label>
+                  <label className="field"><span>Starts</span><input className="input" type="datetime-local" name="startsAt" defaultValue={shift.starts_at.slice(0, 16)} /></label>
+                </PostForm>
                 <ul>
                   {signups.filter((s) => s.shift_id === shift.id).map((s) => (
                     <li key={`${s.shift_id}-${s.user_id}`}>{s.name || s.email} · {s.status.replace("_", " ")}</li>

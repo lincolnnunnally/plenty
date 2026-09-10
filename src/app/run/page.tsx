@@ -19,6 +19,11 @@ export default async function RunPage() {
         {superAdmin ? " You are the super admin for Plenty." : ""} Leave hours blank until they are real.
       </p>
       <RunNav />
+      <div className="action-row">
+        <a className="button primary" href="/run/calendar">Today — shifts, pickups, repeating jobs</a>
+        <a className="button" href="/run/donations">Card, Cash App, Venmo, Zelle</a>
+        <a className="button" href="/run/people">People</a>
+      </div>
 
       {stats ? (
         <div className="metric-grid">

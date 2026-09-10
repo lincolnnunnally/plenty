@@ -498,3 +498,29 @@ create table if not exists plenty_food_load_items (
   status text not null default 'pending'
 );
 create index if not exists plenty_food_load_items_load_idx on plenty_food_load_items (load_id);
+
+create table if not exists plenty_pay_methods (
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  kind text not null,
+  handle text not null default '',
+  posted boolean not null default false,
+  updated_at timestamptz not null default now(),
+  primary key (pantry_id, kind)
+);
+
+create table if not exists plenty_recurring (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  kind text not null,
+  title text not null,
+  weekday integer not null,
+  time_local text not null,
+  role text not null default 'pickup',
+  location text not null default '',
+  partner_id uuid,
+  notes text not null default '',
+  active boolean not null default true,
+  last_run_on date,
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_recurring_pantry_idx on plenty_recurring (pantry_id, active);

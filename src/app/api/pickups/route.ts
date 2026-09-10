@@ -1,5 +1,6 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
-import { addPickup, getDefaultPantry, householdForUser, setPickupStatus } from "@/lib/db/queries";
+import { addPickup, getDefaultPantry, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
+import { notifyCrew, notifyPeople } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +13,67 @@ export async function POST(request: Request) {
   if (!pantry) return fail("No pantry is set up yet.", 503);
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
+  if (str(body.id) && str(body.address) && !str(body.status)) {
+    const steward = await requireStewardFor(pantry.id);
+    if (steward.error) return steward.error;
+    try {
+      const address = str(body.address);
+      const when = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
+      await patchPickup(str(body.id), {
+        address,
+        notes: str(body.notes) || undefined,
+        scheduledFor: when,
+        windowText: str(body.windowText) || undefined
+      });
+      const crew = await listVolunteers(pantry.id);
+      const assigned = str(body.assignedUserId);
+      const people = assigned ? crew.filter((v) => v.user_id === assigned) : crew.filter((v) => v.roles.includes("pickup") || v.roles.includes("delivery"));
+      const ping = await notifyPeople({
+        pantryId: pantry.id,
+        people,
+        subject: "Plenty pickup location changed",
+        text: `Go here: ${address}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
+        audience: assigned ? "assigned driver" : "pickup"
+      });
+      return ok({
+        message: `Pickup moved. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
+      });
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : "Could not move the pickup.", 503);
+    }
+  }
   if (str(body.id) && str(body.status)) {
     const steward = await requireStewardFor(pantry.id);
     if (steward.error) return steward.error;
     try {
+      const scheduledFor = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : undefined;
       await setPickupStatus(str(body.id), str(body.status), {
         assignedUserId: str(body.assignedUserId) || undefined,
-        scheduledFor: str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : undefined
+        scheduledFor
       });
+      if (str(body.status) === "scheduled") {
+        const crew = await listVolunteers(pantry.id);
+        const assigned = str(body.assignedUserId);
+        const people = assigned ? crew.filter((v) => v.user_id === assigned) : [];
+        const ping = people.length
+          ? await notifyPeople({
+              pantryId: pantry.id,
+              people,
+              subject: "Plenty pickup assigned to you",
+              text: `A pickup is scheduled.\nWhen: ${scheduledFor ? new Date(scheduledFor).toLocaleString() : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`,
+              audience: "assigned"
+            })
+          : await notifyCrew({
+              pantryId: pantry.id,
+              crew,
+              roles: ["pickup", "delivery"],
+              subject: "Plenty pickup scheduled",
+              text: `A pickup is on the board.\nWhen: ${scheduledFor ? new Date(scheduledFor).toLocaleString() : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`
+            });
+        return ok({
+          message: `Pickup updated. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
+        });
+      }
       return ok({ message: "Pickup updated." });
     } catch (err) {
       return fail(err instanceof Error ? err.message : "Could not update the pickup.", 503);

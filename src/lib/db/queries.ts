@@ -150,6 +150,8 @@ export type VolunteerProfile = {
   notes: string;
 };
 
+export type VolunteerRow = VolunteerProfile & { name: string | null; email: string | null; phone: string | null };
+
 export type Promo = {
   id: string;
   pantry_id: string;
@@ -229,6 +231,26 @@ export async function ensureUserProfile(user: { id: string; email: string; name:
     updated_at: new Date().toISOString()
   });
   fail(error);
+  await ensureOwnerMembership(user);
+}
+
+export async function userPhone(userId: string): Promise<string> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_user_profiles").select("phone").eq("id", userId).maybeSingle();
+  fail(error);
+  return (data?.phone as string) || "";
+}
+
+export async function setUserPhone(userId: string, phone: string): Promise<void> {
+  const client = await sb();
+  const { error } = await client
+    .from("plenty_user_profiles")
+    .update({ phone: phone.trim(), updated_at: new Date().toISOString() })
+    .eq("id", userId);
+  fail(error);
+}
+
+export async function ensureOwnerMembership(user: { id: string; email: string }) {
   if (isSuperAdminEmail(user.email)) {
     try {
       const pantry = await getDefaultPantry();
@@ -616,21 +638,22 @@ export async function volunteerForUser(pantryId: string, userId: string): Promis
   return { ...data, roles: asRoles(data.roles) } as VolunteerProfile;
 }
 
-export async function listVolunteers(pantryId: string): Promise<(VolunteerProfile & { name: string | null; email: string | null })[]> {
+export async function listVolunteers(pantryId: string): Promise<VolunteerRow[]> {
   const client = await sb();
   const { data, error } = await client.from("plenty_volunteer_profiles").select("id, pantry_id, user_id, roles, has_vehicle, notes").eq("pantry_id", pantryId);
   fail(error);
   const rows = data || [];
   const ids = rows.map((r) => r.user_id);
   const { data: profiles } = ids.length
-    ? await client.from("plenty_user_profiles").select("id, name, email").in("id", ids)
+    ? await client.from("plenty_user_profiles").select("id, name, email, phone").in("id", ids)
     : { data: [] };
   const byId = new Map((profiles || []).map((p) => [p.id, p]));
   return rows.map((row) => ({
     ...row,
     roles: asRoles(row.roles),
     name: byId.get(row.user_id)?.name ?? null,
-    email: byId.get(row.user_id)?.email ?? null
+    email: byId.get(row.user_id)?.email ?? null,
+    phone: byId.get(row.user_id)?.phone ?? null
   }));
 }
 
@@ -977,6 +1000,37 @@ export async function setPickupStatus(id: string, status: string, extra?: { assi
   return (data as Pickup | null) ?? null;
 }
 
+export async function patchPickup(
+  id: string,
+  patch: { address?: string; notes?: string; scheduledFor?: string | null; windowText?: string }
+): Promise<void> {
+  const client = await sb();
+  const payload: Record<string, unknown> = {};
+  if (patch.address != null) payload.address = patch.address;
+  if (patch.notes != null) payload.notes = patch.notes;
+  if (patch.scheduledFor !== undefined) payload.scheduled_for = patch.scheduledFor;
+  if (patch.windowText != null) payload.window_text = patch.windowText;
+  if (!Object.keys(payload).length) return;
+  const { error } = await client.from("plenty_pickups").update(payload).eq("id", id);
+  fail(error);
+}
+
+export async function patchShift(
+  id: string,
+  patch: { location?: string; notes?: string; startsAt?: string; endsAt?: string | null; title?: string }
+): Promise<void> {
+  const client = await sb();
+  const payload: Record<string, unknown> = {};
+  if (patch.location != null) payload.location = patch.location;
+  if (patch.notes != null) payload.notes = patch.notes;
+  if (patch.startsAt != null) payload.starts_at = patch.startsAt;
+  if (patch.endsAt !== undefined) payload.ends_at = patch.endsAt;
+  if (patch.title != null) payload.title = patch.title;
+  if (!Object.keys(payload).length) return;
+  const { error } = await client.from("plenty_shifts").update(payload).eq("id", id);
+  fail(error);
+}
+
 export async function getTaxProfile(pantryId: string): Promise<TaxProfile | null> {
   const client = await sb();
   const { data, error } = await client.from("plenty_tax_profiles").select("pantry_id, legal_name, ein, letter_url, letter_text, posted").eq("pantry_id", pantryId).maybeSingle();
@@ -1031,6 +1085,7 @@ export type ShiftSignup = {
   location?: string;
   name?: string | null;
   email?: string | null;
+  phone?: string | null;
 };
 
 export type Asset = {
@@ -1115,7 +1170,7 @@ export async function listShiftSignups(pantryId: string): Promise<ShiftSignup[]>
   fail(error);
   const ids = [...new Set((data || []).map((r) => r.user_id))];
   const { data: profiles } = ids.length
-    ? await client.from("plenty_user_profiles").select("id, name, email").in("id", ids)
+    ? await client.from("plenty_user_profiles").select("id, name, email, phone").in("id", ids)
     : { data: [] };
   const byId = new Map((profiles || []).map((p) => [p.id, p]));
   const byShift = new Map(shifts.map((s) => [s.id, s]));
@@ -1125,8 +1180,10 @@ export async function listShiftSignups(pantryId: string): Promise<ShiftSignup[]>
     title: byShift.get(row.shift_id)?.title,
     role: byShift.get(row.shift_id)?.role,
     starts_at: byShift.get(row.shift_id)?.starts_at,
+    location: byShift.get(row.shift_id)?.location,
     name: byId.get(row.user_id)?.name ?? null,
-    email: byId.get(row.user_id)?.email ?? null
+    email: byId.get(row.user_id)?.email ?? null,
+    phone: byId.get(row.user_id)?.phone ?? null
   }));
 }
 
@@ -2198,4 +2255,115 @@ export async function setOpsNeedStatus(id: string, pantryId: string, status: str
     .maybeSingle();
   fail(error);
   return (data as OpsNeed | null) ?? null;
+}
+
+export type PayMethodRow = {
+  pantry_id: string;
+  kind: string;
+  handle: string;
+  posted: boolean;
+};
+
+export async function listPayMethods(pantryId: string): Promise<PayMethodRow[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pay_methods").select("pantry_id, kind, handle, posted").eq("pantry_id", pantryId);
+  fail(error);
+  return (data as PayMethodRow[]) || [];
+}
+
+export async function postedPayMethods(pantryId: string): Promise<PayMethodRow[]> {
+  const rows = await listPayMethods(pantryId);
+  return rows.filter((r) => r.posted && (r.kind === "cash" || r.handle.trim()));
+}
+
+export async function upsertPayMethod(input: { pantryId: string; kind: string; handle: string; posted: boolean }): Promise<PayMethodRow> {
+  const client = await sb();
+  const handle = input.handle.trim();
+  const posted = Boolean(input.posted) && (input.kind === "cash" || Boolean(handle));
+  const { data, error } = await client
+    .from("plenty_pay_methods")
+    .upsert({
+      pantry_id: input.pantryId,
+      kind: input.kind,
+      handle,
+      posted,
+      updated_at: new Date().toISOString()
+    })
+    .select("pantry_id, kind, handle, posted")
+    .single();
+  fail(error);
+  return data as PayMethodRow;
+}
+
+export type RecurringJob = {
+  id: string;
+  pantry_id: string;
+  kind: string;
+  title: string;
+  weekday: number;
+  time_local: string;
+  role: string;
+  location: string;
+  partner_id: string | null;
+  notes: string;
+  active: boolean;
+  last_run_on: string | null;
+};
+
+export async function listRecurring(pantryId: string): Promise<RecurringJob[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_recurring").select("id, pantry_id, kind, title, weekday, time_local, role, location, partner_id, notes, active, last_run_on").eq("pantry_id", pantryId).order("weekday");
+  fail(error);
+  return (data as RecurringJob[]) || [];
+}
+
+export async function addRecurring(input: {
+  pantryId: string;
+  kind: string;
+  title: string;
+  weekday: number;
+  timeLocal: string;
+  role: string;
+  location: string;
+  partnerId: string | null;
+  notes: string;
+}): Promise<RecurringJob> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_recurring")
+    .insert({
+      pantry_id: input.pantryId,
+      kind: input.kind,
+      title: input.title,
+      weekday: input.weekday,
+      time_local: input.timeLocal,
+      role: input.role,
+      location: input.location,
+      partner_id: input.partnerId,
+      notes: input.notes,
+      active: true
+    })
+    .select("id, pantry_id, kind, title, weekday, time_local, role, location, partner_id, notes, active, last_run_on")
+    .single();
+  fail(error);
+  return data as RecurringJob;
+}
+
+export async function setRecurringActive(id: string, pantryId: string, active: boolean): Promise<void> {
+  const client = await sb();
+  const { error } = await client.from("plenty_recurring").update({ active }).eq("id", id).eq("pantry_id", pantryId);
+  fail(error);
+}
+
+export async function markRecurringRun(id: string, day: string): Promise<void> {
+  const client = await sb();
+  const { error } = await client.from("plenty_recurring").update({ last_run_on: day }).eq("id", id);
+  fail(error);
+}
+
+export async function listActiveRecurring(): Promise<RecurringJob[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_recurring").select("id, pantry_id, kind, title, weekday, time_local, role, location, partner_id, notes, active, last_run_on").eq("active", true);
+  fail(error);
+  return (data as RecurringJob[]) || [];
 }

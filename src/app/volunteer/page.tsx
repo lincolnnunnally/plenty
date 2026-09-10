@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { ShiftActions, SignupButton } from "@/components/signup-button";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listedAllies, listShifts, myShiftSignups, volunteerForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listedAllies, listShifts, myShiftSignups, userPhone, volunteerForUser } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export default async function VolunteerPage() {
   const hours = user && pantry ? await hoursForUser(pantry.id, user.id) : [];
   const hourTotal = hours.reduce((sum, row) => sum + Number(row.hours), 0);
   const allyHelp = pantry ? (await listedAllies(pantry.id).catch(() => [])).filter((a) => a.wants_volunteers) : [];
+  const phone = user ? await userPhone(user.id).catch(() => "") : "";
 
   return (
     <main className="shell">
@@ -56,6 +57,11 @@ export default async function VolunteerPage() {
             <label className="check"><input type="checkbox" name="roles" value="delivery" defaultChecked={mine?.roles.includes("delivery")} /> Delivery — take food to someone who cannot come</label>
             <label className="check"><input type="checkbox" name="roles" value="store_meet" defaultChecked={mine?.roles.includes("store_meet")} /> Meet at the store — carry the bag, offer prayer if they want, never require it</label>
             <label className="check"><input type="checkbox" name="hasVehicle" defaultChecked={mine?.has_vehicle} /> I can bring a vehicle</label>
+            <label className="field">
+              <span>Phone for a text when a shift is posted or a location changes</span>
+              <input className="input" name="phone" type="tel" defaultValue={phone} placeholder="912-555-0100" />
+            </label>
+            <p className="note">We email {user.email}. A text is better when the pickup moves. Email still goes out if we cannot text.</p>
             <label className="field">
               <span>Days you can come, lifting limits, anything we should know</span>
               <textarea className="input" name="notes" defaultValue={mine?.notes || ""} />

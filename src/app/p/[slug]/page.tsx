@@ -1,4 +1,5 @@
-import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
+import { PayBoard } from "@/components/pay-board";
+import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, postedPayMethods, weNeedList } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -46,6 +47,7 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
   const shifts = await listShifts(pantry.id);
   const days = await listDistributions(pantry.id);
   const upcoming = days.filter((d) => d.status !== "cancelled" && d.status !== "done");
+  const pay = await postedPayMethods(pantry.id).catch(() => []);
 
   return (
     <main className="shell">
@@ -135,6 +137,13 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
           <a className="button primary" href="/donate">Bring something</a>
         </section>
       ) : null}
+
+      <section className="panel">
+        <h2>Give if you can</h2>
+        <p className="note">Food is never held back because someone cannot give. Scan Cash App, Venmo, or Zelle if they are posted.</p>
+        <PayBoard methods={pay} />
+        <a className="button" href="/donate">Give by card</a>
+      </section>
     </main>
   );
 }

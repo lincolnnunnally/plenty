@@ -1,7 +1,8 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
-import { listAssets, listDonations } from "@/lib/db/queries";
+import { listAssets, listDonations, listPayMethods } from "@/lib/db/queries";
+import { payHint, payLabel, type PayKind } from "@/lib/pay";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +12,37 @@ export default async function DonationsAdminPage() {
   if (!pantry) redirect("/run");
   const offers = await listDonations(pantry.id);
   const assets = await listAssets(pantry.id);
+  const methods = await listPayMethods(pantry.id).catch(() => []);
+  const kinds: PayKind[] = ["venmo", "cashapp", "zelle", "cash"];
 
   return (
     <main className="shell">
       <p className="eyebrow">Gifts</p>
       <h1>Food, money, vehicles, and property</h1>
-      <p className="note">Money rows are pledges until you actually have the gift. Vehicles and buildings stay on the pantry's books — donated, loaned, leased, rented, or owned.</p>
+      <p className="note">Card gifts show as received after checkout. Cash App, Venmo, and Zelle only appear publicly when you post the real handle. Vehicles and buildings stay on the pantry's books. <a href="/run/receipts">Year-end receipts</a></p>
       <RunNav />
+
+      <section className="panel">
+        <h2>How neighbors can pay</h2>
+        <p className="note">Post the real Cash App, Venmo, and Zelle. Do not invent a handle. A QR prints on Give for families who do not have a card.</p>
+        {kinds.map((kind) => {
+          const row = methods.find((m) => m.kind === kind);
+          return (
+            <PostForm key={kind} action="/api/pay-methods" submitLabel={`Save ${payLabel(kind)}`}>
+              <input type="hidden" name="kind" value={kind} />
+              <label className="field">
+                <span>{payLabel(kind)} — {payHint(kind)}</span>
+                <input className="input" name="handle" defaultValue={row?.handle || ""} placeholder={kind === "cash" ? "Desk at Saturday distribution" : ""} />
+              </label>
+              <label className="check">
+                <input type="checkbox" name="posted" value="1" defaultChecked={Boolean(row?.posted)} />
+                Show this on Give and at the pantry
+              </label>
+              <p className="note">{row?.posted ? "Neighbors can see this now." : "Saved privately until you check the box."}</p>
+            </PostForm>
+          );
+        })}
+      </section>
 
       <section className="panel">
         <h2>Record a vehicle or property the pantry uses</h2>
@@ -72,7 +97,16 @@ export default async function DonationsAdminPage() {
               <strong>{offer.title}</strong>
               {offer.description ? <p>{offer.description}</p> : null}
               {offer.quantity ? <p className="note">{offer.quantity}</p> : null}
-              {offer.amount_cents ? <p className="note">Pledge ${(offer.amount_cents / 100).toFixed(0)} — not charged in-app</p> : null}
+              {offer.amount_cents ? (
+                <p className="note">
+                  ${(offer.amount_cents / 100).toFixed(0)}
+                  {offer.description.includes("Stripe session")
+                    ? offer.status === "received"
+                      ? " · card received"
+                      : " · card checkout started"
+                    : " · recorded (Cash App / Venmo / Zelle / cash until you mark received)"}
+                </p>
+              ) : null}
               {offer.available_when ? <p>When: {offer.available_when}</p> : null}
               <p className="note">{offer.contact_name} {offer.contact_phone} {offer.contact_email}</p>
               <PostForm action={`/api/donations/${offer.id}`} submitLabel="Update">

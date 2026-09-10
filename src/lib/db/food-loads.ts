@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
-import { addPickup, addShift, listAllies, listDistributions, type Ally } from "@/lib/db/queries";
+import { addPickup, addShift, listAllies, listDistributions, listStorePartners, listVolunteers, patchPickup, patchShift, type Ally } from "@/lib/db/queries";
+import { notifyCrew } from "@/lib/notify";
 
 async function sb() {
   const ensured = await ensurePlentySchema();
@@ -286,7 +287,18 @@ export async function fulfillLoad(
     .select(LOAD_COLS)
     .single();
   fail(error);
-  return { ...(data as FoodLoad), items: load.items };
+  const updated = { ...(data as FoodLoad), items: load.items };
+  const dest = load.dest_note || "Plenty";
+  const whenLabel = new Date(when).toLocaleString();
+  const crew = await listVolunteers(pantryId);
+  await notifyCrew({
+    pantryId,
+    crew,
+    roles: ["pickup", "delivery", "store_meet"],
+    subject: `Plenty pickup: ${store.partnerName}`,
+    text: `A food pickup is on the board.\nWhere: ${store.partnerAddress || store.partnerName}\nWhen: ${whenLabel}\nTake it to: ${dest}\n${load.route_reason}\nSign up: https://plenty.unitedundergod.org/volunteer`
+  }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+  return updated;
 }
 
 export async function updateFoodLoad(
@@ -313,7 +325,40 @@ export async function updateFoodLoad(
   if (patch.notes != null) row.notes = patch.notes;
   const { data, error } = await client.from("plenty_food_loads").update(row).eq("id", id).eq("pantry_id", pantryId).select(LOAD_COLS).maybeSingle();
   fail(error);
-  return data as FoodLoad | null;
+  const updated = data as FoodLoad | null;
+  const destChanged = patch.destAllyId !== undefined || patch.destNote != null || patch.pickupAt !== undefined;
+  if (updated && destChanged) {
+    const allies = await listAllies(pantryId);
+    const destName = updated.dest_ally_id ? allies.find((a) => a.id === updated.dest_ally_id)?.name : updated.dest_note;
+    const destLine = destName || updated.dest_note || "Plenty";
+    const partners = await listStorePartners(pantryId);
+    const store = partners.find((p) => p.id === updated.partner_id);
+    const pickupPlace = store ? [store.name, store.address, store.city].filter(Boolean).join(" · ") : "the grocery store";
+    const when = updated.pickup_at;
+    if (updated.pickup_id) {
+      await patchPickup(updated.pickup_id, {
+        notes: `Pick up at ${pickupPlace}. Take it to ${destLine}. ${updated.route_reason}`,
+        scheduledFor: when
+      });
+    }
+    if (updated.shift_id) {
+      await patchShift(updated.shift_id, {
+        location: pickupPlace,
+        notes: `Pick up at ${pickupPlace}. Take the food to ${destLine}. ${updated.route_reason}`,
+        startsAt: when || undefined,
+        title: `Pick up at ${store?.name || "store"} → ${destLine}`
+      });
+      const crew = await listVolunteers(pantryId);
+      await notifyCrew({
+        pantryId,
+        crew,
+        roles: ["pickup", "delivery", "store_meet"],
+        subject: "Plenty pickup changed",
+        text: `A pickup changed.\nPick up at: ${pickupPlace}\nTake it to: ${destLine}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${updated.route_reason}\nhttps://plenty.unitedundergod.org/volunteer`
+      }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+    }
+  }
+  return updated;
 }
 
 export async function listAllyMemberships(userId: string): Promise<{ ally_id: string; role: string }[]> {

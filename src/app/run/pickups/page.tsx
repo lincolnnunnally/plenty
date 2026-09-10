@@ -35,6 +35,13 @@ export default async function PickupsPage() {
                 </p>
               ) : null}
               {p.notes ? <p>{p.notes}</p> : null}
+              <PostForm action="/api/pickups" submitLabel="Change where they go">
+                <input type="hidden" name="id" value={p.id} />
+                {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
+                <label className="field"><span>Address</span><input className="input" name="address" defaultValue={p.address} required /></label>
+                <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
+              </PostForm>
               {p.status === "requested" ? (
                 <PostForm action="/api/pickups" submitLabel="Schedule this">
                   <input type="hidden" name="id" value={p.id} />

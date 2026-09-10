@@ -1,5 +1,5 @@
 import { fail, ok, readJson, requireUser, str } from "@/lib/api";
-import { getDefaultPantry, isVolunteerRole, upsertVolunteer } from "@/lib/db/queries";
+import { getDefaultPantry, isVolunteerRole, setUserPhone, upsertVolunteer } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,13 @@ export async function POST(request: Request) {
       hasVehicle: body.hasVehicle === "on" || body.hasVehicle === true || body.hasVehicle === "true",
       notes: str(body.notes)
     });
-    return ok({ message: "You are on the volunteer list. Pick a shift when one is posted." });
+    const phone = str(body.phone);
+    if (phone) await setUserPhone(user.id, phone);
+    return ok({
+      message: phone
+        ? "You are on the volunteer list. We will email and text you when a shift is posted."
+        : "You are on the volunteer list. Add a phone number if you want a text. We will still email you."
+    });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save your volunteer profile.", 503);
   }
