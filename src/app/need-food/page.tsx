@@ -3,14 +3,14 @@ import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
 import { availableThisWeek, effectivePayMethods, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listedAllies, listStoreVouchers } from "@/lib/db/queries";
-import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
+import { ABUNDANCE_SHARE, DELIVERY_INVITE, donationPolicyCopy, EVERYONE_WELCOME, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Get free groceries in Vidalia",
-  "Plenty is a food pantry in Vidalia, Georgia. If you are having a hard time feeding your family, register your household and pick up free groceries. No income test at the door."
+  "Plenty is a food pantry in Vidalia, Georgia. Free groceries for everyone — no income requirement. Come through the line or ask for a delivery."
 );
 
 export default async function NeedFoodPage() {
@@ -31,11 +31,9 @@ export default async function NeedFoodPage() {
     <main className="shell">
       <p className="eyebrow">Vidalia food pantry</p>
       <h1>Get food for your family</h1>
-      <p className="lede">
-        This is a food pantry. If you live in or near Vidalia, Georgia and you are having a hard time
-        buying groceries, you can get free food here. We pack bags and boxes of real food — rice,
-        produce, protein, and household staples when we have them — so your household can eat this week.
-      </p>
+      <p className="lede">{EVERYONE_WELCOME}</p>
+      <p>{ABUNDANCE_SHARE}</p>
+      <p className="note">{DELIVERY_INVITE}</p>
 
       <div className="grid">
         <article className="card">
@@ -218,7 +216,7 @@ export default async function NeedFoodPage() {
                 </label>
               </PostForm>
               <h3 style={{ marginTop: 24 }}>Need a delivery instead of coming in?</h3>
-              <p className="note">Ask for a delivery if you cannot get to the pantry. We will schedule a time and confirm someone can receive it.</p>
+              <p className="note">{DELIVERY_INVITE}</p>
               <PostForm action="/api/pickups" submitLabel="Request a delivery">
                 <input type="hidden" name="kind" value="household_delivery" />
                 <label className="field"><span>Address for delivery</span><input className="input" name="address" required defaultValue={household.address} /></label>

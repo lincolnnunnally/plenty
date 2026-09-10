@@ -21,10 +21,10 @@ export default async function LinePage({
   searchParams
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ cancelled?: string }>;
+  searchParams: Promise<{ cancelled?: string; pass?: string }>;
 }) {
   const { slug } = await params;
-  const { cancelled } = await searchParams;
+  const { cancelled, pass } = await searchParams;
   const pantry = await getPantryBySlug(slug);
   if (!pantry) notFound();
   const methods = await effectivePayMethods(pantry).catch(() => []);
@@ -35,11 +35,11 @@ export default async function LinePage({
       <p className="eyebrow">Pantry line · {pantry.city || "Vidalia"}</p>
       <h1>{pantry.name}</h1>
       <p className="lede">
-        Scan this page to check in. The food is free. We will request a donation for handling and orchestration —
-        pickup, routing, and this line — not for the groceries. Cash App, Venmo, Zelle, or card if you can. If you cannot, you still eat.
+        This food is for everyone — no income test. Scan to check in. Pay handling before you arrive or here.
+        Cannot come? Ask for a delivery. Take what you will use. Share what you will not.
       </p>
       {cancelled ? <p className="note">Card checkout was cancelled. Nothing was charged. You are still checked in.</p> : null}
-      <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} />
+      <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} initialPass={pass} />
     </main>
   );
 }

@@ -12,4 +12,4 @@ export function pageMeta(title: string, description: string) {
 }
 
 export const HOME_DESCRIPTION =
-  "Plenty is a food pantry in Vidalia, Georgia. Get groceries for your family, volunteer, or donate food, money, space, or a vehicle. Free food for households who need it.";
+  "Plenty is a food pantry in Vidalia, Georgia. Free groceries for everyone — no income test. Come through the line or ask for a delivery. Volunteer or give. Stretch a dollar; share what you will not use.";

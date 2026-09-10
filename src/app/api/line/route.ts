@@ -2,11 +2,14 @@ import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
 import {
   addContribution,
   addWalkInHousehold,
+  applyHandlingToVisit,
   findHouseholdByPhone,
   getHousehold,
   getPantryBySlug,
+  householdByPass,
   recordVisit,
-  searchHouseholds
+  searchHouseholds,
+  unusedHandling
 } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -24,21 +27,36 @@ export async function POST(request: Request) {
   const steward = await requireStewardFor(pantry.id);
   const asSteward = !steward.error;
 
+  async function pack(h: { id: string; display_name: string; household_size: number; phone: string; pass_code?: string }) {
+    const credits = await unusedHandling(h.id);
+    return {
+      id: h.id,
+      displayName: h.display_name,
+      size: h.household_size,
+      phone: asSteward ? h.phone : "",
+      passCode: h.pass_code || "",
+      handlingPrepaid: credits.length > 0,
+      handlingCount: credits.length
+    };
+  }
+
   if (action === "lookup") {
+    const pass = str(body.pass);
+    if (pass) {
+      const found = await householdByPass(pass);
+      if (!found || found.pantry_id !== pantry.id) return ok({ households: [], message: "No household with that pass." });
+      return ok({ households: [await pack(found)] });
+    }
     const phone = str(body.phone);
     const query = str(body.query);
     if (asSteward && query) {
       const rows = await searchHouseholds(pantry.id, query);
-      return ok({
-        households: rows.map((h) => ({ id: h.id, displayName: h.display_name, size: h.household_size, phone: h.phone }))
-      });
+      return ok({ households: await Promise.all(rows.map(pack)) });
     }
-    if (!phone) return fail("Enter a phone number to find a household.");
+    if (!phone) return fail("Enter a phone, a name at the desk, or scan their household pass.");
     const found = await findHouseholdByPhone(pantry.id, phone);
     if (!found) return ok({ households: [], message: "No household with that phone yet. Register them below." });
-    return ok({
-      households: [{ id: found.id, displayName: found.display_name, size: found.household_size, phone: found.phone }]
-    });
+    return ok({ households: [await pack(found)] });
   }
 
   if (action === "waive") {
@@ -58,6 +76,10 @@ export async function POST(request: Request) {
   }
 
   let household = str(body.householdId) ? await getHousehold(str(body.householdId), pantry.id) : null;
+  if (!household && str(body.pass)) {
+    const byPass = await householdByPass(str(body.pass));
+    if (byPass && byPass.pantry_id === pantry.id) household = byPass;
+  }
   if (!household) {
     const phone = str(body.phone);
     if (phone) household = await findHouseholdByPhone(pantry.id, phone);
@@ -82,11 +104,17 @@ export async function POST(request: Request) {
     notes: str(body.notes),
     locationId: str(body.locationId) || null
   });
+  const applied = await applyHandlingToVisit(household.id, visit.id);
+  const prepaid = Boolean(applied);
 
   return ok({
     householdId: household.id,
     visitId: visit.id,
     displayName: household.display_name,
-    message: `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`
+    passCode: household.pass_code,
+    handlingPrepaid: prepaid,
+    message: prepaid
+      ? `${household.display_name} is checked in. Handling was already given. The food is free.`
+      : `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`
   });
 }

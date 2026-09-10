@@ -8,12 +8,14 @@ export function GiveCardForm({
   signedInEmail,
   pantrySlug,
   householdId,
-  fromLine
+  fromLine,
+  upfront
 }: {
   signedInEmail?: string;
   pantrySlug?: string;
   householdId?: string;
   fromLine?: boolean;
+  upfront?: boolean;
 }) {
   const [preset, setPreset] = useState<number | "custom">(25);
   const [custom, setCustom] = useState("");
@@ -36,7 +38,14 @@ export function GiveCardForm({
       const res = await fetch("/api/give/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountDollars: dollars, email, pantrySlug, householdId, fromLine: fromLine ? "1" : "" })
+        body: JSON.stringify({
+          amountDollars: dollars,
+          email,
+          pantrySlug,
+          householdId,
+          fromLine: fromLine ? "1" : "",
+          upfront: upfront ? "1" : ""
+        })
       });
       const payload = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; message?: string };
       if (!res.ok || !payload.url) {
@@ -56,7 +65,9 @@ export function GiveCardForm({
       <p className="note">
         {fromLine
           ? "Requested handling donation — not a charge for food. Card, Apple Pay, or Google Pay."
-          : "Card, Apple Pay, or Google Pay. The food on the line is free. A gift here helps handling and what we are short on."}
+          : upfront
+            ? "Pay handling now. When you get to the line, we scan your pass and see it is already given. The food is still free."
+            : "Card, Apple Pay, or Google Pay. The food on the line is free. A gift here helps handling and what we are short on."}
       </p>
       <div className="chip-row" role="group" aria-label="Amount">
         {PRESETS.map((n) => (

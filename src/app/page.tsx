@@ -20,14 +20,15 @@ export default async function HomePage() {
     <main className="shell">
       <section className="hero">
         <p className="eyebrow">Food pantry · Vidalia, Georgia</p>
-        <h1>Need groceries for your family? This is a food pantry.</h1>
+        <h1>Need groceries for your family? This food is for everyone.</h1>
         <p className="lede">
-          Plenty is a food pantry in Vidalia. We give free food to households who are having a hard
-          time feeding their family. Come for groceries. If you want more help after that, we will
-          walk with you — it is never required to get food.
+          Plenty is a food pantry in Vidalia. There is no income test. You know your household better
+          than a form does. Stores give more food than we can let spoil — take what you will use, share
+          what you will not. Come through the line, or ask us to bring it if you cannot get here.
         </p>
         <div className="action-row">
           <a className="button primary" href="/need-food">I need food</a>
+          <a className="button" href="/need-food">I need a delivery</a>
           <a className="button leaf" href="/volunteer">I can volunteer</a>
           <a className="button" href="/donate">I can donate</a>
         </div>
@@ -84,7 +85,7 @@ export default async function HomePage() {
         <div className="grid">
           <article className="card">
             <strong>If you need groceries</strong>
-            <p>Register your household, see this week's food, and come through the line. No lecture. No test.</p>
+            <p>No income requirement. Register, come through the line, or ask for a delivery. Stretch a dollar. Share extras.</p>
             <a className="button primary" href="/need-food">Get food</a>
           </article>
           <article className="card">

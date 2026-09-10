@@ -25,6 +25,9 @@ export async function POST(request: Request) {
       ? await householdForUser(pantry.id, user.id).catch(() => null)
       : null;
   try {
+    const upfront = str(body.upfront) === "1" || str(body.timing) === "upfront";
+    const fromLine = Boolean(str(body.fromLine));
+    const handling = fromLine || upfront || Boolean(household);
     const session = await createPlentyCheckout({
       amountCents: cents,
       email: str(body.email) || user?.email || "",
@@ -33,8 +36,9 @@ export async function POST(request: Request) {
       householdId: household?.id,
       pantryId: pantry.id,
       pantrySlug: pantry.slug,
-      cancelPath: str(body.fromLine) ? `/line/${pantry.slug}?cancelled=1` : "/donate?cancelled=1",
-      handling: Boolean(str(body.fromLine))
+      cancelPath: upfront ? "/account" : fromLine ? `/line/${pantry.slug}?cancelled=1` : "/donate?cancelled=1",
+      handling,
+      timing: upfront ? "upfront" : fromLine ? "at_receipt" : handling ? "upfront" : "gift"
     });
     if (!session.url) return fail("Stripe did not return a checkout page.", 503);
     return Response.json({ ok: true, url: session.url });

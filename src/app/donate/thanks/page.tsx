@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
-import { addDonation, getDefaultPantrySafe, listDonations, setDonationStatus } from "@/lib/db/queries";
+import { addContribution, addDonation, getDefaultPantrySafe, listContributions, listDonations, setDonationStatus } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 import { readPlentySession, stripeConfigured } from "@/lib/stripe-give";
 
@@ -26,7 +26,7 @@ export default async function DonateThanksPage({ searchParams }: { searchParams:
             pantryId: pantry.id,
             userId: user?.id || null,
             kind: "money",
-            title: "Card gift",
+            title: session.metadata.timing === "gift" ? "Card gift" : "Handling donation",
             description: `Stripe session ${sessionId}`,
             quantity: "",
             amountCents: amount,
@@ -38,6 +38,23 @@ export default async function DonateThanksPage({ searchParams }: { searchParams:
           const giftsNow = await listDonations(pantry.id);
           const row = giftsNow.find((g) => g.kind === "money" && g.description.includes(sessionId));
           if (row) await setDonationStatus(row.id, "received", "Stripe checkout paid");
+        }
+        const householdId = session.metadata.household_id;
+        if (householdId) {
+          const prior = (await listContributions(pantry.id)).find((c) => c.notes.includes(sessionId));
+          if (!prior) {
+            await addContribution({
+              pantryId: pantry.id,
+              householdId,
+              userId: user?.id || null,
+              amountCents: amount,
+              waived: false,
+              waiveReason: "",
+              notes: `Stripe session ${sessionId}`,
+              visitId: null,
+              timing: session.metadata.timing || "upfront"
+            });
+          }
         }
       }
     } catch {
@@ -56,8 +73,9 @@ export default async function DonateThanksPage({ searchParams }: { searchParams:
       </p>
       <p>Thank you. Groceries on the line stay free. This gift helps handling and what we are short on.</p>
       <div className="action-row">
-        <a className="button primary" href="/donate">Back to Give</a>
+        <a className="button primary" href="/account">Your pass at the line</a>
         <a className="button" href="/need-food">Get food</a>
+        <a className="button" href="/donate">Give</a>
       </div>
     </main>
   );

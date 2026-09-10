@@ -87,7 +87,12 @@ export async function POST(request: Request) {
   }
   const address = str(body.address);
   if (!address) return fail("We need an address.");
+  const steward = await requireStewardFor(pantry.id);
   const mine = await householdForUser(pantry.id, user.id);
+  const householdId =
+    kind === "household_delivery"
+      ? (steward.error ? mine?.id : str(body.householdId) || mine?.id) || null
+      : null;
   try {
     await addPickup({
       pantryId: pantry.id,
@@ -98,11 +103,21 @@ export async function POST(request: Request) {
       contactPhone: str(body.contactPhone),
       notes: str(body.notes),
       createdBy: user.id,
-      householdId: kind === "household_delivery" ? mine?.id || null : null,
+      householdId,
       willBeHome: body.willBeHome === undefined || body.willBeHome === "" ? null : on(body.willBeHome),
       porchLeaveOk: on(body.porchLeaveOk),
       windowText: str(body.windowText)
     });
+    if (kind === "household_delivery") {
+      const crew = await listVolunteers(pantry.id);
+      await notifyCrew({
+        pantryId: pantry.id,
+        crew,
+        roles: ["delivery", "pickup"],
+        subject: "Plenty delivery requested",
+        text: `A household asked for food to be brought to them.\n${address}\n${str(body.windowText)}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/run/pickups`
+      }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+    }
     return ok({ message: "Request received. We will confirm a time and make sure someone is coming." });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save the request.", 503);

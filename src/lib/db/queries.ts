@@ -2,6 +2,7 @@ import { DEFAULT_PANTRY_SLUG } from "@/lib/app-brand";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
+import { newHouseholdPass, normalizePass } from "@/lib/pass";
 
 export type Pantry = {
   id: string;
@@ -50,6 +51,8 @@ export type Household = {
   porch_notes: string;
   food_waiver_signed_at: string | null;
   food_waiver_version: string;
+  pass_code: string;
+  reach_ok: boolean;
 };
 
 export type InventoryItem = {
@@ -210,7 +213,7 @@ export async function getDefaultPantrySafe() {
 }
 
 const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source, receive_rules, donation_policy, donation_note, residency_rules, id_required, frequency_rules, giving_mode";
-const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes, food_waiver_signed_at, food_waiver_version";
+const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes, food_waiver_signed_at, food_waiver_version, pass_code, reach_ok";
 const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
 const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent, tenure, asset_kind";
 const VISIT_COLS = "id, pantry_id, household_id, user_id, visited_at, items_summary, notes, location_id";
@@ -463,14 +466,14 @@ export async function upsertHousehold(input: {
   }, { onConflict: "pantry_id,user_id" }).select(HOUSEHOLD_COLS).single();
   fail(error);
   await addMembership(input.pantryId, input.userId, "neighbor");
-  return data as Household;
+  return ensureHouseholdPass(data as Household);
 }
 
 export async function householdForUser(pantryId: string, userId: string): Promise<Household | null> {
   const client = await sb();
   const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("pantry_id", pantryId).eq("user_id", userId).maybeSingle();
   fail(error);
-  return (data as Household | null) ?? null;
+  return data ? ensureHouseholdPass(data as Household) : null;
 }
 
 export async function listHouseholds(pantryId: string): Promise<Household[]> {
@@ -541,19 +544,81 @@ export async function addWalkInHousehold(input: {
       household_size: input.householdSize,
       phone: input.phone,
       preferred_contact: input.phone ? "phone" : "in_person",
-      notes: input.notes || "Walk-in at the line"
+      notes: input.notes || "Walk-in at the line",
+      pass_code: newHouseholdPass()
     })
     .select(HOUSEHOLD_COLS)
     .single();
   fail(error);
-  return data as Household;
+  return ensureHouseholdPass(data as Household);
 }
 
 export async function getHousehold(id: string, pantryId: string): Promise<Household | null> {
   const client = await sb();
   const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
   fail(error);
-  return (data as Household | null) ?? null;
+  return data ? ensureHouseholdPass(data as Household) : null;
+}
+
+export async function ensureHouseholdPass(household: Household): Promise<Household> {
+  if (household.pass_code) return household;
+  const client = await sb();
+  for (let i = 0; i < 5; i++) {
+    const code = newHouseholdPass();
+    const { data, error } = await client
+      .from("plenty_households")
+      .update({ pass_code: code, updated_at: new Date().toISOString() })
+      .eq("id", household.id)
+      .select(HOUSEHOLD_COLS)
+      .maybeSingle();
+    if (!error && data) return data as Household;
+  }
+  return household;
+}
+
+export async function householdByPass(code: string): Promise<Household | null> {
+  const pass = normalizePass(code);
+  if (!pass) return null;
+  const client = await sb();
+  const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("pass_code", pass).maybeSingle();
+  fail(error);
+  return data ? ensureHouseholdPass(data as Household) : null;
+}
+
+export async function unusedHandling(householdId: string): Promise<Contribution[]> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_contributions")
+    .select(CONTRIB_COLS)
+    .eq("household_id", householdId)
+    .eq("waived", false)
+    .is("visit_id", null)
+    .gt("amount_cents", 0)
+    .in("status", ["received", "pledged"])
+    .order("created_at", { ascending: true });
+  fail(error);
+  return (data as Contribution[]) || [];
+}
+
+export async function applyHandlingToVisit(householdId: string, visitId: string): Promise<Contribution | null> {
+  const unused = await unusedHandling(householdId);
+  const credit = unused[0];
+  if (!credit) return null;
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_contributions")
+    .update({ visit_id: visitId, notes: `${credit.notes || ""} applied at pickup`.trim() })
+    .eq("id", credit.id)
+    .is("visit_id", null)
+    .select(CONTRIB_COLS)
+    .maybeSingle();
+  fail(error);
+  return (data as Contribution | null) ?? null;
+}
+
+export async function openDeliveriesForHousehold(pantryId: string, householdId: string): Promise<Pickup[]> {
+  const rows = await listPickups(pantryId);
+  return rows.filter((p) => p.household_id === householdId && p.kind === "household_delivery" && p.status !== "done" && p.status !== "cancelled");
 }
 
 export async function listInventory(pantryId: string): Promise<InventoryItem[]> {
@@ -1238,12 +1303,13 @@ export type Contribution = {
   notes: string;
   visit_id: string | null;
   created_at: string;
+  timing: string;
   household_name?: string;
 };
 
 const ASSET_COLS = "id, pantry_id, kind, title, description, tenure, donor_user_id, donor_name, status, notes, created_at";
 const HOUR_COLS = "id, pantry_id, user_id, shift_id, hours, worked_on, notes, created_at";
-const CONTRIB_COLS = "id, pantry_id, household_id, user_id, amount_cents, waived, waive_reason, status, notes, visit_id, created_at";
+const CONTRIB_COLS = "id, pantry_id, household_id, user_id, amount_cents, waived, waive_reason, status, notes, visit_id, created_at, timing";
 
 export async function myShiftSignups(userId: string): Promise<ShiftSignup[]> {
   const client = await sb();
@@ -1460,6 +1526,7 @@ export async function addContribution(input: {
   waiveReason: string;
   notes: string;
   visitId?: string | null;
+  timing?: string;
 }): Promise<Contribution> {
   const client = await sb();
   const status = input.waived ? "waived" : input.amountCents && input.amountCents > 0 ? "received" : "pledged";
@@ -1472,7 +1539,8 @@ export async function addContribution(input: {
     waive_reason: input.waiveReason,
     status,
     notes: input.notes,
-    visit_id: input.visitId ?? null
+    visit_id: input.visitId ?? null,
+    timing: input.timing || (input.visitId ? "at_receipt" : "upfront")
   }).select(CONTRIB_COLS).single();
   fail(error);
   return data as Contribution;

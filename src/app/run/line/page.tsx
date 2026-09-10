@@ -8,7 +8,8 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function RunLinePage() {
+export default async function RunLinePage({ searchParams }: { searchParams: Promise<{ pass?: string }> }) {
+  const { pass } = await searchParams;
   const { pantry, pantries, superAdmin } = await requirePantryDesk("/run/line");
   if (!pantry) redirect("/run");
   const methods = await effectivePayMethods(pantry).catch(() => []);
@@ -39,7 +40,7 @@ export default async function RunLinePage() {
           <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(line)}&size=640`}>Download QR</a>
         </div>
       </section>
-      <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} desk />
+      <LineFlow slug={pantry.slug} pantryName={pantry.name} methods={methods} cardLive={cardLive} desk initialPass={pass} />
     </main>
   );
 }

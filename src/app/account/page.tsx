@@ -1,7 +1,13 @@
+import { GiveCardForm } from "@/components/give-card";
+import { PostForm } from "@/components/post-form";
 import { SignOutForm } from "@/components/sign-out-form";
 import { membershipLabel } from "@/lib/auth/roles";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listStoreVouchers, membershipsForUser, myShiftSignups, visitsForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listStoreVouchers, membershipsForUser, myShiftSignups, openDeliveriesForHousehold, unusedHandling, visitsForUser } from "@/lib/db/queries";
+import { ABUNDANCE_SHARE, DELIVERY_INVITE, HANDLING_DONATION } from "@/lib/promote/compose";
+import { HANDOFFS } from "@/lib/handoffs";
+import { passUrl } from "@/lib/pass";
+import { stripeConfigured } from "@/lib/stripe-give";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +25,10 @@ export default async function AccountPage() {
   const myShifts = await myShiftSignups(user.id);
   const household = pantry ? await householdForUser(pantry.id, user.id) : null;
   const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
+  const credits = household ? await unusedHandling(household.id) : [];
+  const deliveries = household && pantry ? await openDeliveriesForHousehold(pantry.id, household.id) : [];
+  const cardLive = await stripeConfigured();
+  const pass = household?.pass_code ? passUrl(household.pass_code) : "";
   const roleLabel = roles.includes("neighbor") && roles.includes("volunteer")
     ? "You get food here and you also volunteer."
     : roles.includes("neighbor")
@@ -46,6 +56,61 @@ export default async function AccountPage() {
         <a className="button" href="/donate">Give</a>
         {steward ? <a className="button leaf" href="/run">Open pantry desk</a> : null}
       </div>
+
+      {household && pass ? (
+        <section className="panel">
+          <h2>Your line pass</h2>
+          <p className="lede">Open this at the pantry. We scan it, see you, see if handling is already given, and check you in.</p>
+          <img className="pay-qr" src={`/api/promote/qr?to=${encodeURIComponent(pass)}&size=360`} alt="Your Plenty pass" width={200} height={200} />
+          <p className="note">{household.pass_code} · {credits.length ? "Handling already given — it will show when we scan." : "No handling donation on file. Requested, not required."}</p>
+          <p className="note">{HANDLING_DONATION}</p>
+          <div className="action-row">
+            <a className="button primary" href={pass}>Open pass page</a>
+            {pantry ? <a className="button" href={`/line/${pantry.slug}?pass=${encodeURIComponent(household.pass_code)}`}>Check in at the line</a> : null}
+          </div>
+          <h3 style={{ marginTop: 24 }}>Pay handling now</h3>
+          <p className="note">Pay before you arrive, or when you get there. Either way the food is free.</p>
+          {cardLive && pantry ? (
+            <GiveCardForm signedInEmail={user.email} pantrySlug={pantry.slug} householdId={household.id} upfront />
+          ) : (
+            <p className="empty">Card is not live yet. Use Cash App, Venmo, or Zelle on Give, or pay at the line.</p>
+          )}
+        </section>
+      ) : (
+        <p className="note"><a href="/need-food">Register your household</a> to get a line pass.</p>
+      )}
+
+      {household ? (
+        <section className="panel">
+          <h2>Need food brought to you?</h2>
+          <p className="note">{DELIVERY_INVITE}</p>
+          {deliveries.length ? <p>{deliveries.length} open delivery request(s).</p> : null}
+          <PostForm action="/api/pickups" submitLabel="Request a delivery">
+            <input type="hidden" name="kind" value="household_delivery" />
+            <input type="hidden" name="householdId" value={household.id} />
+            <label className="field"><span>Address</span><input className="input" name="address" required defaultValue={household.address} /></label>
+            <label className="field"><span>Phone</span><input className="input" name="contactPhone" defaultValue={household.phone} /></label>
+            <label className="field"><span>When / window</span><input className="input" name="windowText" placeholder="After 4, Saturday morning…" /></label>
+            <label className="check"><input type="checkbox" name="willBeHome" defaultChecked /> Someone will be home</label>
+            <label className="check"><input type="checkbox" name="porchLeaveOk" defaultChecked={household.porch_leave_ok} /> OK to leave on the porch</label>
+          </PostForm>
+        </section>
+      ) : null}
+
+      <section className="panel">
+        <h2>Connected help</h2>
+        <p className="note">{ABUNDANCE_SHARE} This account is you across United Under God — we can walk with you after groceries, if you want.</p>
+        <div className="grid">
+          {HANDOFFS.slice(0, 4).map((h) => (
+            <article className="card" key={h.id}>
+              <strong>{h.name}</strong>
+              <p>{h.when}</p>
+              <a className="button" href={h.href}>Open</a>
+            </article>
+          ))}
+        </div>
+        <p className="note"><a href="/become">Write one next step</a> — optional.</p>
+      </section>
 
       {storeCards.length ? (
         <section className="panel">

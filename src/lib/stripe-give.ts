@@ -71,6 +71,7 @@ export async function createPlentyCheckout(input: {
   pantrySlug?: string;
   cancelPath?: string;
   handling?: boolean;
+  timing?: string;
 }): Promise<{ id: string; url: string }> {
   const email = (input.email || "").trim();
   const productName = input.handling
@@ -98,6 +99,7 @@ export async function createPlentyCheckout(input: {
       "metadata[household_id]": input.householdId || "",
       "metadata[pantry_id]": input.pantryId || "",
       "metadata[pantry_slug]": input.pantrySlug || "",
+      "metadata[timing]": input.timing || (input.handling ? "at_receipt" : "gift"),
       "payment_intent_data[metadata][app]": "plenty",
       "payment_intent_data[metadata][kind]": "donation"
     })
@@ -113,6 +115,7 @@ export async function readPlentySession(sessionId: string) {
     amountCents: Number(s.amount_total || 0),
     email: details.email || (s.customer_email as string) || null,
     name: details.name || "",
-    paymentId: (s.payment_intent as string) || null
+    paymentId: (s.payment_intent as string) || null,
+    metadata: (s.metadata || {}) as Record<string, string>
   };
 }

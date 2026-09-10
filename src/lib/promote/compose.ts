@@ -14,6 +14,15 @@ export const HANDLING_DONATION =
 
 export const HANDLING_IF_NOT = "If you cannot help with handling, you still get food.";
 
+export const EVERYONE_WELCOME =
+  "This food is for everyone. There is no income requirement. You know your household better than a form does. Not being labeled “poverty” does not mean you are not stretching a dollar — your family matters too.";
+
+export const ABUNDANCE_SHARE =
+  "Stores and neighbors give more food than we can let spoil. Take what you will use. Share what you will not. That frees money for everything else.";
+
+export const DELIVERY_INVITE =
+  "Cannot get to the pantry or the grocery store when the food is given — shut-in, no ride, work, hours that do not work? Ask us to bring it.";
+
 export function donationPolicyCopy(pantry: Pantry) {
   const extra = pantry.donation_note.trim();
   switch (pantry.donation_policy) {

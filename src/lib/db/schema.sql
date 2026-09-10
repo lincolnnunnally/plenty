@@ -61,6 +61,9 @@ create table if not exists plenty_households (
   updated_at timestamptz not null default now()
 );
 create unique index if not exists plenty_households_pantry_user_idx on plenty_households (pantry_id, user_id);
+alter table plenty_households add column if not exists pass_code text;
+create unique index if not exists plenty_households_pass_idx on plenty_households (pass_code) where pass_code is not null and pass_code <> '';
+alter table plenty_households add column if not exists reach_ok boolean not null default false;
 
 create table if not exists plenty_inventory (
   id uuid primary key default gen_random_uuid(),
@@ -357,6 +360,7 @@ create table if not exists plenty_contributions (
   created_at timestamptz not null default now()
 );
 create index if not exists plenty_contributions_pantry_idx on plenty_contributions (pantry_id, created_at desc);
+alter table plenty_contributions add column if not exists timing text not null default 'at_receipt';
 
 -- In-store pickup: the store donates on paper; the household carries a card
 -- and collects at customer service. Extra purchase is never a condition.
