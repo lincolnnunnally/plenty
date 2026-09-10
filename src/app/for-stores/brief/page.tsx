@@ -37,7 +37,7 @@ export default function StoreBriefPage() {
         </div>
 
         <p className="note" style={{ marginTop: 16 }}>
-          You choose: dock pickup, a bag at customer service, or volunteers on the floor if you ask. Extra purchase is never required.
+          You choose: dock pickup, a bag at customer service, or volunteers on the floor if you ask. Extra purchase is never required. Corporate has to say yes? Leave this page. We wait.
         </p>
 
         <footer className="brief-foot brief-foot-qr">

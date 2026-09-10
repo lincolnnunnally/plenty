@@ -2,7 +2,7 @@ import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { listHouseholds, listRecurring, listStorePartners, listStoreVouchers } from "@/lib/db/queries";
-import { FOOD_TYPES, WEEKDAYS, parseFoodNote, weekdayName } from "@/lib/store-pitch";
+import { FOOD_TYPES, WEEKDAYS, concernLabels, parseConcerns, parseFoodNote, weekdayName } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export default async function StorePartnersPage() {
   const vouchers = await listStoreVouchers(pantry.id);
   const jobs = await listRecurring(pantry.id).catch(() => []);
   const activePartners = partners.filter((p) => p.status === "active" && p.pickup_mode !== "dock_pickup");
+  const maybes = partners.filter((p) => p.status === "invited");
 
   return (
     <main className="shell">
@@ -75,6 +76,30 @@ export default async function StorePartnersPage() {
       </section>
 
       <section className="panel">
+        <h2>Need a call · {maybes.length}</h2>
+        <p className="note">They asked to donate. They may not be ready for a weekly dock yet. Call the manager.</p>
+        {maybes.length ? (
+          <div className="grid">
+            {maybes.map((p) => {
+              const worries = concernLabels(parseConcerns(p.notes));
+              return (
+                <article className="card" key={p.id}>
+                  <span>Not weekly yet</span>
+                  <strong>{p.name}</strong>
+                  <p>{[p.contact_name, p.phone, p.contact_email].filter(Boolean).join(" · ") || "No contact"}</p>
+                  {worries.length ? <p className="note">Concerns: {worries.join(" · ")}</p> : null}
+                  {p.notes ? <p className="note">{p.notes.replace(/food:[a-z,]+/gi, "").replace(/concerns:[a-z,]+/gi, "").trim()}</p> : null}
+                  {p.phone ? <a className="button" href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>Call</a> : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="empty">No open store asks.</p>
+        )}
+      </section>
+
+      <section className="panel">
         <h2>Partner stores</h2>
         {partners.length ? (
           <div className="grid">
@@ -87,6 +112,9 @@ export default async function StorePartnersPage() {
                   <p>{[p.address, p.city, p.state].filter(Boolean).join(", ") || "Address not set"}</p>
                   <p className="note">{p.hold_desk}{p.hours_text ? ` · ${p.hours_text}` : ""}{p.volunteers_on_site ? " · volunteers meet families" : ""}</p>
                   {p.contact_name || p.phone ? <p className="note">{[p.contact_name, p.phone, p.contact_email].filter(Boolean).join(" · ")}</p> : null}
+                  {concernLabels(parseConcerns(p.notes)).length ? (
+                    <p className="note">Concerns: {concernLabels(parseConcerns(p.notes)).join(" · ")}</p>
+                  ) : null}
                   {weekly.length ? (
                     <ul>
                       {weekly.map((j) => (

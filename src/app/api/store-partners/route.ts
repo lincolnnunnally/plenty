@@ -2,7 +2,7 @@ import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
 import { addRecurring, addStorePartner, getDefaultPantry, listRecurring } from "@/lib/db/queries";
 import { notifyDesk } from "@/lib/notify";
 import { validStaffPin } from "@/lib/store-card/code";
-import { encodeFoodNote, foodTypesFrom, normalizeTimeLocal, weekdayName } from "@/lib/store-pitch";
+import { encodeConcerns, encodeFoodNote, foodTypesFrom, normalizeTimeLocal, weekdayName } from "@/lib/store-pitch";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
   const timeLocal = normalizeTimeLocal(str(body.timeLocal));
   const foods = foodTypesFrom(body.foodTypes);
   const foodNote = foods.length ? encodeFoodNote(foods) : "";
+  const concernNote = encodeConcerns(body.concerns);
   const hoursText =
     str(body.hoursText) ||
     (weekday != null && timeLocal ? `${weekdayName(weekday)} ${timeLocal}` : "");
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
       pickupMode,
       holdDesk: str(body.holdDesk) || "Customer service",
       hoursText,
-      notes: [str(body.notes), foodNote].filter(Boolean).join("\n"),
+      notes: [str(body.notes), foodNote, concernNote].filter(Boolean).join("\n"),
       status: asSteward ? str(body.status) || "active" : "invited",
       pin: asSteward ? pin : undefined,
       volunteersOnSite: Boolean(wantVolunteers),
@@ -103,8 +104,8 @@ export async function POST(request: Request) {
       pantryPhone: pantry.phone,
       subject: repeating ? `Plenty: weekly pickup from ${name}` : `Plenty: grocery store ${name}`,
       text: repeating
-        ? `${name} set a weekly leftover pickup.\nWhen: ${whenLine}\nFood: ${foods.join(", ") || "see store"}\nHow: ${pickupMode.replace("_", " ")}\n${contactName} ${phone}\nDesk: https://plenty.unitedundergod.org/run/stores`
-        : `${name} asked to donate leftover food.\n${contactName} ${phone}\nDesk: https://plenty.unitedundergod.org/run/stores`
+        ? `${name} set a weekly leftover pickup.\nWhen: ${whenLine}\nFood: ${foods.join(", ") || "see store"}\nHow: ${pickupMode.replace("_", " ")}\nConcerns: ${concernNote || "none"}\n${contactName} ${phone}\nDesk: https://plenty.unitedundergod.org/run/stores`
+        : `${name} asked to donate leftover food — not ready for a weekly pickup yet.\nConcerns: ${concernNote || "none"}\n${str(body.notes)}\n${contactName} ${phone}\nDesk: https://plenty.unitedundergod.org/run/stores`
     }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
 
     return ok({

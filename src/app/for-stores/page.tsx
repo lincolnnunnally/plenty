@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { PrintButton } from "@/components/print-button";
 import { EIN, LEGAL_NAME } from "@/lib/legal/org";
-import { FOOD_TYPES, STORE_PITCH, WEEKDAYS } from "@/lib/store-pitch";
+import { FOOD_TYPES, STORE_CONCERNS, STORE_PITCH, WEEKDAYS } from "@/lib/store-pitch";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,13 @@ export default function ForStoresPage() {
     <main className="shell">
       <p className="eyebrow">Grocery stores · warehouses · farms</p>
       <h1>Throwing food away is the expensive option.</h1>
-      <p className="lede">A deduction. Two legal shields. A weekly pickup. We route it to the pantry that can use it first.</p>
-      <p className="note">EIN {EIN} · {LEGAL_NAME} · 501(c)(3)</p>
+      <p className="lede">A deduction. Two legal shields. We pick up. You can say not this week.</p>
+      <p className="note">EIN {EIN} · {LEGAL_NAME} · 501(c)(3) · Not legal or tax advice.</p>
+      <div className="action-row">
+        <a className="button primary" href="#signup">Leave a pickup — or just a name</a>
+        <a className="button" href="/for-stores/brief">Print the one-pager</a>
+        <a className="button" href="/tax-exempt">EIN letter</a>
+      </div>
 
       <div className="grid" style={{ marginTop: 18 }}>
         {STORE_PITCH.map((item) => (
@@ -28,10 +33,22 @@ export default function ForStoresPage() {
         ))}
       </div>
 
+      <section className="panel">
+        <h2>If you are not sure</h2>
+        <div className="grid">
+          {STORE_CONCERNS.map((item) => (
+            <article className="card" key={item.value}>
+              <strong>{item.title}</strong>
+              <p>{item.line}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="panel" id="signup">
-        <h2>Set a repeating pickup</h2>
-        <p className="note">We come on that day. Pickup volunteers get a text. The desk sees the load. Produce goes where it will be eaten soonest.</p>
-        <PostForm action="/api/store-partners" submitLabel="Schedule pickup">
+        <h2>Set a pickup — or just talk</h2>
+        <p className="note">A weekly day is optional. If corporate has to say yes, leave a name. We wait.</p>
+        <PostForm action="/api/store-partners" submitLabel="Send this to the pantry">
           <input type="hidden" name="asInterest" value="1" />
           <label className="field"><span>Store name</span><input className="input" name="name" required /></label>
           <label className="field"><span>Address</span><input className="input" name="address" /></label>
@@ -40,14 +57,15 @@ export default function ForStoresPage() {
           <label className="field"><span>Email</span><input className="input" name="contactEmail" type="email" /></label>
           <div className="grid">
             <label className="field">
-              <span>Pickup day</span>
-              <select className="input" name="weekday" defaultValue="5">
+              <span>Pickup day (optional)</span>
+              <select className="input" name="weekday" defaultValue="">
+                <option value="">Not yet — just talk</option>
                 {WEEKDAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </label>
-            <label className="field"><span>Time</span><input className="input" name="timeLocal" type="time" defaultValue="18:00" required /></label>
+            <label className="field"><span>Time (optional)</span><input className="input" name="timeLocal" type="time" /></label>
           </div>
-          <p className="note">Usually on the dock</p>
+          <p className="note">Usually on the dock. We come to you.</p>
           <div className="chip-row">
             {FOOD_TYPES.map((t) => (
               <label className="check" key={t.value}><input type="checkbox" name="foodTypes" value={t.value} defaultChecked={t.value === "dry"} /> {t.label}</label>
@@ -61,6 +79,13 @@ export default function ForStoresPage() {
               <option value="store_meet">Volunteers may meet families in your store</option>
             </select>
           </label>
+          <p className="note">What is in the way? Check any that apply.</p>
+          <div className="chip-row">
+            {STORE_CONCERNS.map((c) => (
+              <label className="check" key={c.value}><input type="checkbox" name="concerns" value={c.value} /> {c.title}</label>
+            ))}
+          </div>
+          <label className="field"><span>Anything else</span><input className="input" name="notes" placeholder="Need a corporate packet, only dry, Thursday close…" /></label>
         </PostForm>
       </section>
 

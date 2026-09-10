@@ -80,6 +80,69 @@ export function itemsForRecurringPickup(types: string[], pickupAt: Date) {
   });
 }
 
+export const STORE_CONCERNS = [
+  {
+    value: "sick",
+    title: "If someone gets sick",
+    line: "Federal Bill Emerson Act and Georgia O.C.G.A. § 51-1-31 cover good-faith donors. Recipients sign a waiver. Gross negligence is the exception — not ordinary leftover food."
+  },
+  {
+    value: "corporate",
+    title: "Corporate has to say yes",
+    line: "Leave the one-pager. We wait. No one stands at your dock until you say so."
+  },
+  {
+    value: "time",
+    title: "Staff do not have time",
+    line: "We come to the dock. You do not sort, bag, or drive. Name a day. We take what is coming off the shelf."
+  },
+  {
+    value: "sales",
+    title: "It will hurt the register",
+    line: "Pantry families still buy what we cannot give. Studies do not show a drop in grocer sales when a pantry is nearby."
+  },
+  {
+    value: "who",
+    title: "Who shows up at the dock",
+    line: "Named volunteers. We text them the time. You can require a name at the door. Extra purchase is never required."
+  },
+  {
+    value: "stop",
+    title: "We might need to stop",
+    line: "You pause any week. One call. The repeating pickup turns off."
+  },
+  {
+    value: "receipt",
+    title: "We need a receipt",
+    line: "We email a receipt for the load. EIN 81-3554390. Show it to your accountant. Not tax advice."
+  },
+  {
+    value: "cold",
+    title: "This is cold or frozen",
+    line: "Say so. We send a truck with a cooler, or we only take dry until we have one."
+  }
+] as const;
+
+export function concernsFrom(value: unknown): string[] {
+  const allowed = new Set<string>(STORE_CONCERNS.map((c) => c.value));
+  const raw = Array.isArray(value) ? value.map((v) => String(v)) : String(value ?? "").split(/[,\s]+/);
+  return [...new Set(raw.map((s) => s.trim().toLowerCase()).filter((s) => allowed.has(s)))];
+}
+
+export function encodeConcerns(value: unknown): string {
+  const c = concernsFrom(value);
+  return c.length ? `concerns:${c.join(",")}` : "";
+}
+
+export function parseConcerns(notes: string): string[] {
+  const match = String(notes || "").match(/concerns:([a-z,]+)/i);
+  return match ? concernsFrom(match[1]) : [];
+}
+
+export function concernLabels(values: string[]) {
+  return STORE_CONCERNS.filter((c) => values.includes(c.value)).map((c) => c.title);
+}
+
 export function weekdayName(n: number) {
   return WEEKDAYS.find((d) => Number(d.value) === n)?.label || "that day";
 }
