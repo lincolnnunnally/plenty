@@ -30,7 +30,6 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
       <p className="eyebrow">{t(lang, "giveTitle")}</p>
       <h1>Food is free. Handling still costs.</h1>
       <p className="lede">{t(lang, "giveLede")}</p>
-      <p className="lede">Card, Cash App, Venmo, or Zelle. Grocery stores: leftover food is the better write-off.</p>
 
       <article className="card" style={{ marginTop: 18 }}>
         <span>Grocery stores</span>
