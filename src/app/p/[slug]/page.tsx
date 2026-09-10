@@ -1,0 +1,91 @@
+import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
+import { notFound } from "next/navigation";
+
+export const dynamic = "force-dynamic";
+
+export default async function PantryPublicPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const pantry = await getPantryBySlug(slug);
+  if (!pantry) notFound();
+  const available = await availableThisWeek(pantry.id);
+  const needs = await weNeedList(pantry.id);
+  const shifts = await listShifts(pantry.id);
+  const days = await listDistributions(pantry.id);
+  const upcoming = days.filter((d) => d.status !== "cancelled" && d.status !== "done");
+
+  return (
+    <main className="shell">
+      <p className="eyebrow">{pantry.city}{pantry.state ? `, ${pantry.state}` : ""} · {pantry.status === "open" ? "Open" : "Getting established"}</p>
+      <h1>{pantry.name}</h1>
+      <p className="lede">{pantry.about || "A pantry that feeds people today and walks with them toward the person they want to become."}</p>
+      <div className="action-row">
+        <a className="button primary" href="/need-food">I need food</a>
+        <a className="button leaf" href="/volunteer">Volunteer</a>
+        <a className="button" href="/donate">Give</a>
+      </div>
+
+      <div className="grid">
+        <article className="card">
+          <span>When and where</span>
+          {pantry.hours_text ? <p>{pantry.hours_text}</p> : <p className="empty">Hours not posted yet — we will not invent them.</p>}
+          {pantry.address ? <p>{pantry.address}<br />{pantry.city}, {pantry.state} {pantry.zip}</p> : <p className="note">Address not posted yet.</p>}
+          {pantry.phone ? <p>{pantry.phone}</p> : null}
+          <p className="note">Visit style: {pantry.visit_style.replace("_", " ")}</p>
+        </article>
+        <article className="card">
+          <span>This week on the shelves</span>
+          {available.length ? (
+            <ul>{available.map((item) => <li key={item.id}>{item.name}</li>)}</ul>
+          ) : (
+            <p className="empty">No items marked available this week.</p>
+          )}
+        </article>
+      </div>
+
+      <section className="panel">
+        <p className="eyebrow">Distribution days</p>
+        {upcoming.length ? (
+          <div className="grid">
+            {upcoming.map((day) => (
+              <article className="card" key={day.id}>
+                <span>{day.status}</span>
+                <strong>{day.title}</strong>
+                <p>{new Date(day.starts_at).toLocaleString()}</p>
+                {day.notes ? <p className="note">{day.notes}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty">No distribution days posted yet.</p>
+        )}
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Volunteer shifts</p>
+        {shifts.length ? (
+          <div className="grid">
+            {shifts.map((shift) => (
+              <article className="card" key={shift.id}>
+                <span>{shift.role}</span>
+                <strong>{shift.title}</strong>
+                <p>{new Date(shift.starts_at).toLocaleString()}</p>
+                <p className="note">{shift.signup_count}{shift.capacity ? ` / ${shift.capacity}` : ""} signed up</p>
+                <a className="button" href="/volunteer">Take a shift</a>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty">No shifts on the board yet.</p>
+        )}
+      </section>
+
+      {needs.length ? (
+        <section className="panel">
+          <p className="eyebrow">We need</p>
+          <div className="chip-row">{needs.map((item) => <span className="chip" key={item.id}>{item.name}</span>)}</div>
+          <a className="button primary" href="/donate">Bring something</a>
+        </section>
+      ) : null}
+    </main>
+  );
+}
