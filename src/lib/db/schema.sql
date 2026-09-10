@@ -402,6 +402,7 @@ create index if not exists plenty_store_vouchers_pantry_idx on plenty_store_vouc
 create index if not exists plenty_store_vouchers_partner_idx on plenty_store_vouchers (partner_id, status);
 create index if not exists plenty_store_vouchers_household_idx on plenty_store_vouchers (household_id, status);
 create unique index if not exists plenty_store_vouchers_code_idx on plenty_store_vouchers (code);
+alter table plenty_store_vouchers add column if not exists still_need_text text not null default '';
 
 -- Local pantries, thrift stores, and churches. Meet first. List publicly only after a steward confirms.
 create table if not exists plenty_allies (

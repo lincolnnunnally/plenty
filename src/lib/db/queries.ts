@@ -1501,7 +1501,7 @@ export async function latestWaiverForUser(pantryId: string, userId: string): Pro
 const STORE_PARTNER_COLS =
   "id, pantry_id, name, address, city, state, zip, phone, contact_name, contact_email, pickup_mode, hold_desk, hours_text, pin_hash, notes, status, extra_purchase_required, created_at";
 const STORE_VOUCHER_COLS =
-  "id, pantry_id, partner_id, household_id, code, items_text, status, issued_at, expires_at, redeemed_at, redeemed_note, created_by, created_at";
+  "id, pantry_id, partner_id, household_id, code, items_text, still_need_text, status, issued_at, expires_at, redeemed_at, redeemed_note, created_by, created_at";
 
 export type StorePartner = {
   id: string;
@@ -1533,6 +1533,7 @@ export type StoreVoucher = {
   household_id: string;
   code: string;
   items_text: string;
+  still_need_text: string;
   status: string;
   issued_at: string;
   expires_at: string | null;
@@ -1552,6 +1553,7 @@ export type PublicStoreCard = {
   code: string;
   status: string;
   items_text: string;
+  still_need_text: string;
   expires_at: string | null;
   redeemed_at: string | null;
   household_name: string;
@@ -1745,6 +1747,7 @@ export async function issueStoreVoucher(input: {
   partnerId: string;
   householdId: string;
   itemsText: string;
+  stillNeedText: string;
   expiresAt: string | null;
   createdBy: string | null;
 }): Promise<StoreVoucher> {
@@ -1777,6 +1780,7 @@ export async function issueStoreVoucher(input: {
         household_id: input.householdId,
         code,
         items_text: input.itemsText,
+        still_need_text: input.stillNeedText,
         status: "issued",
         expires_at: input.expiresAt,
         created_by: input.createdBy
@@ -1837,6 +1841,7 @@ export async function publicStoreCardByCode(code: string): Promise<PublicStoreCa
     code: row.code,
     status,
     items_text: row.items_text,
+    still_need_text: row.still_need_text || "",
     expires_at: row.expires_at,
     redeemed_at: row.redeemed_at,
     household_name: household?.display_name || "Household",

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireStewardFor, requireUser } from "@/lib/api";
 import { getDefaultPantry, getStoreVoucher, householdForUser, listStorePartners, listStoreVouchers } from "@/lib/db/queries";
-import { holdListPdf, storeCardPdf } from "@/lib/store-card/pdf";
+import { bagSlipPdf, holdListPdf, storeCardPdf } from "@/lib/store-card/pdf";
 
 export const dynamic = "force-dynamic";
 
@@ -52,16 +52,22 @@ export async function GET(request: Request) {
     }
   }
 
-  const bytes = await storeCardPdf({
+  const print = {
     code: voucher.code,
     householdName: voucher.household_name || "Household",
     partnerName: voucher.partner_name || "Partner store",
     holdDesk: voucher.hold_desk || "Customer service",
     hoursText: voucher.hours_text || "",
     itemsText: voucher.items_text,
+    stillNeedText: voucher.still_need_text || "",
     address: voucher.partner_address || "",
     expiresAt: voucher.expires_at
-  });
+  };
+  if (kind === "slip") {
+    const bytes = await bagSlipPdf(print);
+    return pdfResponse(bytes, `plenty-bag-slip-${voucher.code.toLowerCase()}.pdf`);
+  }
+  const bytes = await storeCardPdf(print);
   return pdfResponse(bytes, `plenty-store-card-${voucher.code.toLowerCase()}.pdf`);
 }
 

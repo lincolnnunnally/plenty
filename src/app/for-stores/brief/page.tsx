@@ -43,7 +43,7 @@ export default function StoreBriefPage() {
         </div>
 
         <p className="note" style={{ marginTop: 16 }}>
-          Two ways: we pick up at the dock, or families come in with a Plenty card and collect a hold at customer service. Extra purchase is not required. People who walk the aisles tend to spend the money they saved — that is proximity, not a condition.
+          Two ways: we pick up at the dock, or they collect a bag at customer service, open it, then shop for what is not in it. Extra purchase is not required. Do not mix the gift with a paid cart at checkout.
         </p>
 
         <footer className="brief-foot brief-foot-qr">

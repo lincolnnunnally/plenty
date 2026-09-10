@@ -50,14 +50,15 @@ export default async function AccountPage() {
       {storeCards.length ? (
         <section className="panel">
           <h2>Your grocery store card</h2>
-          <p className="note">Show this at customer service. You do not have to buy anything else.</p>
+          <p className="note">Get the bag first, then shop if you want. You do not have to buy anything.</p>
           <div className="grid">
             {storeCards.map((card) => (
               <article className="card" key={card.id}>
                 <span>{card.code} · {card.partner_name}</span>
                 <strong>{card.hold_desk || "Customer service"}</strong>
                 <p>{card.items_text || "This week's hold"}</p>
-                <a className="button primary" href={`/api/store-card?voucherId=${card.id}`}>Print this card</a>
+                <a className="button primary" href={`/api/store-card?voucherId=${card.id}`}>Print card</a>
+                <a className="button" href={`/api/store-card?kind=slip&voucherId=${card.id}`}>Bag slip</a>
               </article>
             ))}
           </div>

@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       partnerId,
       householdId,
       itemsText: str(body.itemsText),
+      stillNeedText: str(body.stillNeedText),
       expiresAt,
       createdBy: user.id
     });

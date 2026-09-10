@@ -25,14 +25,14 @@ export default async function StorePartnersPage() {
       <p className="eyebrow">Store partners</p>
       <h1>In-store pickup cards</h1>
       <p className="lede">
-        The store donates on paper. The household carries a Plenty card and collects at customer service.
-        Extra purchase is never required — proximity does the rest.
+        Bag first, then shop. Mystery bags can differ. Do not mix free and paid at checkout.
+        Money gifts and a person to walk with belong at Plenty — not at the grocery register.
       </p>
       <RunNav />
 
       <section className="panel">
         <h2>Add a grocery store</h2>
-        <p className="note">Default is a hold at customer service. That is what most stores will take. A named food list is the other in-store option. Dock pickup stays available on Give.</p>
+        <p className="note">Default is a bag at customer service. They open it, then they may shop. Do not offer “walk the aisles and sort free vs paid at the register.” That is the uncertainty that hurts people.</p>
         <PostForm action="/api/store-partners" submitLabel="Save store">
           <label className="field"><span>Store name</span><input className="input" name="name" required placeholder="Vidalia Piggly Wiggly…" /></label>
           <label className="field"><span>Address</span><input className="input" name="address" /></label>
@@ -118,8 +118,12 @@ export default async function StorePartnersPage() {
               </select>
             </label>
             <label className="field">
-              <span>What is waiting (hold bag, or named items)</span>
-              <input className="input" name="itemsText" placeholder="This week's produce hold, or: milk, bread, eggs" />
+              <span>What is in this bag (bags can differ — mystery is OK)</span>
+              <input className="input" name="itemsText" placeholder="Chicken, rice, apples, pasta — or leave blank for a true surprise" />
+            </label>
+            <label className="field">
+              <span>They may still want (a hint, not a bill)</span>
+              <input className="input" name="stillNeedText" placeholder="Milk, eggs, soap — only if they choose to buy" />
             </label>
             <label className="field">
               <span>Expires in days (blank = until collected)</span>
@@ -150,6 +154,7 @@ export default async function StorePartnersPage() {
                     <td>
                       <div className="action-row" style={{ marginTop: 0 }}>
                         {v.status === "issued" ? <a className="button" href={`/api/store-card?voucherId=${v.id}`}>Print card</a> : null}
+                        {v.status === "issued" ? <a className="button" href={`/api/store-card?kind=slip&voucherId=${v.id}`}>Bag slip</a> : null}
                         {v.status === "issued" ? (
                           <PostForm action={`/api/store-vouchers/${v.id}`} submitLabel="Void">
                             <input type="hidden" name="status" value="void" />

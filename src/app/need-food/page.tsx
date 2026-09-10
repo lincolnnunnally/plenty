@@ -185,15 +185,19 @@ export default async function NeedFoodPage() {
               {storeCards.length ? (
                 <>
                   <h3 style={{ marginTop: 24 }}>Your grocery store card</h3>
-                  <p className="note">Carry this like a membership card. Show it at customer service. You do not have to buy anything else.</p>
+                  <p className="note">Get the bag first. Open it. Then shop for what is not in it — only if you want. You do not have to buy anything. If you can give a little to keep Plenty going, do that here, not at the grocery register.</p>
                   <div className="grid">
                     {storeCards.map((card) => (
                       <article className="card" key={card.id}>
                         <span>{card.code} · {card.partner_name}</span>
                         <strong>{card.hold_desk || "Customer service"}</strong>
-                        <p>{card.items_text || "This week's hold"}</p>
+                        <p>In the bag: {card.items_text || "Open it first — it is this week's gift."}</p>
+                        {card.still_need_text ? <p className="note">You may still want: {card.still_need_text}</p> : null}
                         {card.hours_text ? <p className="note">{card.hours_text}</p> : null}
-                        <a className="button primary" href={`/api/store-card?voucherId=${card.id}`}>Print this card</a>
+                        <div className="action-row">
+                          <a className="button primary" href={`/api/store-card?voucherId=${card.id}`}>Print card</a>
+                          <a className="button" href={`/api/store-card?kind=slip&voucherId=${card.id}`}>Print bag slip</a>
+                        </div>
                       </article>
                     ))}
                   </div>

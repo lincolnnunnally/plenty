@@ -37,7 +37,7 @@ export default function ForStoresPage() {
       <section className="panel" id="in-store">
         <h2>Want them walking your aisles?</h2>
         <p className="lede" style={{ fontSize: "1.05rem" }}>
-          Two ways to give unsold food. Extra spend is never required.
+          Bag first, then they may shop. Extra spend is never required. Do not sort free vs paid at your register.
         </p>
         <div className="brief-grid" style={{ marginTop: 14 }}>
           <section>
@@ -47,12 +47,12 @@ export default function ForStoresPage() {
           </section>
           <section>
             <span>B</span>
-            <h2>They come to you</h2>
-            <p>You donate on paper. We print a Plenty card. They collect a hold at customer service.</p>
+            <h2>Bag at customer service</h2>
+            <p>They collect a hold, open it, then walk your aisles for what is not in the bag — if they want.</p>
           </section>
         </div>
         <p className="note" style={{ marginTop: 12 }}>
-          People who walk in tend to spend the money they saved — milk, soap, a birthday cake. That is proximity, not a condition. Federal Good Samaritan law still covers a good-faith gift, including food given straight to a family. If a pantry a mile away can take the food, we will introduce you. You did not know you could. You can.
+          Mixing a mystery bag with a paid cart at checkout is what scares people. Hand the bag first. They know what is free. What they still buy, they buy from you. That is proximity, not a condition. Money gifts to the pantry happen with us, not at your till.
         </p>
         <div className="action-row">
           <a className="button primary" href="/donate">We’ll pick it up</a>
@@ -62,7 +62,7 @@ export default function ForStoresPage() {
 
       <section className="panel" id="store-yes">
         <h2>Yes — hold food for Plenty families</h2>
-        <p className="note">A pantry admin will call you. Default is a bag at customer service, not a mystery cart. Buying anything else is never required.</p>
+        <p className="note">A pantry admin will call you. Default is a bag at customer service — they open it, then they may shop. Buying anything else is never required.</p>
         <PostForm action="/api/store-partners" submitLabel="Ask us to set this up">
           <input type="hidden" name="asInterest" value="1" />
           <input type="hidden" name="pickupMode" value="hold_desk" />
