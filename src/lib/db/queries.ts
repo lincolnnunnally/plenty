@@ -2455,53 +2455,61 @@ export async function ensureToombsStartingPoints(pantryId: string): Promise<numb
     added += 1;
   }
 
-  const latest = added ? await listAllies(pantryId) : existing;
+  const latest = await listAllies(pantryId);
   for (const visit of FIELD_VISITS) {
     const keys = new Set(visit.names.map(allyNameKey));
     const row = latest.find((a) => keys.has(allyNameKey(a.name)));
     const visitedAt = `${visit.visitedOn}T16:00:00.000Z`;
-    if (row) {
-      const already = row.last_visited_at && row.last_visited_at.slice(0, 10) >= visit.visitedOn;
-      if (already) continue;
-      await updateAlly(row.id, pantryId, {
-        address: visit.address,
-        city: visit.city,
-        zip: visit.zip,
-        phone: visit.phone,
-        hoursText: visit.hoursText,
-        relationship: visit.relationship,
-        listedPublicly: visit.listedPublicly,
-        visitNotes: visit.visitNotes,
-        sourceNote: visit.sourceNote,
-        lastVisitedAt: visitedAt
-      });
-    } else {
-      const created = await addAlly({
-        pantryId,
-        kind: visit.kind,
-        name: visit.names[0],
-        address: visit.address,
-        city: visit.city,
-        state: "GA",
-        zip: visit.zip,
-        phone: visit.phone,
-        contactName: "",
-        contactEmail: "",
-        hoursHint: "",
-        hoursText: visit.hoursText,
-        website: "",
-        relationship: visit.relationship,
-        listedPublicly: visit.listedPublicly,
-        wantsFood: false,
-        canHostDistribution: false,
-        canPickup: false,
-        wantsVolunteers: false,
-        hasFreezer: false,
-        hasSpace: false,
-        visitNotes: visit.visitNotes,
-        sourceNote: visit.sourceNote
-      });
-      await updateAlly(created.id, pantryId, { lastVisitedAt: visitedAt });
+    try {
+      if (row) {
+        const newerDesk = row.last_visited_at && row.last_visited_at.slice(0, 10) > visit.visitedOn;
+        const same =
+          row.hours_text === visit.hoursText &&
+          row.relationship === visit.relationship &&
+          row.listed_publicly === visit.listedPublicly;
+        if (newerDesk || same) continue;
+        await updateAlly(row.id, pantryId, {
+          address: visit.address,
+          city: visit.city,
+          zip: visit.zip,
+          phone: visit.phone,
+          hoursText: visit.hoursText,
+          relationship: visit.relationship,
+          listedPublicly: visit.listedPublicly,
+          visitNotes: visit.visitNotes,
+          sourceNote: visit.sourceNote,
+          lastVisitedAt: visitedAt
+        });
+      } else {
+        const created = await addAlly({
+          pantryId,
+          kind: visit.kind,
+          name: visit.names[0],
+          address: visit.address,
+          city: visit.city,
+          state: "GA",
+          zip: visit.zip,
+          phone: visit.phone,
+          contactName: "",
+          contactEmail: "",
+          hoursHint: "",
+          hoursText: visit.hoursText,
+          website: "",
+          relationship: visit.relationship,
+          listedPublicly: visit.listedPublicly,
+          wantsFood: false,
+          canHostDistribution: false,
+          canPickup: false,
+          wantsVolunteers: false,
+          hasFreezer: false,
+          hasSpace: false,
+          visitNotes: visit.visitNotes,
+          sourceNote: visit.sourceNote
+        });
+        await updateAlly(created.id, pantryId, { lastVisitedAt: visitedAt }).catch(() => created);
+      }
+    } catch {
+      continue;
     }
   }
   return added;
