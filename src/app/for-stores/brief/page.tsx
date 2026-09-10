@@ -43,13 +43,13 @@ export default function StoreBriefPage() {
         </div>
 
         <p className="note" style={{ marginTop: 16 }}>
-          Two ways: we pick up at the dock, or they collect a bag at customer service, open it, then shop for what is not in it. Extra purchase is not required. Do not mix the gift with a paid cart at checkout.
+          You choose: we pick up at the dock, you hold a bag at customer service, or — only if you ask — a volunteer meets them with the bag. Extra purchase is not required.
         </p>
 
         <footer className="brief-foot brief-foot-qr">
           <div>
-            <strong>We pick up. Or they come to you.</strong>
-            <p>Dock pickup, or a hold at customer service. Receipt either way.</p>
+            <strong>You choose. We meet people where the opportunity is.</strong>
+            <p>Dock, desk hold, or volunteers on your floor if you ask. Receipt either way.</p>
             <p className="brief-fine">Not legal or tax advice. Show this to your accountant.</p>
           </div>
           <div className="brief-qr">

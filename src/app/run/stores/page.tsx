@@ -32,7 +32,7 @@ export default async function StorePartnersPage() {
 
       <section className="panel">
         <h2>Add a grocery store</h2>
-        <p className="note">Default is a bag at customer service. They open it, then they may shop. Do not offer “walk the aisles and sort free vs paid at the register.” That is the uncertainty that hurts people.</p>
+        <p className="note">The store chooses: dock pickup, a desk hold, or volunteers on the floor. We do not put volunteers in a store that did not ask. We meet people where the opportunity is.</p>
         <PostForm action="/api/store-partners" submitLabel="Save store">
           <label className="field"><span>Store name</span><input className="input" name="name" required placeholder="Vidalia Piggly Wiggly…" /></label>
           <label className="field"><span>Address</span><input className="input" name="address" /></label>
@@ -56,8 +56,8 @@ export default async function StorePartnersPage() {
           <label className="field"><span>Hours for pickup</span><input className="input" name="hoursText" placeholder="Weekdays 9–6…" /></label>
           <label className="field"><span>Store PIN (4–8 digits, so they can mark a card collected)</span><input className="input" name="pin" inputMode="numeric" pattern="\d{4,8}" /></label>
           <input type="hidden" name="volunteersOnSite" value="0" />
-          <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked /> Plenty volunteers meet families here — carry the bag, offer prayer if they want</label>
-          <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" defaultValue="Green apron at customer service" /></label>
+          <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" /> Store asked: Plenty volunteers may meet families here</label>
+          <label className="field"><span>How to find the volunteer (only if they asked)</span><input className="input" name="meetNote" placeholder="Green apron at customer service" /></label>
           <label className="field"><span>Notes</span><input className="input" name="notes" /></label>
           <input type="hidden" name="status" value="active" />
         </PostForm>
@@ -88,7 +88,7 @@ export default async function StorePartnersPage() {
                   <label className="field"><span>Hold desk</span><input className="input" name="holdDesk" defaultValue={p.hold_desk} /></label>
                   <label className="field"><span>Hours</span><input className="input" name="hoursText" defaultValue={p.hours_text} /></label>
                   <input type="hidden" name="volunteersOnSite" value="0" />
-                  <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked={p.volunteers_on_site} /> Volunteers meet families and carry the bag</label>
+                  <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked={p.volunteers_on_site} /> Store chose: volunteers meet families here</label>
                   <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" defaultValue={p.meet_note} /></label>
                   <label className="field"><span>New PIN (leave blank to keep)</span><input className="input" name="pin" inputMode="numeric" /></label>
                 </PostForm>

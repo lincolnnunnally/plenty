@@ -16,8 +16,15 @@ export async function POST(request: Request) {
   const phone = str(body.phone);
   const contactName = str(body.contactName);
   if (!phone && !contactName) return fail("Leave a phone or a manager name so we can follow up.");
-  const pickupMode = str(body.pickupMode) || "hold_desk";
+  const how = str(body.how);
+  const pickupMode = how === "store_meet" ? "hold_desk" : how === "dock_pickup" ? "dock_pickup" : (str(body.pickupMode) || "hold_desk");
   if (!MODES.has(pickupMode)) return fail("Choose hold at the desk, a food list, or dock pickup.");
+  const wantVolunteers =
+    how === "store_meet" ||
+    body.volunteersOnSite === true ||
+    body.volunteersOnSite === "on" ||
+    body.volunteersOnSite === "1" ||
+    (Array.isArray(body.volunteersOnSite) && body.volunteersOnSite.includes("1"));
   const pin = str(body.pin);
   if (pin && !validStaffPin(pin)) return fail("A store PIN is 4 to 8 digits.");
 
@@ -41,7 +48,7 @@ export async function POST(request: Request) {
       notes: str(body.notes),
       status: asSteward ? str(body.status) || "active" : "invited",
       pin: asSteward ? pin : undefined,
-      volunteersOnSite: asSteward && (body.volunteersOnSite === true || body.volunteersOnSite === "on" || body.volunteersOnSite === "1" || (Array.isArray(body.volunteersOnSite) && body.volunteersOnSite.includes("1"))),
+      volunteersOnSite: Boolean(wantVolunteers),
       meetNote: str(body.meetNote)
     });
     return ok({

@@ -35,9 +35,9 @@ export default function ForStoresPage() {
       </div>
 
       <section className="panel" id="in-store">
-        <h2>Want them walking your aisles?</h2>
+        <h2>You choose how we work with you</h2>
         <p className="lede" style={{ fontSize: "1.05rem" }}>
-          Bag first, then they may shop. Extra spend is never required. Do not sort free vs paid at your register.
+          We meet people where the opportunity is. Extra spend is never required.
         </p>
         <div className="brief-grid" style={{ marginTop: 14 }}>
           <section>
@@ -47,31 +47,43 @@ export default function ForStoresPage() {
           </section>
           <section>
             <span>B</span>
-            <h2>Bag at customer service</h2>
-            <p>A Plenty volunteer meets them with the bag, offers to pray if they want, then they may shop. Prayer is never required.</p>
+            <h2>Hold at your desk</h2>
+            <p>They show a Plenty card at customer service, take a bag, then may shop. No volunteer on the floor unless you ask.</p>
+          </section>
+          <section>
+            <span>C</span>
+            <h2>Volunteers meet them here</h2>
+            <p>Only if you want it. A volunteer carries the bag, offers to pray if they want, then they may shop. Prayer is never required.</p>
           </section>
         </div>
         <p className="note" style={{ marginTop: 12 }}>
-          A volunteer carries the gift to them first. Then they are already in your store. What they still buy, they buy from you. That is proximity after the gift — not a condition. Prayer is offered, never required. Money gifts to the pantry happen with us, not at your till.
+          C is your choice, not ours to assume. If you say yes, they are already in your store after the gift is in their hands. What they still buy, they buy from you. Money gifts to the pantry happen with us, not at your till.
         </p>
         <div className="action-row">
           <a className="button primary" href="/donate">We’ll pick it up</a>
-          <a className="button leaf" href="#store-yes">We’ll send families in</a>
+          <a className="button leaf" href="#store-yes">You choose</a>
         </div>
       </section>
 
       <section className="panel" id="store-yes">
-        <h2>Yes — hold food for Plenty families</h2>
-        <p className="note">A pantry admin will call you. Default is a bag at customer service — they open it, then they may shop. Buying anything else is never required.</p>
+        <h2>Tell us how you want to give</h2>
+        <p className="note">A pantry admin will call you. You pick the option. We do not put volunteers on your floor unless you ask.</p>
         <PostForm action="/api/store-partners" submitLabel="Ask us to set this up">
           <input type="hidden" name="asInterest" value="1" />
-          <input type="hidden" name="pickupMode" value="hold_desk" />
           <label className="field"><span>Store name</span><input className="input" name="name" required /></label>
           <label className="field"><span>Address</span><input className="input" name="address" /></label>
           <label className="field"><span>Manager name</span><input className="input" name="contactName" required /></label>
           <label className="field"><span>Phone</span><input className="input" name="phone" required /></label>
           <label className="field"><span>Email</span><input className="input" name="contactEmail" type="email" /></label>
-          <label className="field"><span>Hours they could collect</span><input className="input" name="hoursText" placeholder="Weekdays after 2…" /></label>
+          <label className="field">
+            <span>How you want to work with us</span>
+            <select className="input" name="how" defaultValue="dock_pickup">
+              <option value="dock_pickup">Pick up at our dock — families do not come in</option>
+              <option value="hold_desk">Hold a bag at customer service — no volunteers on the floor</option>
+              <option value="store_meet">Plenty volunteers may meet families here with the bag</option>
+            </select>
+          </label>
+          <label className="field"><span>Hours they could collect (if they come in)</span><input className="input" name="hoursText" placeholder="Weekdays after 2…" /></label>
         </PostForm>
       </section>
 

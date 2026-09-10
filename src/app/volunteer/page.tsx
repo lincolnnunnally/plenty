@@ -27,8 +27,8 @@ export default async function VolunteerPage() {
       <p className="eyebrow">Volunteer · Vidalia food pantry</p>
       <h1>Help neighbors get groceries</h1>
       <p className="lede">
-        Help Plenty, or help a pantry already in Toombs County that asked for hands. Churches can send
-        people either place. We do not take over a pantry that is happy as it is.
+        Help Plenty, or help a pantry already here that asked. Meet people where the opportunity is —
+        including a grocery store that invited us. We do not take over a pantry or a store that did not ask.
       </p>
 
       <div className="grid">

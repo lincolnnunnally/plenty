@@ -104,8 +104,8 @@ export default async function HomePage() {
         <p className="eyebrow">Toombs County</p>
         <h2>We are meeting the pantries already here</h2>
         <p>
-          United Under God means we show up as support, not as a takeover. If they want grocery food,
-          volunteers, or a pickup from a store, we help. If they are happy as they are, Plenty does its own thing.
+          United Under God means we show up as support, not as a takeover. We meet people where the
+          opportunity is — a pantry that asked, a store that chose how to give. If they are happy as they are, Plenty does its own thing.
         </p>
         {nearby.filter((a) => a.kind === "pantry").length ? (
           <p className="note">{nearby.filter((a) => a.kind === "pantry").length} pantry(ies) confirmed for neighbors. <a href="/around">See them</a>.</p>
