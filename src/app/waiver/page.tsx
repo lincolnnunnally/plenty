@@ -13,8 +13,8 @@ export const metadata = pageMeta(
 export default async function WaiverPage() {
   const user = await getCurrentUser().catch(() => null);
   const pantry = await getDefaultPantrySafe();
-  const household = user && pantry ? await householdForUser(pantry.id, user.id) : null;
-  const signed = user && pantry ? await latestWaiverForUser(pantry.id, user.id) : null;
+  const household = user && pantry ? await householdForUser(pantry.id, user.id).catch(() => null) : null;
+  const signed = user && pantry ? await latestWaiverForUser(pantry.id, user.id).catch(() => null) : null;
   const current =
     signed?.version === FOOD_WAIVER_VERSION ||
     (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at));

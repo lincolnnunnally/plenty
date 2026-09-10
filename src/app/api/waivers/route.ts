@@ -5,6 +5,11 @@ import { getDefaultPantry, householdForUser, signFoodWaiver } from "@/lib/db/que
 
 export const dynamic = "force-dynamic";
 
+function agreed(value: unknown) {
+  const parts = Array.isArray(value) ? value : [value];
+  return parts.some((v) => v === true || v === "true" || v === "on" || v === "1");
+}
+
 export async function POST(request: Request) {
   const { error, user } = await requireUser();
   if (error || !user) return error || fail("Sign in first.", 401);
@@ -12,7 +17,7 @@ export async function POST(request: Request) {
   if (!body) return fail("Send a JSON body.");
   const pantry = await getDefaultPantry();
   if (!pantry) return fail("No pantry is set up yet.", 503);
-  if (!(body.agreed === true || body.agreed === "true" || body.agreed === "on")) {
+  if (!agreed(body.agreed)) {
     return fail("Check the box if you agree.");
   }
   const kind = str(body.kind) === "volunteer" ? "volunteer" : "food";

@@ -27,7 +27,7 @@ export default async function LinePage({
 }) {
   const { slug } = await params;
   const { cancelled, pass } = await searchParams;
-  const pantry = await getPantryBySlug(slug);
+  const pantry = await getPantryBySlug(slug).catch(() => null);
   if (!pantry) notFound();
   const methods = await effectivePayMethods(pantry).catch(() => []);
   const cardLive = await stripeConfigured();

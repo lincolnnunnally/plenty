@@ -1,4 +1,5 @@
 import { listPeople, recordPromoSend } from "@/lib/db/queries";
+import { mayText } from "@/lib/cooler";
 import { resendConfigured, resendFrom } from "@/lib/promote/email";
 
 export function twilioConfigured() {
@@ -48,7 +49,7 @@ export async function sendPlainEmail(to: string, subject: string, text: string):
   return { ok: true, error: "" };
 }
 
-export type CrewMember = { email: string | null; phone: string | null; name: string | null; roles: string[] };
+export type CrewMember = { email: string | null; phone: string | null; name: string | null; roles: string[]; notes?: string | null };
 
 export async function notifyPeople(input: {
   pantryId: string;
@@ -77,7 +78,7 @@ export async function notifyPeople(input: {
         errors.push(`${person.email}: ${r.error}`);
       }
     }
-    if (person.phone && smsReady) {
+    if (person.phone && smsReady && mayText(person.notes)) {
       const r = await sendSms(person.phone, `${input.subject}\n${input.text}`.slice(0, 1400));
       if (r.ok) {
         texted += 1;

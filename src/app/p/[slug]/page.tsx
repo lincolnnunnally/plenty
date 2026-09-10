@@ -44,10 +44,10 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
       </main>
     );
   }
-  const available = await availableThisWeek(pantry.id);
-  const needs = await weNeedList(pantry.id);
-  const shifts = await listShifts(pantry.id);
-  const days = await listDistributions(pantry.id);
+  const available = await availableThisWeek(pantry.id).catch(() => []);
+  const needs = await weNeedList(pantry.id).catch(() => []);
+  const shifts = await listShifts(pantry.id).catch(() => []);
+  const days = await listDistributions(pantry.id).catch(() => []);
   const upcoming = days.filter((d) => d.status !== "cancelled" && d.status !== "done");
   const pay = await effectivePayMethods(pantry).catch(() => []);
 

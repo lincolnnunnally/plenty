@@ -44,7 +44,6 @@ export default async function VolunteerWaiverPage() {
           <h2>Agree</h2>
           <PostForm action="/api/waivers" submitLabel="I agree" successHref="/volunteer">
             <input type="hidden" name="kind" value="volunteer" />
-            <input type="hidden" name="agreed" value="0" />
             <label className="field"><span>Your name</span><input className="input" name="signedName" defaultValue={user.name} required /></label>
             <label className="check"><input type="checkbox" name="agreed" value="true" required /> I have read this and I agree</label>
           </PostForm>

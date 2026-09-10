@@ -18,8 +18,8 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
   const { cancelled } = await searchParams;
   const user = await getCurrentUser().catch(() => null);
   const pantry = await getDefaultPantrySafe();
-  const needs = pantry ? await weNeedList(pantry.id) : [];
-  const tax = pantry ? await getTaxProfile(pantry.id) : null;
+  const needs = pantry ? await weNeedList(pantry.id).catch(() => []) : [];
+  const tax = pantry ? await getTaxProfile(pantry.id).catch(() => null) : null;
   const opsNeeds = pantry ? await openOpsNeeds(pantry.id).catch(() => []) : [];
   const pay = pantry ? await effectivePayMethods(pantry).catch(() => []) : [];
   const cardLive = await stripeConfigured();
