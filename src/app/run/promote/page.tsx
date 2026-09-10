@@ -121,6 +121,12 @@ export default async function PromotePage({ searchParams }: { searchParams: Prom
             <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/for-stores")}&format=png&size=360`} alt="QR code for stores" width={180} height={180} />
             <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/for-stores")}&format=png&size=1024`}>Download</a>
           </article>
+          <article className="card">
+            <span>One-page leave-behind</span>
+            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/for-stores/brief")}&format=png&size=360`} alt="QR code for the one-page store brief" width={180} height={180} />
+            <p className="note">Print and leave with a manager. EIN and the four wins on one sheet.</p>
+            <a className="button" href="/for-stores/brief">Open one-pager</a>
+          </article>
         </div>
       </section>
 

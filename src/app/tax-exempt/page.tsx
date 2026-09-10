@@ -1,36 +1,40 @@
+import { EIN, LEGAL_NAME, TAX_LINE } from "@/lib/legal/org";
 import { getDefaultPantrySafe, getTaxProfile } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Tax-exempt information",
-  "Tax-exempt letter and EIN for donations to Plenty food pantry in Vidalia, Georgia — posted only when we have them."
+  `${LEGAL_NAME} is a 501(c)(3), EIN ${EIN}. Plenty food pantry is a program of United Under God. Gifts of food or money may be tax-deductible to the extent allowed by law.`
 );
 
 export default async function TaxExemptPage() {
   const pantry = await getDefaultPantrySafe();
   const tax = pantry ? await getTaxProfile(pantry.id) : null;
-  const posted = Boolean(tax?.posted && (tax.ein || tax.letter_text || tax.letter_url));
+  const legalName = tax?.legal_name?.trim() || LEGAL_NAME;
+  const ein = tax?.ein?.trim() || EIN;
 
   return (
     <main className="shell">
       <p className="eyebrow">Donors</p>
       <h1>Tax-exempt information</h1>
-      {posted ? (
-        <div className="panel">
-          <p>Gifts to this food pantry may be tax-deductible to the extent allowed by law. This is the information we have on file.</p>
-          {tax?.legal_name ? <p><strong>Legal name:</strong> {tax.legal_name}</p> : null}
-          {tax?.ein ? <p><strong>EIN:</strong> {tax.ein}</p> : null}
-          {tax?.letter_text ? <p style={{ whiteSpace: "pre-wrap" }}>{tax.letter_text}</p> : null}
-          {tax?.letter_url ? <p><a className="button" href={tax.letter_url} target="_blank" rel="noopener noreferrer">Open the determination letter</a></p> : null}
-        </div>
-      ) : (
-        <p className="empty">
-          We will not claim tax-exempt status here until a determination letter and EIN are on file.
-          Your gift is still recorded. When the letter is posted, year-end receipts will use this page.
-        </p>
-      )}
-      <a className="button" href="/donate">Back to giving</a>
+      <div className="panel">
+        <p>{TAX_LINE}</p>
+        <p>Gifts of food inventory and money to Plenty are gifts to {legalName}. They may be tax-deductible to the extent allowed by law. Grocery stores: see the <a href="/for-stores/brief">one-page leave-behind</a> for the enhanced food-inventory deduction.</p>
+        <p><strong>Legal name:</strong> {legalName}</p>
+        <p><strong>EIN:</strong> {ein}</p>
+        <p><strong>Status:</strong> 501(c)(3)</p>
+        {tax?.letter_text ? <p style={{ whiteSpace: "pre-wrap" }}>{tax.letter_text}</p> : null}
+        {tax?.letter_url ? (
+          <p><a className="button" href={tax.letter_url} target="_blank" rel="noopener noreferrer">Open the determination letter</a></p>
+        ) : (
+          <p className="note">The determination letter can be attached here when a scan is on file. The EIN is already public on United Under God.</p>
+        )}
+      </div>
+      <div className="action-row">
+        <a className="button primary" href="/donate">Give food or money</a>
+        <a className="button" href="/for-stores">For grocery stores</a>
+      </div>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
+import { EIN, LEGAL_NAME } from "@/lib/legal/org";
 import { getTaxProfile, receivedMoneyGifts } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
@@ -17,14 +18,14 @@ export default async function ReceiptsPage() {
     <main className="shell">
       <p className="eyebrow">Pantry desk</p>
       <h1>Tax letter and year-end receipts</h1>
-      <p className="lede">Do not post an EIN or 501(c)(3) claim until you have the letter. Until then, gifts are still recorded.</p>
+      <p className="lede">Plenty is a program of {LEGAL_NAME}, EIN {EIN}. Keep the public page in agreement with that. Attach a letter scan if you have one.</p>
       <RunNav />
 
       <section className="panel">
         <h2>Tax-exempt letter</h2>
         <PostForm action="/api/tax" submitLabel="Save tax info">
-          <label className="field"><span>Legal name</span><input className="input" name="legalName" defaultValue={tax?.legal_name || ""} /></label>
-          <label className="field"><span>EIN</span><input className="input" name="ein" defaultValue={tax?.ein || ""} /></label>
+          <label className="field"><span>Legal name</span><input className="input" name="legalName" defaultValue={tax?.legal_name || LEGAL_NAME} /></label>
+          <label className="field"><span>EIN</span><input className="input" name="ein" defaultValue={tax?.ein || EIN} /></label>
           <label className="field"><span>Link to the determination letter (optional)</span><input className="input" name="letterUrl" defaultValue={tax?.letter_url || ""} /></label>
           <label className="field"><span>Letter text (optional)</span><textarea className="input" name="letterText" defaultValue={tax?.letter_text || ""} /></label>
           <label className="check"><input type="checkbox" name="posted" defaultChecked={tax?.posted} /> Show this on the public tax-exempt page</label>

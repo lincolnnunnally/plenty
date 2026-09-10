@@ -1,4 +1,5 @@
-import { getDefaultPantrySafe, getTaxProfile } from "@/lib/db/queries";
+import { EIN, LEGAL_NAME, TAX_LINE } from "@/lib/legal/org";
+import { getDefaultPantrySafe } from "@/lib/db/queries";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
 
@@ -10,7 +11,6 @@ export const metadata = pageMeta(
 
 export default async function ForStoresPage() {
   const pantry = await getDefaultPantrySafe();
-  const tax = pantry ? await getTaxProfile(pantry.id) : null;
   const publicUrl = pantry ? pantryPublicUrl(pantry.slug) : "https://plenty.unitedundergod.org/p/vidalia";
 
   return (
@@ -23,10 +23,10 @@ export default async function ForStoresPage() {
         rules. This page is for the owner who is afraid of a lawsuit, afraid of losing sales, or
         unsure the paperwork is worth it.
       </p>
+      <p className="brief-ein">{TAX_LINE} A gift of food to Plenty is a gift to {LEGAL_NAME}.</p>
       <p className="note">
-        This is not legal or tax advice. It is the public law and published research, in plain
-        words, so you can take it to your accountant. Links go to the statute and USDA, not to a
-        brochure we wrote.
+        Print the one-page leave-behind: <a href="/for-stores/brief">plenty.unitedundergod.org/for-stores/brief</a>.
+        This is not legal or tax advice. Take it to your accountant. Links below go to the statute and USDA.
       </p>
 
       <section className="panel">
@@ -107,21 +107,11 @@ export default async function ForStoresPage() {
           about $250 — cost plus half the $100 you will never ring up. That is why dumping and donating
           are not equal on a tax return.
         </p>
-        {tax?.posted && tax.ein ? (
-          <p>
-            Plenty has posted tax-exempt information. See the <a href="/tax-exempt">letter and EIN</a>.
-            After a food gift is marked received, we can put it on a receipt record for your books.
-            Your CPA still has to apply § 170(e)(3) to your return.
-          </p>
-        ) : (
-          <p>
-            Plenty will record your gift the day we receive it. A public 501(c)(3) letter and EIN will
-            appear on this site when we have them — we will not claim that status before the letter is
-            posted. The Emerson Act still protects a good-faith donation to a nonprofit pantry. The
-            enhanced deduction is what your accountant confirms once a qualified charity letter is in
-            hand. We will not over-promise a tax result we cannot document yet.
-          </p>
-        )}
+        <p>
+          Plenty is a program of <strong>{LEGAL_NAME}</strong>, a 501(c)(3), EIN <strong>{EIN}</strong>.
+          A food gift to this pantry is a gift to that organization. See <a href="/tax-exempt">tax-exempt information</a>.
+          After we mark a gift received, it can go on a receipt for your books. Your CPA still applies § 170(e)(3) to your return.
+        </p>
         <p className="note">
           IRS: <a href="https://www.irs.gov/publications/p526" target="_blank" rel="noopener noreferrer">Publication 526 (charitable contributions)</a>
           {" · "}

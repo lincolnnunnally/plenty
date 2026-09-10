@@ -175,4 +175,75 @@ textarea.input { min-height: 96px; resize: vertical; }
   .app-header, .app-footer, .print-hide, .subnav { display: none !important; }
   body { background: #fff; }
   .print-flyer, .print-card { box-shadow: none; }
+  .brief-sheet { box-shadow: none; border: 0; }
+}
+.brief-page { width: min(900px, 100%); margin: 0 auto; padding: 16px; }
+.brief-sheet {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px 28px 20px;
+  box-shadow: 0 1px 0 rgba(31, 42, 34, 0.04);
+}
+.brief-kicker {
+  margin: 0 0 8px;
+  color: var(--leaf);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.brief-sheet h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); margin-bottom: 10px; }
+.brief-sub { margin: 0; font-size: 1.05rem; }
+.brief-ein {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #efe4d0;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: .95rem;
+}
+.brief-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+.brief-grid section {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fffdf8;
+}
+.brief-grid span {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--leaf);
+  color: #fff;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: .85rem;
+}
+.brief-grid h2 { margin: 8px 0 6px; font-size: 1.15rem; }
+.brief-grid p { margin: 0; font-size: .95rem; }
+.brief-math { margin-top: 8px !important; color: var(--leaf); font-weight: 700; }
+.brief-foot {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 2px solid var(--leaf);
+}
+.brief-foot p { margin: 2px 0; }
+.brief-fine { margin: 12px 0 0; color: var(--muted); font-size: .8rem; }
+@media (min-width: 720px) {
+  .brief-grid { grid-template-columns: 1fr 1fr; }
+  .brief-foot { grid-template-columns: 1fr 1fr; }
 }

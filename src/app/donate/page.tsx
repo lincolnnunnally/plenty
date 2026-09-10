@@ -55,11 +55,13 @@ export default async function DonatePage() {
         <p className="empty">No short list posted this week. Food, money, space, and vehicles are still needed.</p>
       )}
 
-      {tax?.posted && tax.ein ? (
-        <p className="note">Tax-exempt info is posted. See <a href="/tax-exempt">the letter and EIN</a>. Year-end receipts are available on your account after a money gift is received.</p>
-      ) : (
-        <p className="note">We will record your gift. A public 501(c)(3) letter and EIN will appear on this site when we have them — we will not claim tax-exempt status before that.</p>
-      )}
+      <p className="note">
+        Plenty is a program of United Under God, Inc., a 501(c)(3), EIN 81-3554390. Gifts may be
+        tax-deductible to the extent allowed by law. <a href="/tax-exempt">Tax-exempt information</a>
+        {" · "}
+        <a href="/for-stores/brief">One-page brief for grocery stores</a>
+        {tax?.posted && tax.ein ? ". Year-end receipts appear on your account after a money gift is received." : "."}
+      </p>
 
       {!user ? (
         <section className="panel">
