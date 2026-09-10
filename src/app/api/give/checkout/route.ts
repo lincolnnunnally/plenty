@@ -30,6 +30,10 @@ export async function POST(request: Request) {
     if (!session.url) return fail("Stripe did not return a checkout page.", 503);
     return Response.json({ ok: true, url: session.url });
   } catch (err) {
-    return fail(err instanceof Error ? err.message : "Could not start card checkout.", 503);
+    const msg = err instanceof Error ? err.message : "Could not start card checkout.";
+    if (/expired api key|invalid api key|no such api key/i.test(msg)) {
+      return fail("Card charging is not live yet. Use Cash App, Venmo, or Zelle if those are posted, or give in person.", 503);
+    }
+    return fail(msg, 503);
   }
 }
