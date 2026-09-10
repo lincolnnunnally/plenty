@@ -19,6 +19,7 @@ export type FieldVisit = {
   zip: string;
   phone: string;
   hoursText: string;
+  contactName: string;
   relationship: "running_own" | "visited" | "closed" | "to_meet";
   listedPublicly: boolean;
   visitNotes: string;
@@ -90,12 +91,12 @@ export const TOOMBS_STARTING_POINTS: StartingPoint[] = [
   {
     kind: "pantry",
     name: "Lyons Free Will Baptist Church pantry",
-    address: "803 Reidsville Highway",
+    address: "455 Reidsville Highway",
     city: "Lyons",
     zip: "30436",
     phone: "(912) 526-4320",
-    hoursHint: "Directories disagree on days. Confirm.",
-    sourceNote: "Church pantry. Meet first."
+    hoursHint: "Directories disagreed. Confirm in person.",
+    sourceNote: "Church pantry. Directories listed 803 Reidsville Highway — that address does not open in Maps."
   },
   {
     kind: "pantry",
@@ -189,10 +190,11 @@ export const FIELD_VISITS: FieldVisit[] = [
     zip: "30474",
     phone: "(912) 537-4361",
     hoursText: "Third Wednesday of the month. Starts serving about 4:00 p.m.",
+    contactName: "Billy — associate pastor and youth pastor. Nikki — his wife.",
     relationship: "running_own",
     listedPublicly: true,
     visitNotes:
-      "Visited in person 10 Sep 2026. They operate one Wednesday a month — the third Wednesday. Start serving about 4 o'clock.",
+      "Visited in person 10 Sep 2026. They operate one Wednesday a month — the third Wednesday. Start serving about 4 o'clock. Met Billy (associate pastor and youth pastor) and his wife Nikki.",
     sourceNote: "Hours confirmed in person. Address and phone from the Neighborly directory.",
     visitedOn: "2026-09-10"
   },
@@ -204,6 +206,7 @@ export const FIELD_VISITS: FieldVisit[] = [
     zip: "30474",
     phone: "(912) 538-1730",
     hoursText: "Not operating at this address.",
+    contactName: "",
     relationship: "closed",
     listedPublicly: true,
     visitNotes:
@@ -219,11 +222,32 @@ export const FIELD_VISITS: FieldVisit[] = [
     zip: "30436",
     phone: "(912) 388-8043",
     hoursText: "Monday, Tuesday, Wednesday 10:00 a.m. – 2:00 p.m. In the back of the old warehouse.",
+    contactName: "",
     relationship: "running_own",
     listedPublicly: true,
     visitNotes:
       "Visited in person 10 Sep 2026. Sign on the door: Monday, Tuesday, Wednesday 10 AM to 2 PM. Still in operation. They are in the back of some old warehouse.",
     sourceNote: "Hours from the sign on the door. Directories had been listing 10–1.",
+    visitedOn: "2026-09-10"
+  },
+  {
+    names: [
+      "Lyons Free Will Baptist Church pantry",
+      "Lyons Free Will Baptist Church food pantry",
+      "Lyons Free Will Baptist Church"
+    ],
+    kind: "pantry",
+    address: "455 Reidsville Highway",
+    city: "Lyons",
+    zip: "30436",
+    phone: "(912) 526-4320",
+    hoursText: "Second and fourth Friday of the month, about 2:00–5:00 p.m.",
+    contactName: "Kevin — told Lincoln the distribution hours.",
+    relationship: "running_own",
+    listedPublicly: true,
+    visitNotes:
+      "Visited in person 10 Sep 2026. Directory address 803 Reidsville Highway does not open in Maps. Searching the church name dropped Lincoln at a pin that was not the church; the church is around the corner. Building is at 455 Reidsville Highway (corner of Reidsville Highway and South 10th). Kevin said they distribute the second and fourth Friday, about 2:00 till 5:00.",
+    sourceNote: "Hours from Kevin on site. Address from the church's own 455 Reidsville Hwy listing. Directories still print 803.",
     visitedOn: "2026-09-10"
   }
 ];

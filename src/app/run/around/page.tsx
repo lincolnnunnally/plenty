@@ -3,6 +3,7 @@ import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { ensureToombsStartingPoints, listAllies, listOpsNeeds, listPeople } from "@/lib/db/queries";
+import { coordsForName } from "@/lib/maps";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -92,7 +93,7 @@ export default async function AroundDeskPage() {
                 {a.address ? <p>{a.address}</p> : null}
                 {a.address ? (
                   <div className="action-row">
-                    <DriveLink address={a.address} city={a.city} state={a.state || "GA"} zip={a.zip} />
+                  <DriveLink address={a.address} city={a.city} state={a.state || "GA"} zip={a.zip} lat={coordsForName(a.name)?.lat} lon={coordsForName(a.name)?.lon} />
                     {a.phone ? <a className="button" href={`tel:${a.phone.replace(/[^\d+]/g, "")}`}>Call</a> : null}
                   </div>
                 ) : a.phone ? (
@@ -100,6 +101,7 @@ export default async function AroundDeskPage() {
                 ) : null}
                 {a.hours_hint ? <p className="note">Unverified: {a.hours_hint}</p> : null}
                 {a.source_note ? <p className="note">{a.source_note}</p> : null}
+                {a.contact_name ? <p className="note">People (desk): {a.contact_name}</p> : null}
                 <PostForm action={`/api/allies/${a.id}`} submitLabel="Save visit">
                   <label className="field">
                     <span>How we relate</span>
@@ -115,7 +117,7 @@ export default async function AroundDeskPage() {
                     </select>
                   </label>
                   <label className="field"><span>Confirmed hours (required to list publicly)</span><input className="input" name="hoursText" defaultValue={a.hours_text} /></label>
-                  <label className="field"><span>Who you spoke with</span><input className="input" name="contactName" defaultValue={a.contact_name} /></label>
+                  <label className="field"><span>People (desk only — not public)</span><textarea className="input" name="contactName" defaultValue={a.contact_name} placeholder="Name — role. Who we talk to." /></label>
                   <label className="field"><span>What you learned</span><textarea className="input" name="visitNotes" defaultValue={a.visit_notes} /></label>
                   <input type="hidden" name="wantsFood" value="0" />
                   <label className="check"><input type="checkbox" name="wantsFood" value="1" defaultChecked={a.wants_food} /> They want grocery food if we can get it</label>

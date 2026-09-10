@@ -41,6 +41,7 @@ export default async function ServePage() {
           <PostForm action={`/api/allies/${a.id}`} submitLabel="Save hours and what we offer">
             <label className="field"><span>Hours neighbors should see</span><input className="input" name="hoursText" defaultValue={a.hours_text} placeholder="Mon–Wed 10 a.m.–2 p.m." /></label>
             <label className="field"><span>Address</span><input className="input" name="address" defaultValue={a.address} /></label>
+            <label className="field"><span>People (desk only — not on the public list)</span><textarea className="input" name="contactName" defaultValue={a.contact_name} placeholder="Name — role. Who we talk to." /></label>
             <label className="field"><span>Phone</span><input className="input" name="phone" defaultValue={a.phone} /></label>
             <label className="field"><span>Next distribution</span><input className="input" type="datetime-local" name="nextDistributionAt" defaultValue={a.next_distribution_at ? a.next_distribution_at.slice(0, 16) : ""} /></label>
             <input type="hidden" name="listedPublicly" value="0" />

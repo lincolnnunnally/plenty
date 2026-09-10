@@ -15,6 +15,7 @@ type Place = {
   phone: string;
   hours_text: string;
   visit_notes: string;
+  contact_name: string;
   relationship: string;
   listed_publicly: boolean;
   last_visited_at: string | null;
@@ -88,6 +89,10 @@ export function AroundPlace({
             <label className="field">
               <span>Address</span>
               <input className="input" name="address" defaultValue={place.address} />
+            </label>
+            <label className="field">
+              <span>People (desk only — not on the public card)</span>
+              <textarea className="input" name="contactName" defaultValue={place.contact_name} placeholder="Kevin — hours. Billy, associate pastor…" />
             </label>
             <label className="field">
               <span>What you saw</span>

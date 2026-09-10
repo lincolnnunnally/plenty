@@ -2466,7 +2466,10 @@ export async function ensureToombsStartingPoints(pantryId: string): Promise<numb
         const same =
           row.hours_text === visit.hoursText &&
           row.relationship === visit.relationship &&
-          row.listed_publicly === visit.listedPublicly;
+          row.listed_publicly === visit.listedPublicly &&
+          row.address === visit.address &&
+          (row.contact_name || "") === (visit.contactName || "") &&
+          row.visit_notes === visit.visitNotes;
         if (newerDesk || same) continue;
         await updateAlly(row.id, pantryId, {
           address: visit.address,
@@ -2474,6 +2477,7 @@ export async function ensureToombsStartingPoints(pantryId: string): Promise<numb
           zip: visit.zip,
           phone: visit.phone,
           hoursText: visit.hoursText,
+          contactName: visit.contactName,
           relationship: visit.relationship,
           listedPublicly: visit.listedPublicly,
           visitNotes: visit.visitNotes,
@@ -2490,7 +2494,7 @@ export async function ensureToombsStartingPoints(pantryId: string): Promise<numb
           state: "GA",
           zip: visit.zip,
           phone: visit.phone,
-          contactName: "",
+          contactName: visit.contactName,
           contactEmail: "",
           hoursHint: "",
           hoursText: visit.hoursText,
