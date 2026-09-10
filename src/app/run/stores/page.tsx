@@ -25,8 +25,8 @@ export default async function StorePartnersPage() {
       <p className="eyebrow">Store partners</p>
       <h1>In-store pickup cards</h1>
       <p className="lede">
-        Bag first, then shop. Mystery bags can differ. Do not mix free and paid at checkout.
-        Money gifts and a person to walk with belong at Plenty — not at the grocery register.
+        A volunteer can meet them at the store, carry the bag, and offer to pray — never required.
+        Then they may shop. The store still gets the person on the lot after the gift is in their hands.
       </p>
       <RunNav />
 
@@ -55,6 +55,9 @@ export default async function StorePartnersPage() {
           <label className="field"><span>Where they collect</span><input className="input" name="holdDesk" defaultValue="Customer service" /></label>
           <label className="field"><span>Hours for pickup</span><input className="input" name="hoursText" placeholder="Weekdays 9–6…" /></label>
           <label className="field"><span>Store PIN (4–8 digits, so they can mark a card collected)</span><input className="input" name="pin" inputMode="numeric" pattern="\d{4,8}" /></label>
+          <input type="hidden" name="volunteersOnSite" value="0" />
+          <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked /> Plenty volunteers meet families here — carry the bag, offer prayer if they want</label>
+          <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" defaultValue="Green apron at customer service" /></label>
           <label className="field"><span>Notes</span><input className="input" name="notes" /></label>
           <input type="hidden" name="status" value="active" />
         </PostForm>
@@ -69,7 +72,7 @@ export default async function StorePartnersPage() {
                 <span>{p.status} · {modeLabel(p.pickup_mode)}</span>
                 <strong>{p.name}</strong>
                 <p>{[p.address, p.city, p.state].filter(Boolean).join(", ") || "Address not set"}</p>
-                <p className="note">{p.hold_desk}{p.hours_text ? ` · ${p.hours_text}` : ""} · extra purchase off · PIN {p.pin_set ? "set" : "needed"}</p>
+                <p className="note">{p.hold_desk}{p.hours_text ? ` · ${p.hours_text}` : ""} · extra purchase off · PIN {p.pin_set ? "set" : "needed"}{p.volunteers_on_site ? " · volunteers meet families" : ""}</p>
                 {p.contact_name || p.phone ? <p className="note">{[p.contact_name, p.phone, p.contact_email].filter(Boolean).join(" · ")}</p> : null}
                 <PostForm action={`/api/store-partners/${p.id}`} submitLabel="Update">
                   <select className="input" name="status" defaultValue={p.status}>
@@ -84,6 +87,9 @@ export default async function StorePartnersPage() {
                   </select>
                   <label className="field"><span>Hold desk</span><input className="input" name="holdDesk" defaultValue={p.hold_desk} /></label>
                   <label className="field"><span>Hours</span><input className="input" name="hoursText" defaultValue={p.hours_text} /></label>
+                  <input type="hidden" name="volunteersOnSite" value="0" />
+                  <label className="check"><input type="checkbox" name="volunteersOnSite" value="1" defaultChecked={p.volunteers_on_site} /> Volunteers meet families and carry the bag</label>
+                  <label className="field"><span>How to find the volunteer</span><input className="input" name="meetNote" defaultValue={p.meet_note} /></label>
                   <label className="field"><span>New PIN (leave blank to keep)</span><input className="input" name="pin" inputMode="numeric" /></label>
                 </PostForm>
                 {p.status === "active" && p.pickup_mode !== "dock_pickup" ? (

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const startsAt = str(body.startsAt);
   if (!title || !startsAt) return fail("A shift needs a name and a start time.");
   const role = str(body.role) || "serve";
-  if (!isVolunteerRole(role)) return fail("Role must be pickup, setup, serve, or delivery.");
+  if (!isVolunteerRole(role)) return fail("Role must be pickup, setup, serve, delivery, or meet families at a store.");
   const endsAt = str(body.endsAt) || null;
   const capacityRaw = str(body.capacity);
   try {

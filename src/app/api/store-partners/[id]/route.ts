@@ -36,7 +36,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       hoursText: body.hoursText != null ? str(body.hoursText) : undefined,
       notes: body.notes != null ? str(body.notes) : undefined,
       status: status || undefined,
-      pin: pin || undefined
+      pin: pin || undefined,
+      volunteersOnSite: body.volunteersOnSite != null
+        ? (Array.isArray(body.volunteersOnSite)
+          ? body.volunteersOnSite.includes("1") || body.volunteersOnSite.includes("on")
+          : body.volunteersOnSite === true || body.volunteersOnSite === "on" || body.volunteersOnSite === "1")
+        : undefined,
+      meetNote: body.meetNote != null ? str(body.meetNote) : undefined
     });
     if (!row) return fail("Store not found.", 404);
     return ok({ message: "Store updated. Extra purchase stays off." });

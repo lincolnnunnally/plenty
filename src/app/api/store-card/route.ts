@@ -61,7 +61,9 @@ export async function GET(request: Request) {
     itemsText: voucher.items_text,
     stillNeedText: voucher.still_need_text || "",
     address: voucher.partner_address || "",
-    expiresAt: voucher.expires_at
+    expiresAt: voucher.expires_at,
+    volunteersOnSite: Boolean(voucher.volunteers_on_site),
+    meetNote: voucher.meet_note || ""
   };
   if (kind === "slip") {
     const bytes = await bagSlipPdf(print);

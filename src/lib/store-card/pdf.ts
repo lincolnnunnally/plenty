@@ -18,6 +18,8 @@ export type StoreCardPrint = {
   stillNeedText: string;
   address: string;
   expiresAt: string | null;
+  volunteersOnSite: boolean;
+  meetNote: string;
 };
 
 export type HoldListRow = {
@@ -56,7 +58,18 @@ export async function storeCardPdf(card: StoreCardPrint) {
     font,
     color: leaf
   });
-  wrap(page, "1. Get the bag at the desk. 2. Open it. 3. Then shop for what is not in the bag. You do not have to buy anything. Do not mix this gift with a paid cart at checkout.", 40, 280, 530, 11, font, ink);
+  wrap(
+    page,
+    card.volunteersOnSite
+      ? "A Plenty volunteer will carry the bag to you. They can pray with you if you want — you do not have to. Then you may shop for what is not in the bag. Nothing extra is required."
+      : "1. Get the bag at the desk. 2. Open it. 3. Then shop for what is not in the bag. You do not have to buy anything. Do not mix this gift with a paid cart at checkout.",
+    40,
+    280,
+    530,
+    11,
+    font,
+    ink
+  );
   wrap(page, `${LEGAL_NAME} · EIN ${EIN} · Plenty food pantry`, 40, 248, 530, 10, font, ink);
   return pdf.save();
 }
@@ -98,7 +111,7 @@ export async function holdListPdf(input: {
   page.drawText(safe(input.partnerName).toUpperCase(), { x: 40, y: 742, size: 12, font, color: cream });
 
   let y = 700;
-  y = wrap(page, `Hand the bag first. They open it, then they may shop. Do not ring the gift at checkout. Extra purchase is not required. Put the bag slip in the hold.`, 40, y, 530, 12, fontBold, ink);
+  y = wrap(page, `Volunteer carries the bag to them. Offer to pray — do not require it. They may shop after the gift is in their hands. Do not ring the gift at checkout.`, 40, y, 530, 12, fontBold, ink);
   if (input.address) y = wrap(page, input.address, 40, y - 4, 530, 11, font, ink);
   if (input.hoursText) y = wrap(page, input.hoursText, 40, y - 2, 530, 11, font, ink);
   y -= 16;
@@ -149,7 +162,18 @@ function drawWalletCard(
 
   wrap(page, safe(card.householdName) || "Household", x + 14, y + h - 52, 360, 18, fontBold, ink);
   wrap(page, safe(card.partnerName), x + 14, y + h - 78, 360, 12, font, ink);
-  wrap(page, `Get your bag first at ${card.holdDesk || "customer service"}.`, x + 14, y + 88, 360, 11, fontBold, ink);
+  wrap(
+    page,
+    card.volunteersOnSite
+      ? `Look for a Plenty volunteer${card.meetNote ? ` — ${card.meetNote}` : " at customer service"}. They will carry your bag.`
+      : `Get your bag first at ${card.holdDesk || "customer service"}.`,
+    x + 14,
+    y + 88,
+    360,
+    11,
+    fontBold,
+    ink
+  );
   const items = card.itemsText || "Open the bag. That is this week's gift.";
   wrap(page, items, x + 14, y + 68, 360, 10, font, ink);
   if (card.hoursText) wrap(page, card.hoursText, x + 14, y + 44, 360, 9, font, ink);
@@ -189,7 +213,18 @@ function drawSlip(
   wrap(page, card.stillNeedText || "After you open the bag, buy only what is not already in it — if you want and if you can. You do not have to buy anything.", x + 14, y + 134, 300, 10, font, ink);
 
   wrap(page, "Do not mix this gift with a paid cart at checkout. If you can give money to keep Plenty going, do that with us — not at this register.", x + 14, y + 70, 300, 10, font, ink);
-  wrap(page, "Food is the doorway. A person, a prayer if you want one, and a next step are at Plenty. Food does not depend on that.", x + 14, y + 36, 300, 10, fontBold, ink);
+  wrap(
+    page,
+    card.volunteersOnSite
+      ? "A volunteer will carry this bag to you. They can pray with you if you want. You do not have to. Then you may shop. Food does not depend on a prayer."
+      : "Food is the doorway. A person, a prayer if you want one, and a next step are at Plenty. Food does not depend on that.",
+    x + 14,
+    y + 36,
+    300,
+    10,
+    fontBold,
+    ink
+  );
 
   page.drawImage(qrBag, { x: x + 330, y: y + 150, width: 86, height: 86 });
   page.drawText("This bag", { x: x + 342, y: y + 136, size: 8, font, color: leaf });

@@ -36,6 +36,7 @@ export default async function VolunteerPage() {
         <article className="card"><strong>Setup</strong><p>Tables, bags, shelves — get the line ready.</p></article>
         <article className="card"><strong>Serve</strong><p>Hand groceries to families and treat them with dignity.</p></article>
         <article className="card"><strong>Delivery</strong><p>Take food to a household that cannot get here.</p></article>
+        <article className="card"><strong>Meet at the store</strong><p>Carry the hold bag to a family, offer to pray if they want, then they may shop. Prayer is never required for food.</p></article>
       </div>
 
       {!user ? (
@@ -53,6 +54,7 @@ export default async function VolunteerPage() {
             <label className="check"><input type="checkbox" name="roles" value="setup" defaultChecked={mine?.roles.includes("setup")} /> Setup — tables, bags, shelves</label>
             <label className="check"><input type="checkbox" name="roles" value="serve" defaultChecked={mine?.roles.includes("serve")} /> Serve — welcome neighbors at distribution</label>
             <label className="check"><input type="checkbox" name="roles" value="delivery" defaultChecked={mine?.roles.includes("delivery")} /> Delivery — take food to someone who cannot come</label>
+            <label className="check"><input type="checkbox" name="roles" value="store_meet" defaultChecked={mine?.roles.includes("store_meet")} /> Meet at the store — carry the bag, offer prayer if they want, never require it</label>
             <label className="check"><input type="checkbox" name="hasVehicle" defaultChecked={mine?.has_vehicle} /> I can bring a vehicle</label>
             <label className="field">
               <span>Days you can come, lifting limits, anything we should know</span>

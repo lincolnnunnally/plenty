@@ -126,7 +126,7 @@ export function composeKit(facts: PromoteFacts): ChannelKit {
 
   const volunteerCore = [
     `Volunteer with ${name} in ${city}.`,
-    "Pick up donated food, set up tables, pack bags, welcome families, or drive a delivery. No experience needed — we will show you.",
+    "Pick up donated food, set up tables, pack bags, welcome families, drive a delivery, or meet a family at a grocery store with their bag. No experience needed — we will show you.",
     hours,
     place,
     dist ? `Next distribution: ${dist}.` : "",

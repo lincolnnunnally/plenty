@@ -48,11 +48,11 @@ export default function ForStoresPage() {
           <section>
             <span>B</span>
             <h2>Bag at customer service</h2>
-            <p>They collect a hold, open it, then walk your aisles for what is not in the bag — if they want.</p>
+            <p>A Plenty volunteer meets them with the bag, offers to pray if they want, then they may shop. Prayer is never required.</p>
           </section>
         </div>
         <p className="note" style={{ marginTop: 12 }}>
-          Mixing a mystery bag with a paid cart at checkout is what scares people. Hand the bag first. They know what is free. What they still buy, they buy from you. That is proximity, not a condition. Money gifts to the pantry happen with us, not at your till.
+          A volunteer carries the gift to them first. Then they are already in your store. What they still buy, they buy from you. That is proximity after the gift — not a condition. Prayer is offered, never required. Money gifts to the pantry happen with us, not at your till.
         </p>
         <div className="action-row">
           <a className="button primary" href="/donate">We’ll pick it up</a>

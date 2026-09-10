@@ -18,7 +18,7 @@ export async function POST(request: Request) {
         .map((r) => r.trim())
         .filter(Boolean);
   const cleaned = [...new Set(roles.filter(isVolunteerRole))];
-  if (cleaned.length === 0) return fail("Pick at least one role: pickup, setup, serve, or delivery.");
+  if (cleaned.length === 0) return fail("Pick at least one role: pickup, setup, serve, delivery, or meet families at a store.");
   try {
     await upsertVolunteer({
       pantryId: pantry.id,

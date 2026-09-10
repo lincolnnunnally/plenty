@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
-import { listShiftSignups, listShifts } from "@/lib/db/queries";
+import { listShiftSignups, listShifts, listStorePartners } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -11,12 +11,13 @@ export default async function ShiftsAdminPage() {
   if (!pantry) redirect("/run");
   const shifts = await listShifts(pantry.id);
   const signups = await listShiftSignups(pantry.id);
+  const stores = (await listStorePartners(pantry.id)).filter((p) => p.status === "active" && p.pickup_mode !== "dock_pickup");
 
   return (
     <main className="shell">
       <p className="eyebrow">Shifts</p>
-      <h1>Pickup, setup, serve, delivery</h1>
-      <p className="lede">Post real shifts. Volunteers confirm, ask for cover, or log hours from their volunteer page.</p>
+      <h1>Pickup, setup, serve, delivery, meet at the store</h1>
+      <p className="lede">Post real shifts. A store-meet shift is a person at the grocery store: carry the bag, offer to pray, never require it.</p>
       <RunNav />
 
       <section className="panel">
@@ -30,13 +31,26 @@ export default async function ShiftsAdminPage() {
               <option value="setup">Setup</option>
               <option value="serve">Serve</option>
               <option value="delivery">Delivery</option>
+              <option value="store_meet">Meet families at a grocery store</option>
             </select>
           </label>
           <label className="field"><span>Starts</span><input className="input" type="datetime-local" name="startsAt" required /></label>
           <label className="field"><span>Ends</span><input className="input" type="datetime-local" name="endsAt" /></label>
-          <label className="field"><span>Where</span><input className="input" name="location" defaultValue={pantry.address || pantry.city} /></label>
+          {stores.length ? (
+            <label className="field">
+              <span>If this is a store-meet, which store</span>
+              <select className="input" name="location">
+                <option value={pantry.address || pantry.city}>{pantry.address || pantry.city || "Pantry"}</option>
+                {stores.map((s) => (
+                  <option key={s.id} value={`${s.name}${s.address ? ` · ${s.address}` : ""}`}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="field"><span>Where</span><input className="input" name="location" defaultValue={pantry.address || pantry.city} /></label>
+          )}
           <label className="field"><span>Capacity (optional)</span><input className="input" name="capacity" type="number" min={1} /></label>
-          <label className="field"><span>Notes</span><textarea className="input" name="notes" /></label>
+          <label className="field"><span>Notes</span><textarea className="input" name="notes" placeholder="Carry the bag. Offer to pray. Do not require it. They may shop after." /></label>
         </PostForm>
       </section>
 

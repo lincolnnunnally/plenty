@@ -40,7 +40,9 @@ export async function POST(request: Request) {
       hoursText: str(body.hoursText),
       notes: str(body.notes),
       status: asSteward ? str(body.status) || "active" : "invited",
-      pin: asSteward ? pin : undefined
+      pin: asSteward ? pin : undefined,
+      volunteersOnSite: asSteward && (body.volunteersOnSite === true || body.volunteersOnSite === "on" || body.volunteersOnSite === "1" || (Array.isArray(body.volunteersOnSite) && body.volunteersOnSite.includes("1"))),
+      meetNote: str(body.meetNote)
     });
     return ok({
       partnerId: partner.id,

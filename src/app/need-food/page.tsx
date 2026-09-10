@@ -185,7 +185,7 @@ export default async function NeedFoodPage() {
               {storeCards.length ? (
                 <>
                   <h3 style={{ marginTop: 24 }}>Your grocery store card</h3>
-                  <p className="note">Get the bag first. Open it. Then shop for what is not in it — only if you want. You do not have to buy anything. If you can give a little to keep Plenty going, do that here, not at the grocery register.</p>
+                  <p className="note">A volunteer may meet you with the bag and offer to pray — only if you want. Then you may shop for what is not in it. You do not have to buy anything. If you can give a little to keep Plenty going, do that here, not at the grocery register.</p>
                   <div className="grid">
                     {storeCards.map((card) => (
                       <article className="card" key={card.id}>

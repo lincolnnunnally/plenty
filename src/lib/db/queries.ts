@@ -166,7 +166,7 @@ export type PersonRow = {
   roles: string[];
 };
 
-const VOLUNTEER_ROLES = ["pickup", "setup", "serve", "delivery"] as const;
+const VOLUNTEER_ROLES = ["pickup", "setup", "serve", "delivery", "store_meet"] as const;
 export type VolunteerRole = (typeof VOLUNTEER_ROLES)[number];
 
 export function isVolunteerRole(value: string): value is VolunteerRole {
@@ -1499,7 +1499,7 @@ export async function latestWaiverForUser(pantryId: string, userId: string): Pro
 }
 
 const STORE_PARTNER_COLS =
-  "id, pantry_id, name, address, city, state, zip, phone, contact_name, contact_email, pickup_mode, hold_desk, hours_text, pin_hash, notes, status, extra_purchase_required, created_at";
+  "id, pantry_id, name, address, city, state, zip, phone, contact_name, contact_email, pickup_mode, hold_desk, hours_text, pin_hash, notes, status, extra_purchase_required, volunteers_on_site, meet_note, created_at";
 const STORE_VOUCHER_COLS =
   "id, pantry_id, partner_id, household_id, code, items_text, still_need_text, status, issued_at, expires_at, redeemed_at, redeemed_note, created_by, created_at";
 
@@ -1521,6 +1521,8 @@ export type StorePartner = {
   notes: string;
   status: string;
   extra_purchase_required: boolean;
+  volunteers_on_site: boolean;
+  meet_note: string;
   created_at: string;
 };
 
@@ -1547,6 +1549,8 @@ export type StoreVoucher = {
   hours_text?: string;
   pickup_mode?: string;
   partner_address?: string;
+  volunteers_on_site?: boolean;
+  meet_note?: string;
 };
 
 export type PublicStoreCard = {
@@ -1563,6 +1567,8 @@ export type PublicStoreCard = {
   pickup_mode: string;
   partner_address: string;
   extra_purchase_required: false;
+  volunteers_on_site: boolean;
+  meet_note: string;
 };
 
 function toPartner(row: StorePartnerRow): StorePartner {
@@ -1604,6 +1610,8 @@ export async function addStorePartner(input: {
   notes: string;
   status: string;
   pin?: string;
+  volunteersOnSite?: boolean;
+  meetNote?: string;
 }): Promise<StorePartner> {
   const { hashStaffPin } = await import("@/lib/store-card/code");
   const client = await sb();
@@ -1625,6 +1633,8 @@ export async function addStorePartner(input: {
       notes: input.notes,
       status: input.status,
       extra_purchase_required: false,
+      volunteers_on_site: Boolean(input.volunteersOnSite),
+      meet_note: input.meetNote || "",
       pin_hash: input.pin ? hashStaffPin(input.pin) : ""
     })
     .select(STORE_PARTNER_COLS)
@@ -1651,6 +1661,8 @@ export async function updateStorePartner(
     notes?: string;
     status?: string;
     pin?: string;
+    volunteersOnSite?: boolean;
+    meetNote?: string;
   }
 ): Promise<StorePartner | null> {
   const client = await sb();
@@ -1671,6 +1683,8 @@ export async function updateStorePartner(
   if (patch.hoursText != null) row.hours_text = patch.hoursText;
   if (patch.notes != null) row.notes = patch.notes;
   if (patch.status != null) row.status = patch.status;
+  if (patch.volunteersOnSite != null) row.volunteers_on_site = patch.volunteersOnSite;
+  if (patch.meetNote != null) row.meet_note = patch.meetNote;
   if (patch.pin) {
     const { hashStaffPin } = await import("@/lib/store-card/code");
     row.pin_hash = hashStaffPin(patch.pin);
@@ -1715,7 +1729,9 @@ export async function listStoreVouchers(pantryId: string, opts?: { householdId?:
       hold_desk: partner?.hold_desk,
       hours_text: partner?.hours_text,
       pickup_mode: partner?.pickup_mode,
-      partner_address: [partner?.address, partner?.city, partner?.state].filter(Boolean).join(", ")
+      partner_address: [partner?.address, partner?.city, partner?.state].filter(Boolean).join(", "),
+      volunteers_on_site: Boolean(partner?.volunteers_on_site),
+      meet_note: partner?.meet_note
     };
   });
 }
@@ -1738,7 +1754,9 @@ export async function getStoreVoucher(id: string): Promise<StoreVoucher | null> 
     hold_desk: p?.hold_desk,
     hours_text: p?.hours_text,
     pickup_mode: p?.pickup_mode,
-    partner_address: p ? [p.address, p.city, p.state].filter(Boolean).join(", ") : ""
+    partner_address: p ? [p.address, p.city, p.state].filter(Boolean).join(", ") : "",
+    volunteers_on_site: Boolean(p?.volunteers_on_site),
+    meet_note: p?.meet_note || ""
   };
 }
 
@@ -1794,7 +1812,9 @@ export async function issueStoreVoucher(input: {
         household_name: household.display_name,
         hold_desk: partner.hold_desk,
         hours_text: partner.hours_text,
-        pickup_mode: partner.pickup_mode
+        pickup_mode: partner.pickup_mode,
+        volunteers_on_site: Boolean(partner.volunteers_on_site),
+        meet_note: partner.meet_note || ""
       };
     }
     lastError = new Error(error?.message || "Could not issue the card.");
@@ -1850,7 +1870,9 @@ export async function publicStoreCardByCode(code: string): Promise<PublicStoreCa
     hours_text: partner.hours_text,
     pickup_mode: partner.pickup_mode,
     partner_address: [partner.address, partner.city, partner.state].filter(Boolean).join(", "),
-    extra_purchase_required: false
+    extra_purchase_required: false,
+    volunteers_on_site: Boolean(partner.volunteers_on_site),
+    meet_note: partner.meet_note || ""
   };
 }
 
