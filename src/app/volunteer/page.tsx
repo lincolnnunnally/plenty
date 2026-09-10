@@ -1,8 +1,11 @@
+import { cookies } from "next/headers";
 import { PostForm } from "@/components/post-form";
 import { ShiftActions, SignupButton } from "@/components/signup-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listShifts, myShiftSignups, userPhone, volunteerForUser } from "@/lib/db/queries";
 import { listFoodLoads } from "@/lib/db/food-loads";
+import { hasCooler } from "@/lib/cooler";
+import { readLang, t } from "@/lib/i18n";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +29,13 @@ export default async function VolunteerPage() {
   const openLoads = loads.filter((l) => ["offered", "scheduled"].includes(l.status)).slice(0, 8);
   const pickupShifts = shifts.filter((s) => s.role === "pickup");
   const otherShifts = shifts.filter((s) => s.role !== "pickup");
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
   return (
     <main className="shell">
-      <p className="eyebrow">Volunteer</p>
-      <h1>Take a shift. We text you when food is on a dock.</h1>
-      <p className="lede">Pickup, setup, serve, or delivery. Store leftovers get a repeating time and a destination.</p>
+      <p className="eyebrow">{t(lang, "volunteer")}</p>
+      <h1>{t(lang, "volTitle")}</h1>
+      <p className="lede">{t(lang, "volLede")}</p>
 
       {!user ? (
         <section className="panel">
@@ -47,6 +51,7 @@ export default async function VolunteerPage() {
             <label className="check"><input type="checkbox" name="roles" value="serve" defaultChecked={mine?.roles.includes("serve")} /> Serve the line</label>
             <label className="check"><input type="checkbox" name="roles" value="delivery" defaultChecked={mine?.roles.includes("delivery")} /> Delivery</label>
             <label className="check"><input type="checkbox" name="hasVehicle" defaultChecked={mine?.has_vehicle} /> I have a vehicle</label>
+            <label className="check"><input type="checkbox" name="hasCooler" defaultChecked={hasCooler(mine?.notes)} /> I can keep food cold (cooler or freezer in the truck)</label>
             <label className="field"><span>Phone for pickup texts</span><input className="input" name="phone" type="tel" defaultValue={phone} /></label>
           </PostForm>
         </section>

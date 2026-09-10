@@ -1,6 +1,7 @@
 import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
 import { offerFoodLoad } from "@/lib/db/food-loads";
 import { listStorePartners, updateStorePartner } from "@/lib/db/queries";
+import { withPoundsNote } from "@/lib/pounds";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       leftover: false,
       pickupAt,
       holdUntil: null,
-      notes: str(body.notes) || `Pickup at ${partner.name}`,
+      notes: withPoundsNote(str(body.notes) || `Pickup at ${partner.name}`, Number(body.pounds) || 0),
       items,
       partnerName: partner.name,
       partnerAddress: [partner.address, partner.city].filter(Boolean).join(", "),

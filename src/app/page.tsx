@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantry, weNeedList } from "@/lib/db/queries";
+import { readLang, t } from "@/lib/i18n";
 import { HOME_DESCRIPTION, pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -12,17 +14,18 @@ export default async function HomePage() {
   const needs = pantry ? await weNeedList(pantry.id).catch(() => []) : [];
   const hours = pantry?.hours_text?.trim();
   const address = pantry?.address?.trim();
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
   return (
     <main className="shell">
       <section className="hero">
-        <p className="eyebrow">Vidalia food pantry</p>
-        <h1>Need groceries? Come get them.</h1>
-        <p className="lede">Free food. No income test. Volunteer or give leftover food if you can.</p>
+        <p className="eyebrow">Vidalia</p>
+        <h1>{t(lang, "homeTitle")}</h1>
+        <p className="lede">{t(lang, "homeLede")}</p>
         <div className="action-row">
-          <a className="button primary" href="/need-food">Get food</a>
-          <a className="button leaf" href="/volunteer">Volunteer</a>
-          <a className="button" href="/for-stores">Grocery stores</a>
+          <a className="button primary" href="/need-food">{t(lang, "homeGet")}</a>
+          <a className="button leaf" href="/volunteer">{t(lang, "homeVolunteer")}</a>
+          <a className="button" href="/for-stores">{t(lang, "homeStores")}</a>
         </div>
         {user ? <p className="note">Signed in as {user.name}. <a href="/account">Account</a></p> : null}
       </section>

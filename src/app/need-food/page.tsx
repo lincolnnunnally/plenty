@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { PayBoard } from "@/components/pay-board";
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -5,6 +6,7 @@ import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
 import { availableThisWeek, effectivePayMethods, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listStoreVouchers } from "@/lib/db/queries";
 import { HANDLING_DONATION } from "@/lib/promote/compose";
 import { passUrl } from "@/lib/pass";
+import { readLang, t } from "@/lib/i18n";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +27,13 @@ export default async function NeedFoodPage() {
     (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at)) ||
     waiver?.version === FOOD_WAIVER_VERSION;
   const pass = household?.pass_code ? passUrl(household.pass_code) : "";
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
   return (
     <main className="shell">
-      <p className="eyebrow">Get food</p>
-      <h1>Register. Come through the line.</h1>
-      <p className="lede">Free groceries. No income test. Handling donation requested — not required.</p>
+      <p className="eyebrow">{t(lang, "getFood")}</p>
+      <h1>{t(lang, "needTitle")}</h1>
+      <p className="lede">{t(lang, "needLede")}</p>
       {pantry?.hours_text ? <p className="note">{pantry.hours_text}{pantry.address ? ` · ${pantry.address}` : ""}</p> : null}
 
       {!user ? (

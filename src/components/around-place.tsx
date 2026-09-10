@@ -2,7 +2,10 @@
 
 import { PostForm } from "@/components/post-form";
 import { DriveLink } from "@/components/drive-link";
+import { PhotoField } from "@/components/photo-field";
 import { coordsForName } from "@/lib/maps";
+import { doorPhotoFromNotes, notesWithoutDoor } from "@/lib/door-photo";
+import { useLang } from "@/lib/use-lang";
 
 type Place = {
   id: string;
@@ -20,6 +23,7 @@ type Place = {
   listed_publicly: boolean;
   last_visited_at: string | null;
   operator_pantry_id: string | null;
+  door_photo?: string;
 };
 
 export function AroundPlace({
@@ -36,20 +40,23 @@ export function AroundPlace({
   signedIn?: boolean;
 }) {
   const coords = coordsForName(place.name);
+  const photo = place.door_photo || doorPhotoFromNotes(place.visit_notes);
+  const { t } = useLang();
   return (
     <article className="card">
       <span>
-        {closed ? "Closed or moved" : place.city}
+        {closed ? t("closedMoved") : place.city}
         {place.last_visited_at ? ` · ${new Date(place.last_visited_at).toLocaleDateString()}` : ""}
       </span>
       <strong>{place.name}</strong>
+      {photo ? <img className="thumb" src={photo} alt={`Door at ${place.name}`} /> : null}
       {place.address ? <p>{place.address}{place.city ? `, ${place.city}` : ""}</p> : null}
       {closed ? (
         <p>{place.visit_notes || place.hours_text || "Building empty or moved."}</p>
       ) : place.hours_text ? (
         <p>{place.hours_text}</p>
       ) : (
-        <p className="note">Call for hours.</p>
+        <p className="note">{t("callHours")}</p>
       )}
       <div className="action-row">
         <DriveLink
@@ -59,15 +66,16 @@ export function AroundPlace({
           zip={place.zip}
           lat={coords?.lat}
           lon={coords?.lon}
+          label={t("drive")}
         />
         {place.phone ? (
           <a className="button" href={`tel:${place.phone.replace(/[^\d+]/g, "")}`}>
-            Call
+            {t("call")}
           </a>
         ) : null}
         {canClaim && !place.operator_pantry_id ? (
           signedIn ? (
-            <PostForm className="claim-form" action={`/api/allies/${place.id}/claim`} submitLabel="This is my pantry" successHref="/run">
+            <PostForm className="claim-form" action={`/api/allies/${place.id}/claim`} submitLabel={t("claimPantry")} successHref="/run">
               <input type="hidden" name="claim" value="1" />
               <label className="field">
                 <span>Type the pantry name</span>
@@ -100,8 +108,9 @@ export function AroundPlace({
             </label>
             <label className="field">
               <span>What you saw</span>
-              <textarea className="input" name="visitNotes" defaultValue={place.visit_notes} />
+              <textarea className="input" name="visitNotes" defaultValue={notesWithoutDoor(place.visit_notes)} />
             </label>
+            <PhotoField name="doorPhoto" defaultUrl={photo} label="Photo of the door / sign" />
             <input type="hidden" name="markVisited" value="1" />
             <input type="hidden" name="listedPublicly" value="0" />
             <label className="check">

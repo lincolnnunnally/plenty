@@ -117,6 +117,7 @@ export default async function FoodDonorsPage() {
                     <label className="check"><input type="checkbox" name="refrigerated" value="1" defaultChecked={meta.gives.includes("refrigerated")} /> Cold</label>
                     <label className="check"><input type="checkbox" name="produce" value="1" defaultChecked={meta.gives.includes("produce")} /> Produce</label>
                     <label className="field"><span>How much</span><input className="input" name="frozenQty" placeholder="Pallets, cases…" /></label>
+                    <label className="field"><span>Pounds if you know</span><input className="input" name="pounds" type="number" min={0} step="1" placeholder="Grant number" /></label>
                   </PostForm>
 
                   <details className="field-edit">

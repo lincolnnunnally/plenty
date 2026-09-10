@@ -2,6 +2,7 @@ import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { listPickups, listVolunteers } from "@/lib/db/queries";
+import { hasCooler } from "@/lib/cooler";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -12,12 +13,13 @@ export default async function PickupsPage() {
   const pickups = await listPickups(pantry.id);
   const volunteers = await listVolunteers(pantry.id);
   const drivers = volunteers.filter((v) => v.roles.includes("delivery") || v.has_vehicle);
+  const coldDrivers = drivers.filter((v) => hasCooler(v.notes));
 
   return (
     <main className="shell">
       <p className="eyebrow">Pantry desk</p>
       <h1>Pickups and home deliveries</h1>
-      <p className="lede">Confirm a time, know if someone will be home, and whether we may leave food on the porch.</p>
+      <p className="lede">Confirm a time, know if someone will be home, and whether we may leave food on the porch.{coldDrivers.length ? ` ${coldDrivers.length} volunteer${coldDrivers.length === 1 ? " has" : "s have"} a cooler.` : " Nobody has checked that they can keep food cold yet."}</p>
       <RunNav />
       {pickups.length ? (
         <div className="grid">
@@ -52,7 +54,7 @@ export default async function PickupsPage() {
                       <span>Assign a driver</span>
                       <select className="input" name="assignedUserId">
                         <option value="">Unassigned</option>
-                        {drivers.map((d) => <option key={d.user_id} value={d.user_id}>{d.name || d.email}</option>)}
+                        {drivers.map((d) => <option key={d.user_id} value={d.user_id}>{d.name || d.email}{hasCooler(d.notes) ? " · cooler" : ""}</option>)}
                       </select>
                     </label>
                   ) : null}

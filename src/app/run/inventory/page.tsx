@@ -3,6 +3,7 @@ import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { listInventory, listStockMoves } from "@/lib/db/queries";
+import { poundsFrom } from "@/lib/pounds";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ export default async function InventoryPage() {
   if (!pantry) redirect("/run");
   const items = await listInventory(pantry.id);
   const moves = await listStockMoves(pantry.id);
+  const month = new Date().toISOString().slice(0, 7);
+  const monthMoves = moves.filter((m) => (m.created_at || "").startsWith(month));
+  const inLb = monthMoves.filter((m) => m.direction === "in").reduce((sum, m) => sum + poundsFrom({ quantity: m.quantity, note: m.note }), 0);
+  const outLb = monthMoves.filter((m) => m.direction === "out").reduce((sum, m) => sum + poundsFrom({ quantity: m.quantity, note: m.note }), 0);
 
   return (
     <main className="shell">
@@ -19,6 +24,7 @@ export default async function InventoryPage() {
       <h1>Inventory — in, on hand, out</h1>
       <p className="lede">Record what you bring in, what is on the shelf, and what you give out. Add a photo so families can see this week's food.</p>
       <RunNav />
+      <p className="note">This month: {inLb || 0} lb in · {outLb || 0} lb out. Put pounds on the in/out form so grant reports have a number.</p>
 
       <section className="panel">
         <h2>Add an item to the shelf</h2>
@@ -66,6 +72,7 @@ export default async function InventoryPage() {
           </label>
           <label className="field"><span>Name if not on the list</span><input className="input" name="itemName" /></label>
           <label className="field"><span>How many</span><input className="input" name="quantity" type="number" min={1} defaultValue={1} /></label>
+          <label className="field"><span>Pounds (for grants)</span><input className="input" name="pounds" type="number" min={0} step="0.1" placeholder="If you weighed it" /></label>
           <label className="field"><span>Note</span><input className="input" name="note" placeholder="Saturday line, store pickup, unsold" /></label>
         </PostForm>
       </section>

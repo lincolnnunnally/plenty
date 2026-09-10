@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function PhotoField({ name = "imageUrl", defaultUrl = "" }: { name?: string; defaultUrl?: string }) {
+export function PhotoField({ name = "imageUrl", defaultUrl = "", label = "Photo (so families can see what they will get)" }: { name?: string; defaultUrl?: string; label?: string }) {
   const [url, setUrl] = useState(defaultUrl);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,7 +30,7 @@ export function PhotoField({ name = "imageUrl", defaultUrl = "" }: { name?: stri
 
   return (
     <label className="field">
-      <span>Photo (so families can see what they will get)</span>
+      <span>{label}</span>
       <input className="input" type="file" accept="image/*" onChange={(event) => void onFile(event.target.files?.[0])} />
       <input type="hidden" name={name} value={url} />
       {busy ? <p className="note">Uploading photo…</p> : null}

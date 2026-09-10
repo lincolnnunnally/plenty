@@ -1,6 +1,7 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
 import { alliesForOperator } from "@/lib/db/food-loads";
 import { getDefaultPantry, updateAlly } from "@/lib/db/queries";
+import { withDoorPhoto } from "@/lib/door-photo";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (listedPublicly && !str(body.hoursText) && relationship !== "closed" && str(body.relationship) !== "closed") {
     return fail("Do not list a place publicly until you have confirmed hours in person.");
   }
+  const visitNotes = body.visitNotes != null || body.doorPhoto != null
+    ? withDoorPhoto(str(body.visitNotes), str(body.doorPhoto))
+    : undefined;
   try {
     const row = await updateAlly(id, pantry.id, {
       kind: kind || undefined,
@@ -58,7 +62,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       acceptsFrozen: body.acceptsFrozen != null ? flag(body.acceptsFrozen) : undefined,
       acceptsProduce: body.acceptsProduce != null ? flag(body.acceptsProduce) : undefined,
       nextDistributionAt: body.nextDistributionAt != null ? (str(body.nextDistributionAt) ? new Date(str(body.nextDistributionAt)).toISOString() : null) : undefined,
-      visitNotes: body.visitNotes != null ? str(body.visitNotes) : undefined,
+      visitNotes,
       lastVisitedAt: flag(body.markVisited) ? new Date().toISOString() : undefined
     });
     if (!row) return fail("Place not found.", 404);

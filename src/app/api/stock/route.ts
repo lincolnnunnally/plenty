@@ -1,5 +1,6 @@
 import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
 import { recordStockMove } from "@/lib/db/queries";
+import { withPoundsNote } from "@/lib/pounds";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
       direction,
       quantity: Number(body.quantity) || 1,
       itemName: str(body.itemName),
-      note: str(body.note),
+      note: withPoundsNote(str(body.note), Number(body.pounds) || 0),
       createdBy: user.id
     });
     return ok({ message: direction === "in" ? "Recorded as received." : "Recorded as given out." });

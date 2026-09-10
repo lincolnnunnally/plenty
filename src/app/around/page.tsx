@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { AroundPlace } from "@/components/around-place";
 import { PantryMap } from "@/components/pantry-map";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -5,6 +6,8 @@ import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { coordsForName, geocodePlace, type MapPlace } from "@/lib/maps";
 import { ensureToombsStartingPoints, getDefaultPantrySafe, isSteward, listAllies, listedAllies } from "@/lib/db/queries";
 import { alliesForOperator } from "@/lib/db/food-loads";
+import { doorPhotoFromNotes } from "@/lib/door-photo";
+import { readLang, t } from "@/lib/i18n";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +66,7 @@ function publicCard(
     hours_text: a.hours_text,
     visit_notes: desk || a.relationship === "closed" ? a.visit_notes : "",
     contact_name: desk ? a.contact_name : "",
+    door_photo: doorPhotoFromNotes(a.visit_notes),
     relationship: a.relationship,
     listed_publicly: a.listed_publicly,
     last_visited_at: a.last_visited_at,
@@ -88,12 +92,13 @@ export default async function AroundPage() {
     : [];
   const pinRows = await Promise.all([...open, ...closed, ...toCheck].map(pin));
   const pins = pinRows.filter((p): p is MapPlace => Boolean(p));
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
   return (
     <main className="shell">
-      <p className="eyebrow">Toombs County · Vidalia and Lyons</p>
-      <h1>Food pantries we have checked</h1>
-      <p className="lede">Hours only after someone walked in. Tap Drive to open Maps. If a building is empty, we say so.</p>
+      <p className="eyebrow">{t(lang, "aroundEyebrow")}</p>
+      <h1>{t(lang, "aroundTitle")}</h1>
+      <p className="lede">{t(lang, "aroundLede")}</p>
 
       <PantryMap places={pins} />
 

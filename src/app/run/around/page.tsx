@@ -3,6 +3,8 @@ import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { ensureToombsStartingPoints, listAllies, listOpsNeeds, listPeople } from "@/lib/db/queries";
+import { hasCooler } from "@/lib/cooler";
+import { doorPhotoFromNotes } from "@/lib/door-photo";
 import { coordsForName } from "@/lib/maps";
 import { redirect } from "next/navigation";
 
@@ -27,6 +29,7 @@ export default async function AroundDeskPage() {
   const needs = await listOpsNeeds(pantry.id);
   const people = await listPeople(pantry.id);
   const toMeet = allies.filter((a) => a.relationship === "to_meet");
+  const contacts = allies.filter((a) => a.contact_name || a.phone);
 
   return (
     <main className="shell">
@@ -34,6 +37,50 @@ export default async function AroundDeskPage() {
       <h1>Keep the pantry list honest</h1>
       <p className="lede">Walk in. Save what you saw. Hours stay off the public list until then. Closed if the building is empty.</p>
       <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
+
+      <section className="panel">
+        <h2>People to call (desk only)</h2>
+        {contacts.length ? (
+          <div className="table-scroll">
+            <table className="table">
+              <thead><tr><th>Place</th><th>Who</th><th>Phone</th><th>Last</th></tr></thead>
+              <tbody>
+                {contacts.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.name}</td>
+                    <td>{a.contact_name || "—"}</td>
+                    <td>{a.phone ? <a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`}>{a.phone}</a> : "—"}</td>
+                    <td>{a.last_visited_at ? new Date(a.last_visited_at).toLocaleDateString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="empty">Add a name or phone on a visit. They stay off the public list.</p>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>Add a farm, compost, or pantry</h2>
+        <p className="note">Farms and compost are where produce goes if no pantry is serving tomorrow. Do not invent hours.</p>
+        <PostForm action="/api/allies" submitLabel="Add to the visit list">
+          <label className="field">
+            <span>Kind</span>
+            <select className="input" name="kind" defaultValue="farm">
+              <option value="farm">Farm</option>
+              <option value="compost">Compost</option>
+              <option value="pantry">Pantry</option>
+              <option value="church">Church</option>
+            </select>
+          </label>
+          <label className="field"><span>Name</span><input className="input" name="name" required /></label>
+          <label className="field"><span>Address</span><input className="input" name="address" /></label>
+          <label className="field"><span>City</span><input className="input" name="city" defaultValue="Vidalia" /></label>
+          <label className="field"><span>Phone</span><input className="input" name="phone" /></label>
+          <input type="hidden" name="relationship" value="to_meet" />
+        </PostForm>
+      </section>
 
       <section className="panel">
         <h2>What we need to operate</h2>
@@ -102,6 +149,7 @@ export default async function AroundDeskPage() {
                 {a.hours_hint ? <p className="note">Unverified: {a.hours_hint}</p> : null}
                 {a.source_note ? <p className="note">{a.source_note}</p> : null}
                 {a.contact_name ? <p className="note">People (desk): {a.contact_name}</p> : null}
+                {doorPhotoFromNotes(a.visit_notes) ? <img className="thumb" src={doorPhotoFromNotes(a.visit_notes)} alt="" /> : null}
                 <PostForm action={`/api/allies/${a.id}`} submitLabel="Save visit">
                   <label className="field">
                     <span>How we relate</span>

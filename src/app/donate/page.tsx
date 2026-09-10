@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import { GiveCardForm } from "@/components/give-card";
 import { PayBoard } from "@/components/pay-board";
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { effectivePayMethods, getDefaultPantrySafe, getTaxProfile, openOpsNeeds, weNeedList } from "@/lib/db/queries";
+import { readLang, t } from "@/lib/i18n";
 import { pageMeta } from "@/lib/seo";
 import { stripeConfigured } from "@/lib/stripe-give";
 
@@ -21,11 +23,13 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
   const opsNeeds = pantry ? await openOpsNeeds(pantry.id).catch(() => []) : [];
   const pay = pantry ? await effectivePayMethods(pantry).catch(() => []) : [];
   const cardLive = await stripeConfigured();
+  const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
   return (
     <main className="shell">
-      <p className="eyebrow">Give</p>
+      <p className="eyebrow">{t(lang, "giveTitle")}</p>
       <h1>Food is free. Handling still costs.</h1>
+      <p className="lede">{t(lang, "giveLede")}</p>
       <p className="lede">Card, Cash App, Venmo, or Zelle. Grocery stores: leftover food is the better write-off.</p>
 
       <article className="card" style={{ marginTop: 18 }}>
