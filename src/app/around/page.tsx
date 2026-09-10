@@ -91,6 +91,19 @@ export default async function AroundPage() {
     ? all.filter((a) => a.kind === "pantry" && a.relationship === "to_meet" && a.address)
     : [];
   const pinRows = await Promise.all([...open, ...closed, ...toCheck].map(pin));
+  if (pantry?.address) {
+    const hubPin = await pin({
+      id: pantry.id,
+      name: pantry.name,
+      address: pantry.address,
+      city: pantry.city,
+      state: pantry.state,
+      zip: pantry.zip,
+      hours_text: pantry.hours_text,
+      relationship: "running_own"
+    });
+    if (hubPin) pinRows.unshift(hubPin);
+  }
   const pins = pinRows.filter((p): p is MapPlace => Boolean(p));
   const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
@@ -101,6 +114,23 @@ export default async function AroundPage() {
       <p className="lede">{t(lang, "aroundLede")}</p>
 
       <PantryMap places={pins} />
+
+      {pantry ? (
+        <section className="panel">
+          <h2>This pantry</h2>
+          <article className="card">
+            <span>{pantry.city || "Vidalia"}</span>
+            <strong>{pantry.name}</strong>
+            {pantry.hours_text ? <p>{pantry.hours_text}</p> : <p className="note">Hours posted when we have a line. Register anyway — food is never gated.</p>}
+            {pantry.address ? <p>{pantry.address}{pantry.city ? `, ${pantry.city}` : ""}</p> : null}
+            <div className="action-row">
+              <a className="button primary" href="/need-food">Get food</a>
+              <a className="button leaf" href="/volunteer">Volunteer</a>
+              <a className="button" href={`/p/${pantry.slug}`}>Profile</a>
+            </div>
+          </article>
+        </section>
+      ) : null}
 
       {open.length ? (
         <section className="panel">
