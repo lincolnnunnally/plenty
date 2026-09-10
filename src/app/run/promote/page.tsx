@@ -1,16 +1,14 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
-import { requireCustomerAccess } from "@/lib/auth/session";
-import { availableThisWeek, getDefaultPantry, isSteward, listPromos, weNeedList } from "@/lib/db/queries";
+import { requirePantryDesk } from "@/lib/auth/session";
+import { availableThisWeek, listPromos, weNeedList } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function PromotePage() {
-  const user = await requireCustomerAccess("/run/promote");
-  const pantry = await getDefaultPantry();
+  const { pantry } = await requirePantryDesk("/run/promote");
   if (!pantry) redirect("/run");
-  if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const needs = await weNeedList(pantry.id);
   const week = await availableThisWeek(pantry.id);
   const promos = await listPromos(pantry.id);

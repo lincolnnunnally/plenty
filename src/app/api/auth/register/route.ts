@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { passwordSignInConfigured } from "@/auth";
 import { hasDatabase } from "@/lib/db/client";
-import { roleForEmail } from "@/lib/auth/roles";
+import { isSuperAdminEmail, roleForEmail } from "@/lib/auth/roles";
 import { addMembership, ensureUserProfile, getDefaultPantry } from "@/lib/db/queries";
 
 export const runtime = "nodejs";
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         for (const item of coming) {
           if (allowed.has(item.trim())) await addMembership(pantry.id, userId, item.trim());
         }
-        if (role === "owner") await addMembership(pantry.id, userId, "steward");
+        if (isSuperAdminEmail(email)) await addMembership(pantry.id, userId, "steward");
       }
     } catch (error) {
       console.error("plenty_user_profiles upsert failed", error);

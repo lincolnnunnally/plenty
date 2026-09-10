@@ -31,7 +31,8 @@ export async function POST(request: Request) {
       householdId,
       userId: user.id,
       itemsSummary: str(body.itemsSummary),
-      notes: str(body.notes)
+      notes: str(body.notes),
+      locationId: str(body.locationId) || null
     });
     return ok({ visitId: visit.id, message: "Checked in. If you want a next step beyond groceries, open A path — it is optional." });
   } catch (err) {

@@ -1,4 +1,5 @@
 import { DEFAULT_PANTRY_SLUG } from "@/lib/app-brand";
+import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 
@@ -29,6 +30,17 @@ export type Household = {
   phone: string;
   preferred_contact: string;
   notes: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  adults_count: number;
+  children_count: number;
+  family_notes: string;
+  delivery_ok: boolean;
+  porch_leave_ok: boolean;
+  porch_notes: string;
 };
 
 export type InventoryItem = {
@@ -63,6 +75,8 @@ export type Donation = {
   created_at: string;
   received_at?: string | null;
   receipt_sent?: boolean;
+  tenure?: string;
+  asset_kind?: string;
 };
 
 export type Shift = {
@@ -110,6 +124,7 @@ export type Visit = {
   visited_at: string;
   items_summary: string;
   notes: string;
+  location_id?: string | null;
 };
 
 export type Membership = {
@@ -184,10 +199,10 @@ export async function getDefaultPantrySafe() {
 }
 
 const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source";
-const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes";
+const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes";
 const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
-const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent";
-const VISIT_COLS = "id, pantry_id, household_id, user_id, visited_at, items_summary, notes";
+const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent, tenure, asset_kind";
+const VISIT_COLS = "id, pantry_id, household_id, user_id, visited_at, items_summary, notes, location_id";
 const PATH_COLS = "id, pantry_id, household_id, user_id, whats_hard, who_they_want_to_become, next_step, handoff_app, status, created_at";
 const SHIFT_COLS = "id, pantry_id, title, role, starts_at, ends_at, location, capacity, notes, status";
 const DIST_COLS = "id, pantry_id, title, starts_at, ends_at, notes, status";
@@ -197,14 +212,23 @@ const PROMO_COLS = "id, pantry_id, channel, title, body, created_at";
 export async function ensureUserProfile(user: { id: string; email: string; name: string; role: string }) {
   const client = await sb();
   const { data: existing } = await client.from("plenty_user_profiles").select("id, name").eq("id", user.id).maybeSingle();
+  const role = isSuperAdminEmail(user.email) ? "owner" : user.role === "owner" || user.role === "admin" ? "member" : user.role || "member";
   const { error } = await client.from("plenty_user_profiles").upsert({
     id: user.id,
     email: user.email,
     name: user.name || existing?.name || null,
-    role: user.role,
+    role,
     updated_at: new Date().toISOString()
   });
   fail(error);
+  if (isSuperAdminEmail(user.email)) {
+    try {
+      const pantry = await getDefaultPantry();
+      if (pantry) await addMembership(pantry.id, user.id, "steward");
+    } catch {
+      // Profile still saved if pantry membership cannot be written yet.
+    }
+  }
 }
 
 export async function getPantryBySlug(slug: string): Promise<Pantry | null> {
@@ -277,17 +301,27 @@ export async function membershipsForUser(userId: string): Promise<Membership[]> 
   return (data as Membership[]) || [];
 }
 
-export async function isSteward(pantryId: string, userId: string, appRole?: string | null) {
-  if (appRole === "owner" || appRole === "admin") return true;
+export async function isSteward(pantryId: string, userId: string, email?: string | null) {
+  if (isSuperAdminEmail(email)) return true;
   const client = await sb();
-  const { count, error } = await client
+  if (userId) {
+    const { data: profile } = await client.from("plenty_user_profiles").select("email").eq("id", userId).maybeSingle();
+    if (isSuperAdminEmail(profile?.email)) return true;
+  }
+  const { data, error } = await client
     .from("plenty_memberships")
-    .select("user_id", { count: "exact", head: true })
+    .select("role")
     .eq("pantry_id", pantryId)
     .eq("user_id", userId)
-    .eq("role", "steward");
+    .in("role", ["steward", "admin"]);
   fail(error);
-  return (count || 0) > 0;
+  return (data || []).length > 0;
+}
+
+export async function removeMembership(pantryId: string, userId: string, role: string) {
+  const client = await sb();
+  const { error } = await client.from("plenty_memberships").delete().eq("pantry_id", pantryId).eq("user_id", userId).eq("role", role);
+  fail(error);
 }
 
 export async function listPeople(pantryId: string): Promise<PersonRow[]> {
@@ -322,6 +356,17 @@ export async function upsertHousehold(input: {
   dietaryNotes: string;
   phone: string;
   preferredContact: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  adultsCount?: number;
+  childrenCount?: number;
+  familyNotes?: string;
+  deliveryOk?: boolean;
+  porchLeaveOk?: boolean;
+  porchNotes?: string;
 }): Promise<Household> {
   const client = await sb();
   const { data, error } = await client.from("plenty_households").upsert({
@@ -332,6 +377,17 @@ export async function upsertHousehold(input: {
     dietary_notes: input.dietaryNotes,
     phone: input.phone,
     preferred_contact: input.preferredContact,
+    email: input.email ?? "",
+    address: input.address ?? "",
+    city: input.city ?? "",
+    state: input.state ?? "",
+    zip: input.zip ?? "",
+    adults_count: input.adultsCount ?? 1,
+    children_count: input.childrenCount ?? 0,
+    family_notes: input.familyNotes ?? "",
+    delivery_ok: Boolean(input.deliveryOk),
+    porch_leave_ok: Boolean(input.porchLeaveOk),
+    porch_notes: input.porchNotes ?? "",
     updated_at: new Date().toISOString()
   }, { onConflict: "pantry_id,user_id" }).select(HOUSEHOLD_COLS).single();
   fail(error);
@@ -428,6 +484,7 @@ export async function recordVisit(input: {
   userId: string | null;
   itemsSummary: string;
   notes: string;
+  locationId?: string | null;
 }): Promise<Visit> {
   const client = await sb();
   const { data, error } = await client.from("plenty_visits").insert({
@@ -435,7 +492,8 @@ export async function recordVisit(input: {
     household_id: input.householdId,
     user_id: input.userId,
     items_summary: input.itemsSummary,
-    notes: input.notes
+    notes: input.notes,
+    location_id: input.locationId || null
   }).select(VISIT_COLS).single();
   fail(error);
   return data as Visit;
@@ -471,6 +529,8 @@ export async function addDonation(input: {
   contactName: string;
   contactPhone: string;
   contactEmail: string;
+  tenure?: string;
+  assetKind?: string;
 }): Promise<Donation> {
   const client = await sb();
   const { data, error } = await client.from("plenty_donations").insert({
@@ -484,7 +544,9 @@ export async function addDonation(input: {
     available_when: input.availableWhen,
     contact_name: input.contactName,
     contact_phone: input.contactPhone,
-    contact_email: input.contactEmail
+    contact_email: input.contactEmail,
+    tenure: input.tenure || "",
+    asset_kind: input.assetKind || ""
   }).select(DONATION_COLS).single();
   fail(error);
   if (input.userId) await addMembership(input.pantryId, input.userId, "donor");
@@ -591,9 +653,12 @@ export async function listShifts(pantryId: string): Promise<Shift[]> {
   fail(error);
   const shifts = (data as Omit<Shift, "signup_count">[]) || [];
   if (!shifts.length) return [];
-  const { data: signups } = await client.from("plenty_shift_signups").select("shift_id").in("shift_id", shifts.map((s) => s.id));
+  const { data: signups } = await client.from("plenty_shift_signups").select("shift_id, status").in("shift_id", shifts.map((s) => s.id));
   const counts = new Map<string, number>();
-  for (const row of signups || []) counts.set(row.shift_id, (counts.get(row.shift_id) || 0) + 1);
+  for (const row of signups || []) {
+    if (["cancelled", "covered"].includes(String(row.status || "signed"))) continue;
+    counts.set(row.shift_id, (counts.get(row.shift_id) || 0) + 1);
+  }
   return shifts.map((s) => ({ ...s, signup_count: counts.get(s.id) || 0 }));
 }
 
@@ -606,7 +671,10 @@ export async function signupForShift(shiftId: string, userId: string) {
   const { count, error: cErr } = await client.from("plenty_shift_signups").select("user_id", { count: "exact", head: true }).eq("shift_id", shiftId);
   fail(cErr);
   if (shift.capacity != null && (count || 0) >= shift.capacity) throw new Error("That shift is full.");
-  const { error: sErr } = await client.from("plenty_shift_signups").upsert({ shift_id: shiftId, user_id: userId }, { onConflict: "shift_id,user_id", ignoreDuplicates: true });
+  const { error: sErr } = await client.from("plenty_shift_signups").upsert(
+    { shift_id: shiftId, user_id: userId, status: "signed" },
+    { onConflict: "shift_id,user_id" }
+  );
   fail(sErr);
   await addMembership(shift.pantry_id, userId, "volunteer");
 }
@@ -769,6 +837,11 @@ export type Pickup = {
   notes: string;
   status: string;
   created_at: string;
+  household_id: string | null;
+  will_be_home: boolean | null;
+  porch_leave_ok: boolean;
+  assigned_user_id: string | null;
+  window_text: string;
 };
 
 export type TaxProfile = {
@@ -838,6 +911,8 @@ export async function listLocations(pantryId: string): Promise<LocationRow[]> {
   return (data as LocationRow[]) || [];
 }
 
+const PICKUP_COLS = "id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at, household_id, will_be_home, porch_leave_ok, assigned_user_id, window_text";
+
 export async function addPickup(input: {
   pantryId: string;
   kind: string;
@@ -847,6 +922,10 @@ export async function addPickup(input: {
   contactPhone: string;
   notes: string;
   createdBy: string | null;
+  householdId?: string | null;
+  willBeHome?: boolean | null;
+  porchLeaveOk?: boolean;
+  windowText?: string;
 }): Promise<Pickup> {
   const client = await sb();
   const { data, error } = await client.from("plenty_pickups").insert({
@@ -857,22 +936,29 @@ export async function addPickup(input: {
     contact_name: input.contactName,
     contact_phone: input.contactPhone,
     notes: input.notes,
-    created_by: input.createdBy
-  }).select("id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at").single();
+    created_by: input.createdBy,
+    household_id: input.householdId ?? null,
+    will_be_home: input.willBeHome ?? null,
+    porch_leave_ok: Boolean(input.porchLeaveOk),
+    window_text: input.windowText ?? ""
+  }).select(PICKUP_COLS).single();
   fail(error);
   return data as Pickup;
 }
 
 export async function listPickups(pantryId: string): Promise<Pickup[]> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pickups").select("id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at").eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  const { data, error } = await client.from("plenty_pickups").select(PICKUP_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
   fail(error);
   return (data as Pickup[]) || [];
 }
 
-export async function setPickupStatus(id: string, status: string): Promise<Pickup | null> {
+export async function setPickupStatus(id: string, status: string, extra?: { assignedUserId?: string; scheduledFor?: string | null }): Promise<Pickup | null> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pickups").update({ status }).eq("id", id).select("id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at").maybeSingle();
+  const payload: Record<string, unknown> = { status };
+  if (extra?.assignedUserId) payload.assigned_user_id = extra.assignedUserId;
+  if (extra?.scheduledFor !== undefined) payload.scheduled_for = extra.scheduledFor;
+  const { data, error } = await client.from("plenty_pickups").update(payload).eq("id", id).select(PICKUP_COLS).maybeSingle();
   fail(error);
   return (data as Pickup | null) ?? null;
 }
@@ -915,4 +1001,320 @@ export async function markReceiptSent(id: string) {
   const client = await sb();
   const { error } = await client.from("plenty_donations").update({ receipt_sent: true }).eq("id", id);
   fail(error);
+}
+
+export type ShiftSignup = {
+  shift_id: string;
+  user_id: string;
+  status: string;
+  cover_user_id: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+  title?: string;
+  role?: string;
+  starts_at?: string;
+  ends_at?: string | null;
+  location?: string;
+  name?: string | null;
+  email?: string | null;
+};
+
+export type Asset = {
+  id: string;
+  pantry_id: string;
+  kind: string;
+  title: string;
+  description: string;
+  tenure: string;
+  donor_user_id: string | null;
+  donor_name: string;
+  status: string;
+  notes: string;
+  created_at: string;
+};
+
+export type VolunteerHour = {
+  id: string;
+  pantry_id: string;
+  user_id: string;
+  shift_id: string | null;
+  hours: number;
+  worked_on: string;
+  notes: string;
+  created_at: string;
+  name?: string | null;
+  email?: string | null;
+};
+
+export type Contribution = {
+  id: string;
+  pantry_id: string;
+  household_id: string | null;
+  user_id: string | null;
+  amount_cents: number | null;
+  waived: boolean;
+  waive_reason: string;
+  status: string;
+  notes: string;
+  visit_id: string | null;
+  created_at: string;
+  household_name?: string;
+};
+
+const ASSET_COLS = "id, pantry_id, kind, title, description, tenure, donor_user_id, donor_name, status, notes, created_at";
+const HOUR_COLS = "id, pantry_id, user_id, shift_id, hours, worked_on, notes, created_at";
+const CONTRIB_COLS = "id, pantry_id, household_id, user_id, amount_cents, waived, waive_reason, status, notes, visit_id, created_at";
+
+export async function myShiftSignups(userId: string): Promise<ShiftSignup[]> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_shift_signups")
+    .select("shift_id, user_id, status, cover_user_id, created_at, confirmed_at, plenty_shifts(title, role, starts_at, ends_at, location, status)")
+    .eq("user_id", userId);
+  fail(error);
+  return ((data as Array<ShiftSignup & { plenty_shifts?: Record<string, unknown> | Record<string, unknown>[] }>) || []).map((row) => {
+    const shift = Array.isArray(row.plenty_shifts) ? row.plenty_shifts[0] : row.plenty_shifts;
+    return {
+      shift_id: row.shift_id,
+      user_id: row.user_id,
+      status: row.status || "signed",
+      cover_user_id: row.cover_user_id,
+      created_at: row.created_at,
+      confirmed_at: row.confirmed_at,
+      title: shift ? String(shift.title || "") : "",
+      role: shift ? String(shift.role || "") : "",
+      starts_at: shift ? String(shift.starts_at || "") : "",
+      ends_at: shift?.ends_at ? String(shift.ends_at) : null,
+      location: shift ? String(shift.location || "") : ""
+    };
+  });
+}
+
+export async function listShiftSignups(pantryId: string): Promise<ShiftSignup[]> {
+  const client = await sb();
+  const shifts = await listShifts(pantryId);
+  if (!shifts.length) return [];
+  const { data, error } = await client
+    .from("plenty_shift_signups")
+    .select("shift_id, user_id, status, cover_user_id, created_at, confirmed_at")
+    .in("shift_id", shifts.map((s) => s.id));
+  fail(error);
+  const ids = [...new Set((data || []).map((r) => r.user_id))];
+  const { data: profiles } = ids.length
+    ? await client.from("plenty_user_profiles").select("id, name, email").in("id", ids)
+    : { data: [] };
+  const byId = new Map((profiles || []).map((p) => [p.id, p]));
+  const byShift = new Map(shifts.map((s) => [s.id, s]));
+  return ((data as ShiftSignup[]) || []).map((row) => ({
+    ...row,
+    status: row.status || "signed",
+    title: byShift.get(row.shift_id)?.title,
+    role: byShift.get(row.shift_id)?.role,
+    starts_at: byShift.get(row.shift_id)?.starts_at,
+    name: byId.get(row.user_id)?.name ?? null,
+    email: byId.get(row.user_id)?.email ?? null
+  }));
+}
+
+export async function listCoverRequests(pantryId: string): Promise<ShiftSignup[]> {
+  const rows = await listShiftSignups(pantryId);
+  return rows.filter((row) => row.status === "needs_cover");
+}
+
+export async function updateShiftSignup(input: {
+  shiftId: string;
+  userId: string;
+  action: "confirm" | "need_cover" | "take_cover" | "cancel";
+  actorId: string;
+}) {
+  const client = await sb();
+  const { data: existing, error } = await client
+    .from("plenty_shift_signups")
+    .select("shift_id, user_id, status, cover_user_id")
+    .eq("shift_id", input.shiftId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  fail(error);
+  if (!existing) throw new Error("You are not on that shift.");
+
+  if (input.action === "confirm") {
+    if (existing.user_id !== input.actorId) throw new Error("Only the volunteer on this shift can confirm.");
+    const { error: uErr } = await client.from("plenty_shift_signups").update({
+      status: "confirmed",
+      confirmed_at: new Date().toISOString()
+    }).eq("shift_id", input.shiftId).eq("user_id", input.userId);
+    fail(uErr);
+    return;
+  }
+
+  if (input.action === "need_cover") {
+    if (existing.user_id !== input.actorId) throw new Error("Only the volunteer on this shift can ask for cover.");
+    const { error: uErr } = await client.from("plenty_shift_signups").update({
+      status: "needs_cover"
+    }).eq("shift_id", input.shiftId).eq("user_id", input.userId);
+    fail(uErr);
+    return;
+  }
+
+  if (input.action === "cancel") {
+    if (existing.user_id !== input.actorId) throw new Error("Only the volunteer on this shift can cancel.");
+    const { error: uErr } = await client.from("plenty_shift_signups").update({
+      status: "cancelled"
+    }).eq("shift_id", input.shiftId).eq("user_id", input.userId);
+    fail(uErr);
+    return;
+  }
+
+  if (input.action === "take_cover") {
+    if (existing.status !== "needs_cover") throw new Error("That shift does not need cover.");
+    if (existing.user_id === input.actorId) throw new Error("You are already on this shift.");
+    const { error: uErr } = await client.from("plenty_shift_signups").update({
+      status: "covered",
+      cover_user_id: input.actorId
+    }).eq("shift_id", input.shiftId).eq("user_id", input.userId);
+    fail(uErr);
+    await signupForShift(input.shiftId, input.actorId);
+  }
+}
+
+export async function addAsset(input: {
+  pantryId: string;
+  kind: string;
+  title: string;
+  description: string;
+  tenure: string;
+  donorUserId: string | null;
+  donorName: string;
+  notes: string;
+}): Promise<Asset> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_assets").insert({
+    pantry_id: input.pantryId,
+    kind: input.kind,
+    title: input.title,
+    description: input.description,
+    tenure: input.tenure,
+    donor_user_id: input.donorUserId,
+    donor_name: input.donorName,
+    notes: input.notes
+  }).select(ASSET_COLS).single();
+  fail(error);
+  return data as Asset;
+}
+
+export async function listAssets(pantryId: string): Promise<Asset[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_assets").select(ASSET_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(error);
+  return (data as Asset[]) || [];
+}
+
+export async function setAssetStatus(id: string, status: string): Promise<Asset | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_assets").update({ status }).eq("id", id).select(ASSET_COLS).maybeSingle();
+  fail(error);
+  return (data as Asset | null) ?? null;
+}
+
+export async function addVolunteerHours(input: {
+  pantryId: string;
+  userId: string;
+  shiftId: string | null;
+  hours: number;
+  workedOn: string;
+  notes: string;
+}): Promise<VolunteerHour> {
+  const client = await sb();
+  const hours = Math.max(0.25, Number(input.hours) || 0);
+  const { data, error } = await client.from("plenty_volunteer_hours").insert({
+    pantry_id: input.pantryId,
+    user_id: input.userId,
+    shift_id: input.shiftId,
+    hours,
+    worked_on: input.workedOn,
+    notes: input.notes
+  }).select(HOUR_COLS).single();
+  fail(error);
+  return data as VolunteerHour;
+}
+
+export async function listVolunteerHours(pantryId: string): Promise<VolunteerHour[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_volunteer_hours").select(HOUR_COLS).eq("pantry_id", pantryId).order("worked_on", { ascending: false }).limit(80);
+  fail(error);
+  const rows = (data as VolunteerHour[]) || [];
+  const ids = [...new Set(rows.map((r) => r.user_id))];
+  const { data: profiles } = ids.length
+    ? await client.from("plenty_user_profiles").select("id, name, email").in("id", ids)
+    : { data: [] };
+  const byId = new Map((profiles || []).map((p) => [p.id, p]));
+  return rows.map((row) => ({
+    ...row,
+    name: byId.get(row.user_id)?.name ?? null,
+    email: byId.get(row.user_id)?.email ?? null
+  }));
+}
+
+export async function hoursForUser(pantryId: string, userId: string): Promise<VolunteerHour[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_volunteer_hours").select(HOUR_COLS).eq("pantry_id", pantryId).eq("user_id", userId).order("worked_on", { ascending: false });
+  fail(error);
+  return (data as VolunteerHour[]) || [];
+}
+
+export async function hoursTotals(pantryId: string): Promise<Map<string, number>> {
+  const rows = await listVolunteerHours(pantryId);
+  const totals = new Map<string, number>();
+  for (const row of rows) totals.set(row.user_id, (totals.get(row.user_id) || 0) + Number(row.hours));
+  return totals;
+}
+
+export async function addContribution(input: {
+  pantryId: string;
+  householdId: string | null;
+  userId: string | null;
+  amountCents: number | null;
+  waived: boolean;
+  waiveReason: string;
+  notes: string;
+  visitId?: string | null;
+}): Promise<Contribution> {
+  const client = await sb();
+  const status = input.waived ? "waived" : input.amountCents && input.amountCents > 0 ? "received" : "pledged";
+  const { data, error } = await client.from("plenty_contributions").insert({
+    pantry_id: input.pantryId,
+    household_id: input.householdId,
+    user_id: input.userId,
+    amount_cents: input.waived ? 0 : input.amountCents,
+    waived: input.waived,
+    waive_reason: input.waiveReason,
+    status,
+    notes: input.notes,
+    visit_id: input.visitId ?? null
+  }).select(CONTRIB_COLS).single();
+  fail(error);
+  return data as Contribution;
+}
+
+export async function listContributions(pantryId: string): Promise<Contribution[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_contributions").select(`${CONTRIB_COLS}, plenty_households(display_name)`).eq("pantry_id", pantryId).order("created_at", { ascending: false }).limit(80);
+  fail(error);
+  return ((data as Array<Contribution & { plenty_households?: { display_name?: string } | { display_name?: string }[] }>) || []).map((row) => {
+    const hh = row.plenty_households;
+    const name = Array.isArray(hh) ? hh[0]?.display_name : hh?.display_name;
+    return { ...row, household_name: name || "—" };
+  });
+}
+
+export async function visitCountsByHousehold(pantryId: string): Promise<Map<string, { count: number; lastVisit: string | null }>> {
+  const visits = await listVisits(pantryId, 400);
+  const map = new Map<string, { count: number; lastVisit: string | null }>();
+  for (const visit of visits) {
+    const current = map.get(visit.household_id) || { count: 0, lastVisit: null as string | null };
+    current.count += 1;
+    if (!current.lastVisit || visit.visited_at > current.lastVisit) current.lastVisit = visit.visited_at;
+    map.set(visit.household_id, current);
+  }
+  return map;
 }

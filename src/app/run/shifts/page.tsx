@@ -1,22 +1,22 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
-import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantry, isSteward, listShifts } from "@/lib/db/queries";
+import { requirePantryDesk } from "@/lib/auth/session";
+import { listShiftSignups, listShifts } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ShiftsAdminPage() {
-  const user = await requireCustomerAccess("/run/shifts");
-  const pantry = await getDefaultPantry();
+  const { pantry } = await requirePantryDesk("/run/shifts");
   if (!pantry) redirect("/run");
-  if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const shifts = await listShifts(pantry.id);
+  const signups = await listShiftSignups(pantry.id);
 
   return (
     <main className="shell">
       <p className="eyebrow">Shifts</p>
       <h1>Pickup, setup, serve, delivery</h1>
+      <p className="lede">Post real shifts. Volunteers confirm, ask for cover, or log hours from their volunteer page.</p>
       <RunNav />
 
       <section className="panel">
@@ -50,6 +50,11 @@ export default async function ShiftsAdminPage() {
                 <strong>{shift.title}</strong>
                 <p>{new Date(shift.starts_at).toLocaleString()}</p>
                 <p className="note">{shift.signup_count}{shift.capacity ? ` / ${shift.capacity}` : ""} signed up</p>
+                <ul>
+                  {signups.filter((s) => s.shift_id === shift.id).map((s) => (
+                    <li key={`${s.shift_id}-${s.user_id}`}>{s.name || s.email} · {s.status.replace("_", " ")}</li>
+                  ))}
+                </ul>
               </article>
             ))}
           </div>

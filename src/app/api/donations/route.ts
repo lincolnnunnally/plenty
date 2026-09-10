@@ -4,6 +4,8 @@ import { addDonation, getDefaultPantry } from "@/lib/db/queries";
 export const dynamic = "force-dynamic";
 
 const KINDS = new Set(["food", "money", "space", "vehicle"]);
+const TENURES = new Set(["donated", "loaned", "leased", "rented", "owned"]);
+const SPACE_KINDS = new Set(["warehouse", "distribution_site"]);
 
 export async function POST(request: Request) {
   const { error, user } = await requireUser();
@@ -21,6 +23,14 @@ export async function POST(request: Request) {
   if (kind === "money" && amountCents != null && (!Number.isFinite(amountCents) || amountCents <= 0)) {
     return fail("Enter a gift amount we can receive later — we do not charge cards in this app yet.");
   }
+  const tenure = str(body.tenure);
+  if ((kind === "space" || kind === "vehicle") && tenure && !TENURES.has(tenure)) {
+    return fail("Say whether this is donated, loaned, leased, rented, or owned by the pantry.");
+  }
+  const assetKind = str(body.assetKind);
+  if (kind === "space" && assetKind && !SPACE_KINDS.has(assetKind)) {
+    return fail("Is this a warehouse or a place to distribute food?");
+  }
   try {
     const donation = await addDonation({
       pantryId: pantry.id,
@@ -33,12 +43,14 @@ export async function POST(request: Request) {
       availableWhen: str(body.availableWhen),
       contactName: str(body.contactName) || user.name,
       contactPhone: str(body.contactPhone),
-      contactEmail: str(body.contactEmail) || user.email
+      contactEmail: str(body.contactEmail) || user.email,
+      tenure: kind === "space" || kind === "vehicle" ? tenure || "donated" : "",
+      assetKind: kind === "space" ? assetKind || "distribution_site" : kind === "vehicle" ? "vehicle" : ""
     });
     const message =
       kind === "money"
         ? "Gift recorded. We will contact you to receive it — we do not take card payments in this app yet."
-        : "Offer received. A steward will follow up to schedule pickup or drop-off.";
+        : "Offer received. A pantry admin will follow up to schedule pickup or drop-off.";
     return ok({ donationId: donation.id, message });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save the offer.", 503);

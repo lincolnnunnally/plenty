@@ -68,8 +68,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         token.sub = user.id ?? token.sub;
         token.name = user.name ?? token.name;
         token.email = user.email ?? token.email;
-        token.role = await resolveRole({ id: user.id, email: user.email });
       }
+      token.role = await resolveRole({
+        id: typeof token.sub === "string" ? token.sub : undefined,
+        email: typeof token.email === "string" ? token.email : undefined
+      });
       return token;
     },
     async session({ session, token }) {

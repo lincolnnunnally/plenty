@@ -1,16 +1,14 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
-import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantry, getTaxProfile, isSteward, receivedMoneyGifts } from "@/lib/db/queries";
+import { requirePantryDesk } from "@/lib/auth/session";
+import { getTaxProfile, receivedMoneyGifts } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReceiptsPage() {
-  const user = await requireCustomerAccess("/run/receipts");
-  const pantry = await getDefaultPantry();
+  const { pantry } = await requirePantryDesk("/run/receipts");
   if (!pantry) redirect("/run");
-  if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const tax = await getTaxProfile(pantry.id);
   const year = new Date().getFullYear();
   const gifts = await receivedMoneyGifts(pantry.id, year);

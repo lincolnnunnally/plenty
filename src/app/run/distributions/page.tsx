@@ -1,16 +1,14 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
-import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantry, isSteward, listDistributions } from "@/lib/db/queries";
+import { requirePantryDesk } from "@/lib/auth/session";
+import { listDistributions } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DistributionsPage() {
-  const user = await requireCustomerAccess("/run/distributions");
-  const pantry = await getDefaultPantry();
+  const { pantry } = await requirePantryDesk("/run/distributions");
   if (!pantry) redirect("/run");
-  if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const days = await listDistributions(pantry.id);
 
   return (

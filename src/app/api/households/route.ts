@@ -3,6 +3,10 @@ import { getDefaultPantry, upsertHousehold } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
+function on(value: unknown) {
+  return value === true || value === "true" || value === "on" || value === "yes";
+}
+
 export async function POST(request: Request) {
   const { error, user } = await requireUser();
   if (error || !user) return error || fail("Sign in first.", 401);
@@ -20,9 +24,20 @@ export async function POST(request: Request) {
       householdSize: size,
       dietaryNotes: str(body.dietaryNotes),
       phone: str(body.phone),
-      preferredContact: str(body.preferredContact) || "in_person"
+      preferredContact: str(body.preferredContact) || "in_person",
+      email: str(body.email) || user.email,
+      address: str(body.address),
+      city: str(body.city),
+      state: str(body.state),
+      zip: str(body.zip),
+      adultsCount: Math.max(1, Number(body.adultsCount) || 1),
+      childrenCount: Math.max(0, Number(body.childrenCount) || 0),
+      familyNotes: str(body.familyNotes),
+      deliveryOk: on(body.deliveryOk),
+      porchLeaveOk: on(body.porchLeaveOk),
+      porchNotes: str(body.porchNotes)
     });
-    return ok({ householdId: household.id, message: "Your household is on the list. Come when we are open." });
+    return ok({ householdId: household.id, message: "Your household is on the list. Come when we are open — food is never held back." });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save the household.", 503);
   }

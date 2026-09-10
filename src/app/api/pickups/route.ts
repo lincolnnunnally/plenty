@@ -1,7 +1,11 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
-import { addPickup, getDefaultPantry, setPickupStatus } from "@/lib/db/queries";
+import { addPickup, getDefaultPantry, householdForUser, setPickupStatus } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
+
+function on(value: unknown) {
+  return value === true || value === "true" || value === "on" || value === "yes";
+}
 
 export async function POST(request: Request) {
   const pantry = await getDefaultPantry();
@@ -12,7 +16,10 @@ export async function POST(request: Request) {
     const steward = await requireStewardFor(pantry.id);
     if (steward.error) return steward.error;
     try {
-      await setPickupStatus(str(body.id), str(body.status));
+      await setPickupStatus(str(body.id), str(body.status), {
+        assignedUserId: str(body.assignedUserId) || undefined,
+        scheduledFor: str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : undefined
+      });
       return ok({ message: "Pickup updated." });
     } catch (err) {
       return fail(err instanceof Error ? err.message : "Could not update the pickup.", 503);
@@ -26,6 +33,7 @@ export async function POST(request: Request) {
   }
   const address = str(body.address);
   if (!address) return fail("We need an address.");
+  const mine = await householdForUser(pantry.id, user.id);
   try {
     await addPickup({
       pantryId: pantry.id,
@@ -35,9 +43,13 @@ export async function POST(request: Request) {
       contactName: str(body.contactName) || user.name,
       contactPhone: str(body.contactPhone),
       notes: str(body.notes),
-      createdBy: user.id
+      createdBy: user.id,
+      householdId: kind === "household_delivery" ? mine?.id || null : null,
+      willBeHome: body.willBeHome === undefined || body.willBeHome === "" ? null : on(body.willBeHome),
+      porchLeaveOk: on(body.porchLeaveOk),
+      windowText: str(body.windowText)
     });
-    return ok({ message: "Request received. We will confirm a time." });
+    return ok({ message: "Request received. We will confirm a time and make sure someone is coming." });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save the request.", 503);
   }

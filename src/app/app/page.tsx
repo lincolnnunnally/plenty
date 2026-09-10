@@ -22,7 +22,9 @@ export default async function AppHome() {
         sometimes all three.
       </p>
       <div className="chip-row">
-        {roles.length ? roles.map((role) => <span className="chip active" key={role}>{role}</span>) : <span className="note">No pantry roles yet.</span>}
+        {roles.filter((role) => role !== "steward" && role !== "admin").length
+          ? roles.filter((role) => role !== "steward" && role !== "admin").map((role) => <span className="chip active" key={role}>{role === "neighbor" ? "receiving food" : role}</span>)
+          : <span className="note">No pantry roles yet.</span>}
       </div>
       <div className="grid">
         <article className="card">

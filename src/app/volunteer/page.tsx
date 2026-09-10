@@ -1,7 +1,7 @@
 import { PostForm } from "@/components/post-form";
-import { SignupButton } from "@/components/signup-button";
+import { ShiftActions, SignupButton } from "@/components/signup-button";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, listShifts, myShiftIds, volunteerForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listShifts, myShiftSignups, volunteerForUser } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,11 @@ export default async function VolunteerPage() {
   const pantry = await getDefaultPantrySafe();
   const shifts = pantry ? await listShifts(pantry.id) : [];
   const mine = user && pantry ? await volunteerForUser(pantry.id, user.id) : null;
-  const signed = user ? await myShiftIds(user.id) : [];
+  const myShifts = user ? await myShiftSignups(user.id) : [];
+  const signed = new Set(myShifts.filter((s) => !["cancelled", "covered"].includes(s.status)).map((s) => s.shift_id));
+  const covers = pantry ? await listCoverRequests(pantry.id) : [];
+  const hours = user && pantry ? await hoursForUser(pantry.id, user.id) : [];
+  const hourTotal = hours.reduce((sum, row) => sum + Number(row.hours), 0);
 
   return (
     <main className="shell">
@@ -23,9 +27,8 @@ export default async function VolunteerPage() {
       <h1>Help neighbors get groceries</h1>
       <p className="lede">
         You are volunteering at Plenty, a food pantry in Vidalia, Georgia. The work is practical:
-        pick up donated food from stores and churches, set up tables, pack bags, welcome families
-        in the line, or drive food to someone who cannot come. You do not need experience. We will
-        show you.
+        pick up donated food, set up tables, pack bags, welcome families, or drive food to someone
+        who cannot come. Confirm your shift, ask for cover if you cannot make it, and log your hours.
       </p>
 
       <div className="grid">
@@ -59,6 +62,58 @@ export default async function VolunteerPage() {
         </section>
       )}
 
+      {user ? (
+        <section className="panel">
+          <h2>Your shifts</h2>
+          {myShifts.filter((s) => !["cancelled", "covered"].includes(s.status)).length ? (
+            <div className="grid">
+              {myShifts.filter((s) => !["cancelled", "covered"].includes(s.status)).map((s) => (
+                <article className="card" key={`${s.shift_id}-${s.user_id}`}>
+                  <span>{s.role} · {s.status.replace("_", " ")}</span>
+                  <strong>{s.title || "Shift"}</strong>
+                  {s.starts_at ? <p>{new Date(s.starts_at).toLocaleString()}</p> : null}
+                  {s.location ? <p className="note">{s.location}</p> : null}
+                  <ShiftActions shiftId={s.shift_id} status={s.status} />
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty">You are not on an upcoming shift yet. Take one below.</p>
+          )}
+        </section>
+      ) : null}
+
+      {covers.filter((c) => !user || c.user_id !== user.id).length ? (
+        <section className="panel">
+          <h2>Someone needs cover</h2>
+          <div className="grid">
+            {covers.filter((c) => !user || c.user_id !== user.id).map((c) => (
+              <article className="card" key={`${c.shift_id}-${c.user_id}`}>
+                <span>{c.role}</span>
+                <strong>{c.title}</strong>
+                {c.starts_at ? <p>{new Date(c.starts_at).toLocaleString()}</p> : null}
+                <p className="note">{c.name || c.email} cannot make this one.</p>
+                {user ? <ShiftActions shiftId={c.shift_id} status="needs_cover" coverUserId={c.user_id} /> : (
+                  <a className="button" href="/sign-in?next=/volunteer&as=volunteer">Sign in to cover this</a>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {user ? (
+        <section className="panel">
+          <h2>Log the time you served</h2>
+          <p className="note">{hourTotal ? `${hourTotal} hours on record.` : "Hours help us thank you and plan the next week."}</p>
+          <PostForm action="/api/hours" submitLabel="Save hours">
+            <label className="field"><span>Hours</span><input className="input" name="hours" type="number" min="0.25" step="0.25" required /></label>
+            <label className="field"><span>Date</span><input className="input" name="workedOn" type="date" /></label>
+            <label className="field"><span>What you did</span><input className="input" name="notes" placeholder="Pickup, serve line, delivery…" /></label>
+          </PostForm>
+        </section>
+      ) : null}
+
       <section className="panel">
         <p className="eyebrow">Open shifts at this pantry</p>
         <h2>Sign up for a real shift</h2>
@@ -73,7 +128,7 @@ export default async function VolunteerPage() {
                 <p className="note">{shift.signup_count}{shift.capacity ? ` / ${shift.capacity}` : ""} signed up</p>
                 {shift.notes ? <p>{shift.notes}</p> : null}
                 {user ? (
-                  <SignupButton shiftId={shift.id} signedUp={signed.includes(shift.id)} />
+                  <SignupButton shiftId={shift.id} signedUp={signed.has(shift.id)} />
                 ) : (
                   <a className="button" href="/sign-in?next=/volunteer&as=volunteer">Create an account to take this shift</a>
                 )}

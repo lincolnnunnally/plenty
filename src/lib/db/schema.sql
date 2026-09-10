@@ -237,3 +237,78 @@ create table if not exists plenty_tax_profiles (
 alter table plenty_donations add column if not exists received_at timestamptz;
 alter table plenty_donations add column if not exists receipt_sent boolean not null default false;
 alter table plenty_distributions add column if not exists location_id uuid;
+
+alter table plenty_households add column if not exists email text not null default '';
+alter table plenty_households add column if not exists address text not null default '';
+alter table plenty_households add column if not exists city text not null default '';
+alter table plenty_households add column if not exists state text not null default '';
+alter table plenty_households add column if not exists zip text not null default '';
+alter table plenty_households add column if not exists adults_count integer not null default 1;
+alter table plenty_households add column if not exists children_count integer not null default 0;
+alter table plenty_households add column if not exists family_notes text not null default '';
+alter table plenty_households add column if not exists delivery_ok boolean not null default false;
+alter table plenty_households add column if not exists porch_leave_ok boolean not null default false;
+alter table plenty_households add column if not exists porch_notes text not null default '';
+
+alter table plenty_visits add column if not exists location_id uuid;
+
+alter table plenty_shift_signups add column if not exists status text not null default 'signed';
+alter table plenty_shift_signups add column if not exists cover_user_id uuid;
+alter table plenty_shift_signups add column if not exists confirmed_at timestamptz;
+
+alter table plenty_pickups add column if not exists household_id uuid;
+alter table plenty_pickups add column if not exists will_be_home boolean;
+alter table plenty_pickups add column if not exists porch_leave_ok boolean not null default false;
+alter table plenty_pickups add column if not exists assigned_user_id uuid;
+alter table plenty_pickups add column if not exists window_text text not null default '';
+
+alter table plenty_donations add column if not exists tenure text not null default '';
+alter table plenty_donations add column if not exists asset_kind text not null default '';
+
+create table if not exists plenty_assets (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  kind text not null,
+  title text not null,
+  description text not null default '',
+  tenure text not null default 'donated',
+  donor_user_id uuid,
+  donor_name text not null default '',
+  status text not null default 'active',
+  notes text not null default '',
+  donation_id uuid,
+  created_at timestamptz not null default now()
+);
+alter table plenty_assets add column if not exists description text not null default '';
+alter table plenty_assets add column if not exists tenure text not null default 'donated';
+alter table plenty_assets add column if not exists status text not null default 'active';
+alter table plenty_assets add column if not exists notes text not null default '';
+alter table plenty_assets add column if not exists donation_id uuid;
+create index if not exists plenty_assets_pantry_idx on plenty_assets (pantry_id, kind, status);
+
+create table if not exists plenty_volunteer_hours (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  user_id uuid not null,
+  shift_id uuid,
+  hours numeric(6,2) not null,
+  worked_on date not null default current_date,
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_volunteer_hours_pantry_idx on plenty_volunteer_hours (pantry_id, user_id, worked_on desc);
+
+create table if not exists plenty_contributions (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  household_id uuid,
+  user_id uuid,
+  amount_cents integer,
+  waived boolean not null default false,
+  waive_reason text not null default '',
+  status text not null default 'received',
+  notes text not null default '',
+  visit_id uuid,
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_contributions_pantry_idx on plenty_contributions (pantry_id, created_at desc);

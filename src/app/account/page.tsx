@@ -1,6 +1,6 @@
+import { membershipLabel } from "@/lib/auth/roles";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { canAccessAdmin } from "@/lib/auth/roles";
-import { getDefaultPantrySafe, giftsForUser, getTaxProfile, isSteward, membershipsForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, isSteward, membershipsForUser, myShiftSignups, visitsForUser } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -8,11 +8,14 @@ export default async function AccountPage() {
   const user = await requireCustomerAccess("/account");
   const memberships = await membershipsForUser(user.id);
   const pantry = await getDefaultPantrySafe();
-  const steward = pantry ? await isSteward(pantry.id, user.id, user.role) : canAccessAdmin(user.role);
+  const steward = pantry ? await isSteward(pantry.id, user.id, user.email) : false;
   const gifts = await giftsForUser(user.id);
   const tax = pantry ? await getTaxProfile(pantry.id) : null;
   const receivedMoney = gifts.filter((g) => g.kind === "money" && g.status === "received");
   const roles = memberships.map((m) => m.role);
+  const visits = pantry ? await visitsForUser(pantry.id, user.id) : [];
+  const hours = pantry ? await hoursForUser(pantry.id, user.id) : [];
+  const myShifts = await myShiftSignups(user.id);
   const roleLabel = roles.includes("neighbor") && roles.includes("volunteer")
     ? "You get food here and you also volunteer."
     : roles.includes("neighbor")
@@ -29,6 +32,11 @@ export default async function AccountPage() {
       <h1>{user.name}</h1>
       <p>{user.email}</p>
       <p className="lede">{roleLabel}</p>
+      <div className="chip-row">
+        {roles.filter((r) => r !== "steward" && r !== "admin").map((role) => (
+          <span className="chip active" key={role}>{membershipLabel(role)}</span>
+        ))}
+      </div>
       <div className="action-row">
         <a className="button primary" href="/need-food">Get food</a>
         <a className="button" href="/volunteer">Volunteer</a>
@@ -37,11 +45,25 @@ export default async function AccountPage() {
       </div>
 
       <section className="panel">
+        <h2>Your visits</h2>
+        <p className="note">{visits.length ? `${visits.length} recorded — a count, not a limit.` : "No visits recorded yet."}</p>
+      </section>
+
+      <section className="panel">
+        <h2>Your volunteer time</h2>
+        {hours.length ? (
+          <p>{hours.reduce((sum, row) => sum + Number(row.hours), 0)} hours recorded. {myShifts.filter((s) => !["cancelled", "covered"].includes(s.status)).length} open shift(s).</p>
+        ) : (
+          <p className="empty">No hours logged yet. Log them from Volunteer.</p>
+        )}
+      </section>
+
+      <section className="panel">
         <h2>Your gifts</h2>
         {gifts.length ? (
           <ul>
             {gifts.map((g) => (
-              <li key={g.id}>{g.kind} · {g.title} · {g.status}{g.amount_cents ? ` · $${(g.amount_cents / 100).toFixed(0)}` : ""}</li>
+              <li key={g.id}>{g.kind}{g.tenure ? ` · ${g.tenure}` : ""} · {g.title} · {g.status}{g.amount_cents ? ` · $${(g.amount_cents / 100).toFixed(0)}` : ""}</li>
             ))}
           </ul>
         ) : (

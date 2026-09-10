@@ -1,6 +1,6 @@
 import { fail, ok, readJson, requireUser, str } from "@/lib/api";
 import { addMembership, getDefaultPantry, isSteward, upsertPantry } from "@/lib/db/queries";
-import { canAccessAdmin } from "@/lib/auth/roles";
+import { isSuperAdminEmail } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +19,10 @@ export async function POST(request: Request) {
   if (!body) return fail("Send a JSON body.");
   const existing = await getDefaultPantry();
   if (existing) {
-    const allowed = (await isSteward(existing.id, user.id, user.role)) || canAccessAdmin(user.role);
-    if (!allowed) return fail("Only a steward can change pantry setup.", 403);
-  } else if (!canAccessAdmin(user.role)) {
-    return fail("Ask the owner to open the first pantry.", 403);
+    const allowed = await isSteward(existing.id, user.id, user.email);
+    if (!allowed) return fail("Only a pantry admin can change pantry setup.", 403);
+  } else if (!isSuperAdminEmail(user.email)) {
+    return fail("Ask the super admin to open the first pantry.", 403);
   }
   const name = str(body.name);
   if (!name) return fail("Name the pantry.");

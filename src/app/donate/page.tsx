@@ -36,7 +36,7 @@ export default async function DonatePage() {
         </article>
         <article className="card">
           <strong>Space or a vehicle</strong>
-          <p>A garage bay, a church hall, a van for store pickups. Those gifts keep the pantry running without wasting food.</p>
+          <p>A warehouse to hold food, a hall or lot to distribute, a van for pickups. Donated, loaned, leased, rented, or owned by the pantry — we record it so it is not lost in one person's pocket.</p>
         </article>
       </div>
 
@@ -72,8 +72,26 @@ export default async function DonatePage() {
                 <select className="input" name="kind" defaultValue="food" required>
                   <option value="food">Food</option>
                   <option value="money">Money (we will contact you to receive it)</option>
-                  <option value="space">Space (storage or a place to distribute)</option>
+                  <option value="space">Space (warehouse or a place to distribute)</option>
                   <option value="vehicle">Vehicle (pickup or delivery)</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>If space, what kind</span>
+                <select className="input" name="assetKind" defaultValue="">
+                  <option value="">Not a building</option>
+                  <option value="warehouse">Warehouse / storage</option>
+                  <option value="distribution_site">Place to hand out food</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>If space or vehicle, how the pantry would have it</span>
+                <select className="input" name="tenure" defaultValue="donated">
+                  <option value="donated">Donated</option>
+                  <option value="loaned">Loaned for pantry use</option>
+                  <option value="leased">Leased</option>
+                  <option value="rented">Rented</option>
+                  <option value="owned">The pantry would own it</option>
                 </select>
               </label>
               <label className="field">

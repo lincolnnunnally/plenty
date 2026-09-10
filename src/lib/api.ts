@@ -44,7 +44,7 @@ export async function pantryFromBody(body: Record<string, unknown>) {
 export async function requireStewardFor(pantryId: string) {
   const { error, user } = await requireUser();
   if (error || !user) return { error: error || fail("Sign in first.", 401), user: null };
-  const allowed = await isSteward(pantryId, user.id, user.role);
-  if (!allowed) return { error: fail("Only a pantry steward can do that.", 403), user };
+  const allowed = await isSteward(pantryId, user.id, user.email);
+  if (!allowed) return { error: fail("Only a pantry admin can do that.", 403), user };
   return { error: null, user };
 }

@@ -1,7 +1,7 @@
 export const rolePermissions = [
-  { role: "owner", can: ["run pantries", "manage app operations"] },
-  { role: "admin", can: ["run pantries", "review people"] },
-  { role: "member", can: ["visit, volunteer, donate, walk a path"] }
+  { role: "owner", can: ["super-admin the Plenty app", "grant pantry admins"] },
+  { role: "admin", can: ["unused at app level — pantry desk is a membership"] },
+  { role: "member", can: ["get food, volunteer, donate, walk a path"] }
 ] as const;
 
 export const protectedRoutes = [

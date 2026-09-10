@@ -1,33 +1,22 @@
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
-import { requireCustomerAccess } from "@/lib/auth/session";
-import { canAccessAdmin } from "@/lib/auth/roles";
-import { getDefaultPantry, isSteward, pantryStats } from "@/lib/db/queries";
+import { requirePantryDesk } from "@/lib/auth/session";
+import { pantryStats } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function RunPage() {
-  const user = await requireCustomerAccess("/run");
-  const pantry = await getDefaultPantry();
-  const steward = pantry ? await isSteward(pantry.id, user.id, user.role) : canAccessAdmin(user.role);
+  const { pantry, superAdmin } = await requirePantryDesk("/run");
   const stats = pantry ? await pantryStats(pantry.id) : null;
-
-  if (!steward) {
-    return (
-      <main className="shell">
-        <p className="eyebrow">Pantry desk</p>
-        <h1>This desk is for people who operate the pantry</h1>
-        <p>You can still get food, volunteer, or give. Ask the pantry operator to add you here if you help run distribution.</p>
-        <a className="button" href="/app">Back to my place</a>
-      </main>
-    );
-  }
 
   return (
     <main className="shell">
       <p className="eyebrow">Pantry desk</p>
       <h1>Operate the Vidalia food pantry</h1>
-      <p className="lede">Hours, address, inventory photos, pickups, gifts, and promotion. Leave hours blank until they are real.</p>
+      <p className="lede">
+        This desk is for pantry admins. Recipients, volunteers, and donors have their own accounts.
+        {superAdmin ? " You are the super admin for Plenty." : ""} Leave hours blank until they are real.
+      </p>
       <RunNav />
 
       {stats ? (

@@ -1,17 +1,15 @@
 import { PhotoField } from "@/components/photo-field";
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
-import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantry, isSteward, listInventory, listStockMoves } from "@/lib/db/queries";
+import { requirePantryDesk } from "@/lib/auth/session";
+import { listInventory, listStockMoves } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const user = await requireCustomerAccess("/run/inventory");
-  const pantry = await getDefaultPantry();
+  const { pantry } = await requirePantryDesk("/run/inventory");
   if (!pantry) redirect("/run");
-  if (!(await isSteward(pantry.id, user.id, user.role))) redirect("/app");
   const items = await listInventory(pantry.id);
   const moves = await listStockMoves(pantry.id);
 

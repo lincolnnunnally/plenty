@@ -24,6 +24,13 @@ Vidalia, Georgia. Do not invent hours, addresses, donors, neighbors, or voluntee
 
 Shared LPL GoTrue + `plenty_*` tables on the shared Supabase (prefix, additive-only). One person can be a neighbor, volunteer, donor, and steward over time — that movement is the win.
 
+## Authority
+
+- Super admin: `lincoln@unitedundergod.org` only (optional extra list `PLENTY_SUPER_ADMIN_EMAILS`).
+- Pantry desk: super admin **or** explicit `steward`/`admin` membership. Recipients, volunteers, and donors never get the desk by signing up.
+- Super admin grants/revokes pantry admin. Do not treat `APP_ENGINE_OWNER_EMAIL` or JWT `owner` as desk access.
+- Food is never gated on a donation, waiver, or growth form.
+
 ## Live URL
 
 https://plenty.unitedundergod.org

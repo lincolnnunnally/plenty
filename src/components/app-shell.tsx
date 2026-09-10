@@ -1,6 +1,6 @@
 import { appBrand } from "@/lib/app-brand";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canAccessAdmin } from "@/lib/auth/roles";
+import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
 
 const NAV = [
@@ -14,9 +14,9 @@ const NAV = [
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser().catch(() => null);
   const pantry = await getDefaultPantrySafe();
-  let steward = Boolean(user && canAccessAdmin(user.role));
+  let steward = Boolean(user && isSuperAdminEmail(user.email));
   if (user && pantry && !steward) {
-    steward = await isSteward(pantry.id, user.id, user.role).catch(() => false);
+    steward = await isSteward(pantry.id, user.id, user.email).catch(() => false);
   }
   return (
     <>
