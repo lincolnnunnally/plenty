@@ -1,5 +1,5 @@
 import { fail, ok, readJson, requireDeskPantry, requireStewardFor, requireUser, str } from "@/lib/api";
-import { addPickup, getDefaultPantry, getPickup, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
+import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
 import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +8,8 @@ function on(value: unknown) {
   return value === true || value === "true" || value === "on" || value === "yes";
 }
 
-async function pingHousehold(phone: string, when: string | null, extra: string) {
-  if (!phone) return;
+async function pingHousehold(phone: string, when: string | null, extra: string, reachOk = true) {
+  if (!phone || !reachOk) return;
   const time = when ? new Date(when).toLocaleString() : "soon";
   await sendSms(phone, `Plenty: food is coming ${time}. ${extra} If plans change, call the pantry.`.slice(0, 1500)).catch(() => ({ ok: false, error: "" }));
 }
@@ -43,7 +43,8 @@ export async function POST(request: Request) {
         });
         const moved = await getPickup(str(body.id), pantry.id);
         if (moved?.kind === "household_delivery") {
-          await pingHousehold(moved.contact_phone, moved.scheduled_for, moved.address);
+          const hh = moved.household_id ? await getHousehold(moved.household_id, pantry.id).catch(() => null) : null;
+          await pingHousehold(moved.contact_phone, moved.scheduled_for, moved.address, hh ? hh.reach_ok : true);
         }
         return ok({
           message: `Pickup moved. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
@@ -75,7 +76,8 @@ export async function POST(request: Request) {
             });
         const row = await getPickup(str(body.id), pantry.id);
         if (row?.kind === "household_delivery") {
-          await pingHousehold(row.contact_phone, row.scheduled_for, [row.address, row.window_text].filter(Boolean).join(" · "));
+          const hh = row.household_id ? await getHousehold(row.household_id, pantry.id).catch(() => null) : null;
+          await pingHousehold(row.contact_phone, row.scheduled_for, [row.address, row.window_text].filter(Boolean).join(" · "), hh ? hh.reach_ok : true);
         }
         return ok({
           message: `Pickup updated. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."} The household was texted if we have a phone.`

@@ -72,7 +72,15 @@ export default async function ShiftsAdminPage() {
                 </PostForm>
                 <ul>
                   {signups.filter((s) => s.shift_id === shift.id).map((s) => (
-                    <li key={`${s.shift_id}-${s.user_id}`}>{s.name || s.email} · {s.status.replace("_", " ")}</li>
+                    <li key={`${s.shift_id}-${s.user_id}`}>
+                      {s.name || s.email} · {s.status.replace("_", " ")}
+                      {s.status !== "cancelled" && s.status !== "no_show" && s.status !== "covered" ? (
+                        <PostForm action={`/api/shifts/${s.shift_id}/signup`} submitLabel="No-show">
+                          <input type="hidden" name="action" value="no_show" />
+                          <input type="hidden" name="userId" value={s.user_id} />
+                        </PostForm>
+                      ) : null}
+                    </li>
                   ))}
                 </ul>
               </article>

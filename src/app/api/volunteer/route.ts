@@ -1,5 +1,5 @@
 import { fail, ok, readJson, requireUser, str } from "@/lib/api";
-import { withCooler } from "@/lib/cooler";
+import { withCooler, withReach } from "@/lib/cooler";
 import { getDefaultPantry, isVolunteerRole, setUserPhone, upsertVolunteer } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,10 @@ export async function POST(request: Request) {
       userId: user.id,
       roles: cleaned,
       hasVehicle: body.hasVehicle === "on" || body.hasVehicle === true || body.hasVehicle === "true",
-      notes: withCooler(str(body.notes), body.hasCooler === "on" || body.hasCooler === true || body.hasCooler === "true")
+      notes: withReach(
+        withCooler(str(body.notes), body.hasCooler === "on" || body.hasCooler === true || body.hasCooler === "true"),
+        body.reachOk === "on" || body.reachOk === true || body.reachOk === "true"
+      )
     });
     const phone = str(body.phone);
     if (phone) await setUserPhone(user.id, phone);

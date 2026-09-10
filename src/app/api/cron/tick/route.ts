@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listStorePartners, listVolunteers, markRecurringRun } from "@/lib/db/queries";
-import { offerFoodLoad } from "@/lib/db/food-loads";
-import { notifyCrew } from "@/lib/notify";
+import { listFoodLoads, offerFoodLoad, updateFoodLoad } from "@/lib/db/food-loads";
+import { notifyCrew, notifyDesk } from "@/lib/notify";
 import { nextEasternOccurrence, shouldRunThisWeek } from "@/lib/schedule";
 import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
 
@@ -91,5 +91,29 @@ export async function GET(request: Request) {
     await markRecurringRun(job.id, day);
     made.push(job.title);
   }
-  return NextResponse.json({ ok: true, posted: made });
+  const holds = await escalateHolds().catch(() => [] as string[]);
+  return NextResponse.json({ ok: true, posted: made, holdAlerts: holds });
+}
+
+async function escalateHolds() {
+  const pantry = await getDefaultPantry();
+  if (!pantry) return [];
+  const loads = await listFoodLoads(pantry.id);
+  const pinged: string[] = [];
+  for (const load of loads) {
+    if (!load.hold_until) continue;
+    if (new Date(load.hold_until).getTime() > Date.now()) continue;
+    if (!["offered", "scheduled"].includes(load.status)) continue;
+    if ((load.notes || "").includes("[hold-alerted]")) continue;
+    await notifyDesk({
+      pantryId: pantry.id,
+      pantryEmail: pantry.email,
+      pantryPhone: pantry.phone,
+      subject: `Hold time passed: ${load.partner_name || "a load"}`,
+      text: `${load.partner_name} still needs a destination or pickup.\nHold was ${new Date(load.hold_until).toLocaleString()}.\n${load.route_reason}\nhttps://plenty.unitedundergod.org/run/food`
+    }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+    await updateFoodLoad(load.id, pantry.id, { notes: `${load.notes || ""}\n[hold-alerted]`.trim() });
+    pinged.push(load.id);
+  }
+  return pinged;
 }

@@ -456,6 +456,7 @@ export async function upsertHousehold(input: {
   deliveryOk?: boolean;
   porchLeaveOk?: boolean;
   porchNotes?: string;
+  reachOk?: boolean;
 }): Promise<Household> {
   const client = await sb();
   const { data, error } = await client.from("plenty_households").upsert({
@@ -477,6 +478,7 @@ export async function upsertHousehold(input: {
     delivery_ok: Boolean(input.deliveryOk),
     porch_leave_ok: Boolean(input.porchLeaveOk),
     porch_notes: input.porchNotes ?? "",
+    reach_ok: Boolean(input.reachOk),
     updated_at: new Date().toISOString()
   }, { onConflict: "pantry_id,user_id" }).select(HOUSEHOLD_COLS).single();
   fail(error);
@@ -1152,10 +1154,17 @@ export async function recordStockMove(input: {
   const client = await sb();
   const qty = Math.max(1, input.quantity);
   if (input.inventoryId) {
-    const { data: item } = await client.from("plenty_inventory").select("id, quantity").eq("id", input.inventoryId).maybeSingle();
+    const { data: item } = await client.from("plenty_inventory").select("id, quantity, low_at, we_need").eq("id", input.inventoryId).maybeSingle();
     if (item) {
       const next = input.direction === "in" ? Number(item.quantity) + qty : Math.max(0, Number(item.quantity) - qty);
-      await client.from("plenty_inventory").update({ quantity: next, updated_at: new Date().toISOString() }).eq("id", item.id);
+      const lowAt = item.low_at == null ? null : Number(item.low_at);
+      const patch: Record<string, unknown> = {
+        quantity: next,
+        we_need: lowAt != null ? next <= lowAt : Boolean(item.we_need),
+        updated_at: new Date().toISOString()
+      };
+      if (next <= 0) patch.available_this_week = false;
+      await client.from("plenty_inventory").update(patch).eq("id", item.id);
     }
   }
   const { data, error } = await client.from("plenty_stock_moves").insert({
@@ -1481,7 +1490,7 @@ export async function listCoverRequests(pantryId: string): Promise<ShiftSignup[]
 export async function updateShiftSignup(input: {
   shiftId: string;
   userId: string;
-  action: "confirm" | "need_cover" | "take_cover" | "cancel";
+  action: "confirm" | "need_cover" | "take_cover" | "cancel" | "no_show";
   actorId: string;
 }) {
   const client = await sb();
@@ -1531,6 +1540,14 @@ export async function updateShiftSignup(input: {
     }).eq("shift_id", input.shiftId).eq("user_id", input.userId);
     fail(uErr);
     await signupForShift(input.shiftId, input.actorId);
+    return;
+  }
+
+  if (input.action === "no_show") {
+    const { error: uErr } = await client.from("plenty_shift_signups").update({
+      status: "no_show"
+    }).eq("shift_id", input.shiftId).eq("user_id", input.userId);
+    fail(uErr);
   }
 }
 
@@ -1837,19 +1854,34 @@ export async function signFoodWaiver(input: {
   return data as WaiverRow;
 }
 
-export async function latestWaiverForUser(pantryId: string, userId: string): Promise<WaiverRow | null> {
+export async function latestWaiverForUser(pantryId: string, userId: string, version?: string): Promise<WaiverRow | null> {
   const client = await sb();
-  const { data, error } = await client
+  let q = client
     .from("plenty_waivers")
     .select("id, pantry_id, user_id, household_id, version, signed_name, agreed, created_at")
     .eq("pantry_id", pantryId)
     .eq("user_id", userId)
-    .eq("agreed", true)
-    .order("created_at", { ascending: false })
+    .eq("agreed", true);
+  if (version) q = q.eq("version", version);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(8);
+  fail(error);
+  const rows = (data as WaiverRow[]) || [];
+  if (version) return rows[0] || null;
+  return rows.find((r) => !r.version.startsWith("vol-")) || null;
+}
+
+export async function lastVisitForHousehold(pantryId: string, householdId: string): Promise<Visit | null> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_visits")
+    .select(VISIT_COLS)
+    .eq("pantry_id", pantryId)
+    .eq("household_id", householdId)
+    .order("visited_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   fail(error);
-  return (data as WaiverRow | null) ?? null;
+  return (data as Visit | null) ?? null;
 }
 
 const STORE_PARTNER_COLS =

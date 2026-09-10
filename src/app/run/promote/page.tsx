@@ -7,7 +7,7 @@ import { emailsForAudience, listCampaigns, listPromoSends } from "@/lib/db/queri
 import { facebookShareUrl, mailtoLink, receiveRulesCopy, smsLink, xIntentUrl } from "@/lib/promote/compose";
 import { resendConfigured } from "@/lib/promote/email";
 import { kitFor } from "@/lib/promote/facts";
-import { pantryPublicUrl } from "@/lib/public-url";
+import { pantryLineUrl, pantryPublicUrl, plentyOrigin } from "@/lib/public-url";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,12 @@ export default async function PromotePage({ searchParams }: { searchParams: Prom
   const sends = await listPromoSends(pantry.id);
   const roster = await emailsForAudience(pantry.id, audience);
   const url = pantryPublicUrl(pantry.slug);
+  const origin = plentyOrigin();
+  const getFood = `${origin}/need-food`;
+  const volunteer = `${origin}/volunteer`;
+  const give = `${origin}/donate`;
+  const waiver = `${origin}/waiver`;
+  const line = pantryLineUrl(pantry.slug);
   const canEmail = resendConfigured();
   const igCaptionHint = "Instagram does not let a website post for you. Download the square image, open Instagram, paste the caption.";
 
@@ -97,24 +103,29 @@ export default async function PromotePage({ searchParams }: { searchParams: Prom
           </article>
           <article className="card">
             <span>Get food</span>
-            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/need-food")}&format=png&size=360`} alt="QR code to get food" width={180} height={180} />
-            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/need-food")}&format=png&size=1024`}>Download</a>
+            <img src={`/api/promote/qr?to=${encodeURIComponent(getFood)}&format=png&size=360`} alt="QR code to get food" width={180} height={180} />
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(getFood)}&format=png&size=1024`}>Download</a>
+          </article>
+          <article className="card">
+            <span>This pantry's line</span>
+            <img src={`/api/promote/qr?to=${encodeURIComponent(line)}&format=png&size=360`} alt="QR code to this pantry line" width={180} height={180} />
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(line)}&format=png&size=1024`}>Download</a>
           </article>
           <article className="card">
             <span>Volunteer</span>
-            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/volunteer")}&format=png&size=360`} alt="QR code to volunteer" width={180} height={180} />
-            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/volunteer")}&format=png&size=1024`}>Download</a>
+            <img src={`/api/promote/qr?to=${encodeURIComponent(volunteer)}&format=png&size=360`} alt="QR code to volunteer" width={180} height={180} />
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(volunteer)}&format=png&size=1024`}>Download</a>
           </article>
           <article className="card">
             <span>Give</span>
-            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/donate")}&format=png&size=360`} alt="QR code to give" width={180} height={180} />
-            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/donate")}&format=png&size=1024`}>Download</a>
+            <img src={`/api/promote/qr?to=${encodeURIComponent(give)}&format=png&size=360`} alt="QR code to give" width={180} height={180} />
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(give)}&format=png&size=1024`}>Download</a>
           </article>
           <article className="card">
             <span>Sign the food agreement</span>
-            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/waiver")}&format=png&size=360`} alt="QR code to the food waiver" width={180} height={180} />
+            <img src={`/api/promote/qr?to=${encodeURIComponent(waiver)}&format=png&size=360`} alt="QR code to the food waiver" width={180} height={180} />
             <p className="note">Put this at the line. Phone, sign, then check in.</p>
-            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/waiver")}&format=png&size=1024`}>Download</a>
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent(waiver)}&format=png&size=1024`}>Download</a>
           </article>
           <article className="card">
             <span>Store leave-behind</span>

@@ -1,4 +1,4 @@
-import { fail, ok, readJson, requireUser, str } from "@/lib/api";
+import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
 import { getShift, signupForShift, updateShiftSignup } from "@/lib/db/queries";
 import { notifyDesk } from "@/lib/notify";
 
@@ -51,6 +51,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
       }
       return ok({ message: "You have that shift now. Thank you for covering." });
+    }
+    if (action === "no_show") {
+      if (!shift) return fail("That shift is not on the board.");
+      const steward = await requireStewardFor(shift.pantry_id);
+      if (steward.error) return steward.error;
+      const who = str(body.userId);
+      if (!who) return fail("Which volunteer?");
+      await updateShiftSignup({ shiftId: id, userId: who, action: "no_show", actorId: user.id });
+      return ok({ message: "Marked as no-show. They can still sign up next time." });
     }
     return fail("Unknown shift action.");
   } catch (err) {

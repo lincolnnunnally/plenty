@@ -61,6 +61,7 @@ export default async function NeedFoodPage() {
             <input type="hidden" name="adultsCount" value={String(household?.adults_count || 1)} />
             <label className="check"><input type="checkbox" name="deliveryOk" defaultChecked={household?.delivery_ok} /> I may need food brought to me</label>
             <label className="check"><input type="checkbox" name="porchLeaveOk" defaultChecked={household?.porch_leave_ok} /> OK to leave on the porch</label>
+            <label className="check"><input type="checkbox" name="reachOk" defaultChecked={household?.reach_ok} /> Text me about deliveries and the line (not ads)</label>
           </PostForm>
 
           {household && pass ? (
@@ -79,7 +80,8 @@ export default async function NeedFoodPage() {
 
           {household ? (
             <>
-              <h3 style={{ marginTop: 24 }}>Need a delivery?</h3>
+              <h3 style={{ marginTop: 24 }}>{pantry?.visit_style === "appointment" ? "Ask for a time" : "Need a delivery?"}</h3>
+              {pantry?.visit_style === "appointment" ? <p className="note">This pantry asks people to set a time. Food is still free if you walk in.</p> : null}
               <PostForm action="/api/pickups" submitLabel="Request delivery">
                 <input type="hidden" name="kind" value="household_delivery" />
                 <input type="hidden" name="householdId" value={household.id} />

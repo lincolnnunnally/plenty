@@ -8,11 +8,13 @@ import {
   getHousehold,
   getPantryBySlug,
   householdByPass,
+  lastVisitForHousehold,
   recordVisit,
   searchHouseholds,
   takeBagFromShelves,
   unusedHandling
 } from "@/lib/db/queries";
+import { sendSms } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -43,12 +45,14 @@ export async function POST(request: Request) {
   if (!body) return fail("Send a JSON body.");
   const pantry = await getPantryBySlug(str(body.pantrySlug));
   if (!pantry) return fail("This pantry page is not set up yet.", 404);
+  const pantryId = pantry.id;
   const action = str(body.action) || "checkin";
   const steward = await requireStewardFor(pantry.id);
   const asSteward = !steward.error;
 
   async function pack(h: { id: string; display_name: string; household_size: number; phone: string; pass_code?: string }) {
     const credits = await unusedHandling(h.id);
+    const last = await lastVisitForHousehold(pantryId, h.id).catch(() => null);
     return {
       id: h.id,
       displayName: h.display_name,
@@ -56,7 +60,8 @@ export async function POST(request: Request) {
       phone: asSteward ? h.phone : "",
       passCode: h.pass_code || "",
       handlingPrepaid: credits.length > 0,
-      handlingCount: credits.length
+      handlingCount: credits.length,
+      lastVisit: last?.visited_at || ""
     };
   }
 
@@ -176,6 +181,7 @@ export async function POST(request: Request) {
     });
   }
 
+  const prior = await lastVisitForHousehold(pantry.id, household.id).catch(() => null);
   const bag = asSteward ? await takeBagFromShelves(pantry.id, parseBag(body.bag), steward.user?.id || household.user_id) : "";
   const visit = await recordVisit({
     pantryId: pantry.id,
@@ -192,6 +198,22 @@ export async function POST(request: Request) {
     pantry,
     event: household.notes.includes("Walk-in") || !household.user_id ? "registered" : "visit"
   });
+  const extras: string[] = [];
+  if (prior) {
+    const days = (Date.now() - new Date(prior.visited_at).getTime()) / 86400000;
+    extras.push(`Last here ${new Date(prior.visited_at).toLocaleDateString()}${days < 7 ? " (this week)" : ""}.`);
+  }
+  if (pantry.id_required) extras.push("Ask for a photo ID if they have one — still serve if they do not.");
+  if (pantry.frequency_rules) extras.push(pantry.frequency_rules);
+  if (household.reach_ok && household.phone) {
+    await sendSms(
+      household.phone,
+      `Plenty: you are checked in at ${pantry.name}. The food is free. Reply STOP to stop texts.`
+    ).catch(() => ({ ok: false, error: "" }));
+  }
+  const base = prepaid
+    ? `${household.display_name} is checked in. Handling was already given. The food is free.`
+    : `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`;
 
   return ok({
     householdId: household.id,
@@ -199,9 +221,7 @@ export async function POST(request: Request) {
     displayName: household.display_name,
     passCode: household.pass_code,
     handlingPrepaid: prepaid,
-    message: prepaid
-      ? `${household.display_name} is checked in. Handling was already given. The food is free.`
-      : `${household.display_name} is checked in. The food is free. A handling donation is requested, not required.`,
+    message: [base, ...extras].join(" "),
     shareError: share.ok ? "" : share.error
   });
 }

@@ -36,7 +36,8 @@ export async function POST(request: Request) {
       familyNotes: str(body.familyNotes),
       deliveryOk: on(body.deliveryOk),
       porchLeaveOk: on(body.porchLeaveOk),
-      porchNotes: str(body.porchNotes)
+      porchNotes: str(body.porchNotes),
+      reachOk: on(body.reachOk)
     });
     await shareHouseholdToEcosystem({ household, pantry, event: "registered" }).catch(() => ({ ok: false, error: "" }));
     return ok({ householdId: household.id, message: "Your household is on the list. Come when we are open — food is never held back." });

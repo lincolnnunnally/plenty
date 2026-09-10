@@ -44,6 +44,7 @@ export default async function InventoryPage() {
           </label>
           <label className="field"><span>Quantity on hand</span><input className="input" name="quantity" type="number" min={0} defaultValue={0} /></label>
           <label className="field"><span>Unit</span><input className="input" name="unit" defaultValue="item" /></label>
+          <label className="field"><span>Low at (we need more below this)</span><input className="input" name="lowAt" type="number" min={0} placeholder="Leave blank if you do not track this" /></label>
           <label className="check"><input type="checkbox" name="availableThisWeek" defaultChecked /> Show on this week's food list (families will see it)</label>
           <label className="check"><input type="checkbox" name="weNeed" /> We need this (donors will see it)</label>
           <PhotoField />
@@ -88,7 +89,7 @@ export default async function InventoryPage() {
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.name}<div className="note">{item.category}{item.we_need ? " · needed" : ""}</div></td>
+                    <td>{item.name}<div className="note">{item.category}{item.we_need ? " · needed" : ""}{item.low_at != null && item.quantity <= item.low_at ? " · low" : ""}</div></td>
                     <td>
                       <PostForm action={`/api/inventory/${item.id}`} submitLabel="Save qty">
                         <input className="input" name="quantity" type="number" min={0} defaultValue={item.quantity} />

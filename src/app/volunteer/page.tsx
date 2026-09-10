@@ -2,10 +2,11 @@ import { cookies } from "next/headers";
 import { PostForm } from "@/components/post-form";
 import { ShiftActions, SignupButton } from "@/components/signup-button";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, hoursForUser, listCoverRequests, listShifts, myShiftSignups, userPhone, volunteerForUser } from "@/lib/db/queries";
+import { hasCooler, hasReach } from "@/lib/cooler";
 import { listFoodLoads } from "@/lib/db/food-loads";
-import { hasCooler } from "@/lib/cooler";
+import { getDefaultPantrySafe, hoursForUser, latestWaiverForUser, listCoverRequests, listShifts, myShiftSignups, userPhone, volunteerForUser } from "@/lib/db/queries";
 import { readLang, t } from "@/lib/i18n";
+import { VOLUNTEER_WAIVER_VERSION } from "@/lib/legal/volunteer-waiver";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function VolunteerPage() {
   const pickupShifts = shifts.filter((s) => s.role === "pickup");
   const otherShifts = shifts.filter((s) => s.role !== "pickup");
   const lang = readLang((await cookies()).get("plenty_lang")?.value);
+  const volSigned = user && pantry ? await latestWaiverForUser(pantry.id, user.id, VOLUNTEER_WAIVER_VERSION).catch(() => null) : null;
 
   return (
     <main className="shell">
@@ -52,8 +54,15 @@ export default async function VolunteerPage() {
             <label className="check"><input type="checkbox" name="roles" value="delivery" defaultChecked={mine?.roles.includes("delivery")} /> Delivery</label>
             <label className="check"><input type="checkbox" name="hasVehicle" defaultChecked={mine?.has_vehicle} /> I have a vehicle</label>
             <label className="check"><input type="checkbox" name="hasCooler" defaultChecked={hasCooler(mine?.notes)} /> I can keep food cold (cooler or freezer in the truck)</label>
+            <label className="check"><input type="checkbox" name="reachOk" defaultChecked={hasReach(mine?.notes)} /> Text me when a pickup is posted</label>
             <label className="field"><span>Phone for pickup texts</span><input className="input" name="phone" type="tel" defaultValue={phone} /></label>
           </PostForm>
+          {volSigned ? null : (
+            <p className="note" style={{ marginTop: 12 }}>
+              Sign the short volunteer agreement when you can. Shifts stay open either way. Food for families is never gated on this.{" "}
+              <a href="/volunteer-waiver">Volunteer agreement</a>
+            </p>
+          )}
         </section>
       )}
 

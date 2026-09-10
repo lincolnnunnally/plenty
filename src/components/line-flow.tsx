@@ -6,7 +6,7 @@ import { PayBoard, type PayRow } from "@/components/pay-board";
 import { useLang } from "@/lib/use-lang";
 import { passUrl } from "@/lib/pass";
 
-type Found = { id: string; displayName: string; size: number; phone: string; handlingPrepaid?: boolean; passCode?: string };
+type Found = { id: string; displayName: string; size: number; phone: string; handlingPrepaid?: boolean; passCode?: string; lastVisit?: string };
 type WeekItem = { id: string; name: string; quantity: number; unit: string };
 
 export function LineFlow({
@@ -312,7 +312,7 @@ export function LineFlow({
           {matches.map((h) => (
             <article className="card" key={h.id}>
               <strong>{h.displayName}</strong>
-              <p className="note">{h.size} people{h.phone ? ` · ${h.phone}` : ""}{h.handlingPrepaid ? " · handling already given" : ""}</p>
+              <p className="note">{h.size} people{h.phone ? ` · ${h.phone}` : ""}{h.handlingPrepaid ? " · handling already given" : ""}{h.lastVisit ? ` · last ${new Date(h.lastVisit).toLocaleDateString()}` : ""}</p>
               <button className="button primary" type="button" onClick={() => checkin(h.id)} disabled={busy}>
                 Check in
               </button>
