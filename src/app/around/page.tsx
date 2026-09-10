@@ -30,6 +30,45 @@ function pin(a: { id: string; name: string; address: string; city: string; state
   };
 }
 
+function publicCard(
+  a: {
+    id: string;
+    name: string;
+    kind: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    phone: string;
+    hours_text: string;
+    visit_notes: string;
+    contact_name: string;
+    relationship: string;
+    listed_publicly: boolean;
+    last_visited_at: string | null;
+    operator_pantry_id: string | null;
+  },
+  desk: boolean
+) {
+  return {
+    id: a.id,
+    name: a.name,
+    kind: a.kind,
+    address: a.address,
+    city: a.city,
+    state: a.state,
+    zip: a.zip,
+    phone: a.phone,
+    hours_text: a.hours_text,
+    visit_notes: desk || a.relationship === "closed" ? a.visit_notes : "",
+    contact_name: desk ? a.contact_name : "",
+    relationship: a.relationship,
+    listed_publicly: a.listed_publicly,
+    last_visited_at: a.last_visited_at,
+    operator_pantry_id: a.operator_pantry_id
+  };
+}
+
 export default async function AroundPage() {
   const user = await getCurrentUser().catch(() => null);
   const pantry = await getDefaultPantrySafe();
@@ -63,7 +102,7 @@ export default async function AroundPage() {
             {open.map((a) => (
               <AroundPlace
                 key={a.id}
-                place={a}
+                place={publicCard(a, steward || operatedIds.has(a.id))}
                 canEdit={steward || operatedIds.has(a.id)}
                 canClaim={!a.operator_pantry_id}
                 signedIn={Boolean(user)}
@@ -80,7 +119,7 @@ export default async function AroundPage() {
           <h2>Do not go here</h2>
           <div className="grid">
             {closed.map((a) => (
-              <AroundPlace key={a.id} place={a} closed canEdit={steward} signedIn={Boolean(user)} />
+              <AroundPlace key={a.id} place={publicCard(a, steward)} closed canEdit={steward} signedIn={Boolean(user)} />
             ))}
           </div>
         </section>
@@ -92,7 +131,7 @@ export default async function AroundPage() {
           <p className="note">Directory names. Drive there, then save what the door says.</p>
           <div className="grid">
             {toCheck.map((a) => (
-              <AroundPlace key={a.id} place={a} canEdit canClaim={!a.operator_pantry_id} signedIn={Boolean(user)} />
+              <AroundPlace key={a.id} place={publicCard(a, true)} canEdit canClaim={!a.operator_pantry_id} signedIn={Boolean(user)} />
             ))}
           </div>
         </section>
