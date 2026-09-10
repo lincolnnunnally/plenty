@@ -2,7 +2,7 @@ import { PayBoard } from "@/components/pay-board";
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
-import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listedAllies, listStoreVouchers, postedPayMethods } from "@/lib/db/queries";
+import { availableThisWeek, effectivePayMethods, getDefaultPantrySafe, householdForUser, latestWaiverForUser, listedAllies, listStoreVouchers } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -21,7 +21,7 @@ export default async function NeedFoodPage() {
   const waiver = user && pantry ? await latestWaiverForUser(pantry.id, user.id) : null;
   const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id })).filter((v) => v.status === "issued") : [];
   const nearby = pantry ? (await listedAllies(pantry.id).catch(() => [])).filter((a) => a.kind === "pantry") : [];
-  const pay = pantry ? await postedPayMethods(pantry.id).catch(() => []) : [];
+  const pay = pantry ? await effectivePayMethods(pantry).catch(() => []) : [];
   const waiverOk =
     (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at)) ||
     waiver?.version === FOOD_WAIVER_VERSION;

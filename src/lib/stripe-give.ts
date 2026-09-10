@@ -2,8 +2,36 @@ import { EIN } from "@/lib/legal/org";
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
-export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY);
+let keyCache: { value: string; at: number } | null = null;
+
+export function clearStripeKeyCache() {
+  keyCache = null;
+}
+
+export async function stripeKey() {
+  if (keyCache && Date.now() - keyCache.at < 15_000) return keyCache.value;
+  let fromDb = "";
+  try {
+    const { getSetting } = await import("@/lib/db/queries");
+    fromDb = (await getSetting("stripe_secret_key")) || "";
+  } catch {
+    fromDb = "";
+  }
+  const value = fromDb.trim() || (process.env.STRIPE_SECRET_KEY || "").trim();
+  keyCache = { value, at: Date.now() };
+  return value;
+}
+
+export async function stripeConfigured() {
+  return Boolean(await stripeKey());
+}
+
+export async function probeStripeKey(key: string) {
+  const res = await fetch(`${STRIPE_API}/balance`, {
+    headers: { Authorization: `Bearer ${key}` }
+  });
+  const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+  if (!res.ok) throw new Error(json.error?.message || `Stripe ${res.status}`);
 }
 
 function form(params: Record<string, string | number | undefined>) {
@@ -15,7 +43,7 @@ function form(params: Record<string, string | number | undefined>) {
 }
 
 async function stripe(path: string, init?: RequestInit) {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = await stripeKey();
   if (!key) throw new Error("Card giving is not configured yet.");
   const res = await fetch(`${STRIPE_API}${path}`, {
     ...init,
@@ -39,14 +67,19 @@ export async function createPlentyCheckout(input: {
   name?: string;
   origin: string;
   householdId?: string;
+  pantryId?: string;
+  pantrySlug?: string;
+  cancelPath?: string;
 }): Promise<{ id: string; url: string }> {
   const email = (input.email || "").trim();
+  const thanks = `${input.origin}/donate/thanks?session_id={CHECKOUT_SESSION_ID}${input.pantrySlug ? `&pantry=${encodeURIComponent(input.pantrySlug)}` : ""}`;
+  const cancel = `${input.origin}${input.cancelPath || "/donate?cancelled=1"}`;
   const session = await stripe("/checkout/sessions", {
     method: "POST",
     body: form({
       mode: "payment",
-      success_url: `${input.origin}/donate/thanks?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${input.origin}/donate?cancelled=1`,
+      success_url: thanks,
+      cancel_url: cancel,
       customer_email: email && email.includes("@") ? email : undefined,
       "line_items[0][quantity]": 1,
       "line_items[0][price_data][currency]": "usd",
@@ -59,6 +92,8 @@ export async function createPlentyCheckout(input: {
       "metadata[ein]": EIN,
       "metadata[donor_name]": (input.name || "").slice(0, 200),
       "metadata[household_id]": input.householdId || "",
+      "metadata[pantry_id]": input.pantryId || "",
+      "metadata[pantry_slug]": input.pantrySlug || "",
       "payment_intent_data[metadata][app]": "plenty",
       "payment_intent_data[metadata][kind]": "donation"
     })

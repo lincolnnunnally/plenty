@@ -524,3 +524,13 @@ create table if not exists plenty_recurring (
   created_at timestamptz not null default now()
 );
 create index if not exists plenty_recurring_pantry_idx on plenty_recurring (pantry_id, active);
+
+create table if not exists plenty_settings (
+  key text primary key,
+  value text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table plenty_households alter column user_id drop not null;
+alter table plenty_pantries add column if not exists giving_mode text not null default 'own';
+alter table plenty_allies add column if not exists operator_pantry_id uuid;

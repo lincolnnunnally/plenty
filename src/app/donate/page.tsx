@@ -2,7 +2,7 @@ import { GiveCardForm } from "@/components/give-card";
 import { PayBoard } from "@/components/pay-board";
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantrySafe, getTaxProfile, openOpsNeeds, postedPayMethods, weNeedList } from "@/lib/db/queries";
+import { effectivePayMethods, getDefaultPantrySafe, getTaxProfile, openOpsNeeds, weNeedList } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 import { stripeConfigured } from "@/lib/stripe-give";
 
@@ -19,8 +19,8 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
   const needs = pantry ? await weNeedList(pantry.id) : [];
   const tax = pantry ? await getTaxProfile(pantry.id) : null;
   const opsNeeds = pantry ? await openOpsNeeds(pantry.id).catch(() => []) : [];
-  const pay = pantry ? await postedPayMethods(pantry.id).catch(() => []) : [];
-  const cardLive = stripeConfigured();
+  const pay = pantry ? await effectivePayMethods(pantry).catch(() => []) : [];
+  const cardLive = await stripeConfigured();
 
   return (
     <main className="shell">
@@ -62,7 +62,7 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
           A pantry admin posts the real handles — we will not invent them.
         </p>
         {cardLive ? (
-          <GiveCardForm signedInEmail={user?.email} />
+          <GiveCardForm signedInEmail={user?.email} pantrySlug={pantry?.slug} />
         ) : (
           <p className="empty">Card charging is not live on this host yet. Use Cash App, Venmo, or Zelle if they are posted below, or give in person.</p>
         )}

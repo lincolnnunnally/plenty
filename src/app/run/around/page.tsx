@@ -17,7 +17,7 @@ function relLabel(value: string) {
 }
 
 export default async function AroundDeskPage() {
-  const { pantry } = await requirePantryDesk("/run/around");
+  const { pantry, pantries, superAdmin } = await requirePantryDesk("/run/around");
   if (!pantry) redirect("/run");
   await ensureToombsStartingPoints(pantry.id);
   const allies = await listAllies(pantry.id);
@@ -33,7 +33,7 @@ export default async function AroundDeskPage() {
         Call. Visit. See how they work. Offer help if they want it. If they are happy as they are, we do our own thing.
         Nothing is public until you confirm it in person.
       </p>
-      <RunNav />
+      <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
 
       <section className="panel">
         <h2>What we need to operate</h2>
@@ -131,6 +131,22 @@ export default async function AroundDeskPage() {
                   <input type="hidden" name="acceptsProduce" value="0" />
                   <label className="check"><input type="checkbox" name="acceptsProduce" value="1" defaultChecked={a.accepts_produce} /> Can take produce (needs a distribution soon)</label>
                   <label className="field"><span>Next distribution</span><input className="input" type="datetime-local" name="nextDistributionAt" defaultValue={a.next_distribution_at ? a.next_distribution_at.slice(0, 16) : ""} /></label>
+                {superAdmin && a.kind === "pantry" ? (
+                  <PostForm action="/api/pantries" submitLabel={a.operator_pantry_id ? "Plenty desk already open" : "Open a Plenty desk for them"}>
+                    <input type="hidden" name="openFromAlly" value={a.id} />
+                    {people.length ? (
+                      <label className="field">
+                        <span>Who runs their desk (optional)</span>
+                        <select className="input" name="userId">
+                          <option value="">Lincoln only for now</option>
+                          {people.map((p) => (
+                            <option key={p.user_id} value={p.user_id}>{p.name || p.email}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                  </PostForm>
+                ) : null}
                 {people.length && (a.kind === "pantry" || a.kind === "church" || a.kind === "farm" || a.kind === "compost") ? (
                   <PostForm action="/api/ally-members" submitLabel="Hand off this pantry">
                     <input type="hidden" name="allyId" value={a.id} />

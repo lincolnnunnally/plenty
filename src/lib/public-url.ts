@@ -12,3 +12,12 @@ export function pantryPublicPath(slug: string) {
 export function pantryPublicUrl(slug: string) {
   return `${plentyOrigin()}${pantryPublicPath(slug)}`;
 }
+
+export function pantryLinePath(slug: string) {
+  const clean = slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "vidalia";
+  return `/line/${clean}`;
+}
+
+export function pantryLineUrl(slug: string) {
+  return `${plentyOrigin()}${pantryLinePath(slug)}`;
+}

@@ -4,7 +4,17 @@ import { useState } from "react";
 
 const PRESETS = [10, 25, 50, 100];
 
-export function GiveCardForm({ signedInEmail }: { signedInEmail?: string }) {
+export function GiveCardForm({
+  signedInEmail,
+  pantrySlug,
+  householdId,
+  fromLine
+}: {
+  signedInEmail?: string;
+  pantrySlug?: string;
+  householdId?: string;
+  fromLine?: boolean;
+}) {
   const [preset, setPreset] = useState<number | "custom">(25);
   const [custom, setCustom] = useState("");
   const [email, setEmail] = useState(signedInEmail || "");
@@ -26,7 +36,7 @@ export function GiveCardForm({ signedInEmail }: { signedInEmail?: string }) {
       const res = await fetch("/api/give/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountDollars: dollars, email })
+        body: JSON.stringify({ amountDollars: dollars, email, pantrySlug, householdId, fromLine: fromLine ? "1" : "" })
       });
       const payload = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; message?: string };
       if (!res.ok || !payload.url) {

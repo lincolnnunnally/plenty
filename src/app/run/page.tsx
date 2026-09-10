@@ -7,7 +7,7 @@ import { pantryPublicPath, pantryPublicUrl } from "@/lib/public-url";
 export const dynamic = "force-dynamic";
 
 export default async function RunPage() {
-  const { pantry, superAdmin } = await requirePantryDesk("/run");
+  const { pantry, superAdmin, pantries } = await requirePantryDesk("/run");
   const stats = pantry ? await pantryStats(pantry.id) : null;
 
   return (
@@ -18,11 +18,11 @@ export default async function RunPage() {
         This desk is for pantry admins. Recipients, volunteers, and donors have their own accounts.
         {superAdmin ? " You are the super admin for Plenty." : ""} Leave hours blank until they are real.
       </p>
-      <RunNav />
+      <RunNav pantries={pantries} currentId={pantry?.id} superAdmin={superAdmin} />
       <div className="action-row">
-        <a className="button primary" href="/run/calendar">Today — shifts, pickups, repeating jobs</a>
-        <a className="button" href="/run/donations">Card, Cash App, Venmo, Zelle</a>
-        <a className="button" href="/run/people">People</a>
+        <a className="button primary" href="/run/line">Line — check in and QR</a>
+        <a className="button" href="/run/donations">Stripe, Cash App, Venmo, Zelle</a>
+        <a className="button" href="/run/calendar">Today</a>
       </div>
 
       {stats ? (
@@ -49,6 +49,7 @@ export default async function RunPage() {
           </p>
         </article>
         <PostForm action="/api/pantries" submitLabel="Save pantry">
+          {pantry ? <input type="hidden" name="pantryId" value={pantry.id} /> : null}
           <label className="field"><span>Name</span><input className="input" name="name" defaultValue={pantry?.name || "Vidalia Plenty"} required /></label>
           <label className="field">
             <span>Public URL name (slug)</span>
@@ -109,6 +110,29 @@ export default async function RunPage() {
           </label>
         </PostForm>
       </section>
+
+      {superAdmin ? (
+        <section className="panel">
+          <h2>Open another pantry on Plenty</h2>
+          <p className="note">
+            They get their own line QR, households, and Cash App / Venmo / Zelle. They can collect through United
+            Under God until they post their own handles.
+          </p>
+          <PostForm action="/api/pantries" submitLabel="Open this pantry desk">
+            <input type="hidden" name="createNew" value="1" />
+            <label className="field"><span>Name</span><input className="input" name="name" required placeholder="Lyons Community Pantry" /></label>
+            <label className="field"><span>Public URL name</span><input className="input" name="slug" placeholder="lyons" /></label>
+            <label className="field"><span>City</span><input className="input" name="city" defaultValue="Lyons" /></label>
+            <label className="field">
+              <span>Money</span>
+              <select className="input" name="givingMode" defaultValue="uug">
+                <option value="uug">Use United Under God giving</option>
+                <option value="own">They will post their own Cash App, Venmo, Zelle</option>
+              </select>
+            </label>
+          </PostForm>
+        </section>
+      ) : null}
     </main>
   );
 }

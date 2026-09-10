@@ -24,12 +24,13 @@ export type Pantry = {
   residency_rules: string;
   id_required: boolean;
   frequency_rules: string;
+  giving_mode: string;
 };
 
 export type Household = {
   id: string;
   pantry_id: string;
-  user_id: string;
+  user_id: string | null;
   display_name: string;
   household_size: number;
   dietary_notes: string;
@@ -208,7 +209,7 @@ export async function getDefaultPantrySafe() {
   }
 }
 
-const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source, receive_rules, donation_policy, donation_note, residency_rules, id_required, frequency_rules";
+const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source, receive_rules, donation_policy, donation_note, residency_rules, id_required, frequency_rules, giving_mode";
 const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes, food_waiver_signed_at, food_waiver_version";
 const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
 const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent, tenure, asset_kind";
@@ -308,15 +309,17 @@ export async function upsertPantry(
     residency_rules: fields.residency_rules ?? "",
     id_required: Boolean(fields.id_required),
     frequency_rules: fields.frequency_rules ?? "",
+    giving_mode: fields.giving_mode === "uug" ? "uug" : fields.giving_mode === "own" ? "own" : undefined,
     updated_at: new Date().toISOString()
   };
+  const clean = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
   if (id) {
-    const { data, error } = await client.from("plenty_pantries").update(payload).eq("id", id).select(PANTRY_COLS).single();
+    const { data, error } = await client.from("plenty_pantries").update(clean).eq("id", id).select(PANTRY_COLS).single();
     fail(error);
     if (!data) throw new Error("Pantry not found.");
     return data as Pantry;
   }
-  const { data, error } = await client.from("plenty_pantries").insert({ ...payload, created_by: fields.created_by ?? null }).select(PANTRY_COLS).single();
+  const { data, error } = await client.from("plenty_pantries").insert({ ...clean, giving_mode: fields.giving_mode === "own" ? "own" : "uug", created_by: fields.created_by ?? null }).select(PANTRY_COLS).single();
   fail(error);
   return data as Pantry;
 }
@@ -352,6 +355,38 @@ export async function isSteward(pantryId: string, userId: string, email?: string
     .in("role", ["steward", "admin"]);
   fail(error);
   return (data || []).length > 0;
+}
+
+export async function listStewardPantries(userId: string, email?: string | null): Promise<Pantry[]> {
+  const all = await listPantries();
+  if (isSuperAdminEmail(email)) return all;
+  const memberships = await membershipsForUser(userId);
+  const ids = new Set(memberships.filter((m) => m.role === "steward" || m.role === "admin").map((m) => m.pantry_id));
+  return all.filter((p) => ids.has(p.id));
+}
+
+export async function getPantryById(id: string): Promise<Pantry | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).eq("id", id).maybeSingle();
+  fail(error);
+  return (data as Pantry | null) ?? null;
+}
+
+export async function getSetting(key: string): Promise<string> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_settings").select("value").eq("key", key).maybeSingle();
+  fail(error);
+  return (data?.value as string) || "";
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  const client = await sb();
+  const { error } = await client.from("plenty_settings").upsert({
+    key,
+    value,
+    updated_at: new Date().toISOString()
+  });
+  fail(error);
 }
 
 export async function removeMembership(pantryId: string, userId: string, role: string) {
@@ -443,6 +478,82 @@ export async function listHouseholds(pantryId: string): Promise<Household[]> {
   const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("pantry_id", pantryId).order("display_name");
   fail(error);
   return (data as Household[]) || [];
+}
+
+function phoneDigits(phone: string) {
+  return phone.replace(/\D/g, "");
+}
+
+export async function findHouseholdByPhone(pantryId: string, phone: string): Promise<Household | null> {
+  const want = phoneDigits(phone);
+  if (want.length < 7) return null;
+  const rows = await listHouseholds(pantryId);
+  return rows.find((h) => phoneDigits(h.phone) === want || phoneDigits(h.phone).endsWith(want.slice(-10))) || null;
+}
+
+export async function searchHouseholds(pantryId: string, query: string): Promise<Household[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const rows = await listHouseholds(pantryId);
+  const digits = phoneDigits(q);
+  return rows
+    .filter((h) => {
+      if (h.display_name.toLowerCase().includes(q)) return true;
+      if (digits.length >= 4 && phoneDigits(h.phone).includes(digits)) return true;
+      return false;
+    })
+    .slice(0, 20);
+}
+
+export async function addWalkInHousehold(input: {
+  pantryId: string;
+  displayName: string;
+  householdSize: number;
+  phone: string;
+  notes?: string;
+}): Promise<Household> {
+  if (input.phone) {
+    const existing = await findHouseholdByPhone(input.pantryId, input.phone);
+    if (existing) {
+      const client = await sb();
+      const { data, error } = await client
+        .from("plenty_households")
+        .update({
+          display_name: input.displayName || existing.display_name,
+          household_size: input.householdSize || existing.household_size,
+          notes: input.notes ?? existing.notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existing.id)
+        .select(HOUSEHOLD_COLS)
+        .single();
+      fail(error);
+      return data as Household;
+    }
+  }
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_households")
+    .insert({
+      pantry_id: input.pantryId,
+      user_id: null,
+      display_name: input.displayName,
+      household_size: input.householdSize,
+      phone: input.phone,
+      preferred_contact: input.phone ? "phone" : "in_person",
+      notes: input.notes || "Walk-in at the line"
+    })
+    .select(HOUSEHOLD_COLS)
+    .single();
+  fail(error);
+  return data as Household;
+}
+
+export async function getHousehold(id: string, pantryId: string): Promise<Household | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_households").select(HOUSEHOLD_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
+  fail(error);
+  return (data as Household | null) ?? null;
 }
 
 export async function listInventory(pantryId: string): Promise<InventoryItem[]> {
@@ -1971,7 +2082,7 @@ export async function redeemStoreCardWithPin(code: string, pin: string, note: st
 }
 
 const ALLY_COLS =
-  "id, pantry_id, kind, name, address, city, state, zip, phone, contact_name, contact_email, hours_hint, hours_text, website, relationship, listed_publicly, wants_food, can_host_distribution, can_pickup, wants_volunteers, has_freezer, has_space, visit_notes, last_visited_at, source_note, accepts_dry, accepts_refrigerated, accepts_frozen, accepts_produce, next_distribution_at, created_at";
+  "id, pantry_id, kind, name, address, city, state, zip, phone, contact_name, contact_email, hours_hint, hours_text, website, relationship, listed_publicly, wants_food, can_host_distribution, can_pickup, wants_volunteers, has_freezer, has_space, visit_notes, last_visited_at, source_note, accepts_dry, accepts_refrigerated, accepts_frozen, accepts_produce, next_distribution_at, operator_pantry_id, created_at";
 
 export type Ally = {
   id: string;
@@ -2004,6 +2115,7 @@ export type Ally = {
   accepts_frozen: boolean;
   accepts_produce: boolean;
   next_distribution_at: string | null;
+  operator_pantry_id: string | null;
   created_at: string;
 };
 
@@ -2016,6 +2128,13 @@ export type OpsNeed = {
   status: string;
   created_at: string;
 };
+
+export async function getAlly(id: string, pantryId: string): Promise<Ally | null> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_allies").select(ALLY_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
+  fail(error);
+  return (data as Ally | null) ?? null;
+}
 
 export async function listAllies(pantryId: string): Promise<Ally[]> {
   const client = await sb();
@@ -2128,6 +2247,7 @@ export async function updateAlly(
     acceptsFrozen: boolean;
     acceptsProduce: boolean;
     nextDistributionAt: string | null;
+    operatorPantryId: string | null;
   }>
 ): Promise<Ally | null> {
   const client = await sb();
@@ -2160,6 +2280,7 @@ export async function updateAlly(
   if (patch.visitNotes != null) row.visit_notes = patch.visitNotes;
   if (patch.lastVisitedAt !== undefined) row.last_visited_at = patch.lastVisitedAt;
   if (patch.sourceNote != null) row.source_note = patch.sourceNote;
+  if (patch.operatorPantryId !== undefined) row.operator_pantry_id = patch.operatorPantryId;
   const { data, error } = await client
     .from("plenty_allies")
     .update(row)
@@ -2274,6 +2395,14 @@ export async function listPayMethods(pantryId: string): Promise<PayMethodRow[]> 
 export async function postedPayMethods(pantryId: string): Promise<PayMethodRow[]> {
   const rows = await listPayMethods(pantryId);
   return rows.filter((r) => r.posted && (r.kind === "cash" || r.handle.trim()));
+}
+
+export async function effectivePayMethods(pantry: Pick<Pantry, "id" | "giving_mode">): Promise<PayMethodRow[]> {
+  if (pantry.giving_mode === "uug") {
+    const home = await getDefaultPantry();
+    if (home) return postedPayMethods(home.id);
+  }
+  return postedPayMethods(pantry.id);
 }
 
 export async function upsertPayMethod(input: { pantryId: string; kind: string; handle: string; posted: boolean }): Promise<PayMethodRow> {

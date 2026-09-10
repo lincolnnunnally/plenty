@@ -12,7 +12,7 @@ export default async function DonateThanksPage({ searchParams }: { searchParams:
   const pantry = await getDefaultPantrySafe();
   let paid = false;
   let amount = 0;
-  if (sessionId && stripeConfigured()) {
+  if (sessionId && (await stripeConfigured())) {
     try {
       const session = await readPlentySession(sessionId);
       paid = session.paid;

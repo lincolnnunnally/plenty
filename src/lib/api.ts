@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantry, isSteward } from "@/lib/db/queries";
+import { getDefaultPantry, getPantryById, getPantryBySlug, isSteward } from "@/lib/db/queries";
 
 export async function readJson(request: Request) {
   try {
@@ -35,10 +36,29 @@ export async function requireUser() {
 }
 
 export async function pantryFromBody(body: Record<string, unknown>) {
-  const pantry = await getDefaultPantry();
+  const pantry = await resolvePantry(body);
   if (!pantry) throw new Error("No pantry is set up yet.");
-  const id = str(body.pantryId) || pantry.id;
-  return { ...pantry, id: id || pantry.id };
+  return pantry;
+}
+
+export async function resolvePantry(body?: Record<string, unknown> | null) {
+  const slug = str(body?.pantrySlug);
+  if (slug) {
+    const bySlug = await getPantryBySlug(slug);
+    if (bySlug) return bySlug;
+  }
+  const id = str(body?.pantryId);
+  if (id) {
+    const byId = await getPantryById(id);
+    if (byId) return byId;
+  }
+  const jar = await cookies();
+  const desk = jar.get("plenty_desk")?.value || "";
+  if (desk) {
+    const byDesk = await getPantryById(desk);
+    if (byDesk) return byDesk;
+  }
+  return getDefaultPantry();
 }
 
 export async function requireStewardFor(pantryId: string) {

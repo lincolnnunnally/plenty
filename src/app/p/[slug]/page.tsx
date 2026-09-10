@@ -1,5 +1,5 @@
 import { PayBoard } from "@/components/pay-board";
-import { availableThisWeek, getPantryBySlug, listDistributions, listShifts, postedPayMethods, weNeedList } from "@/lib/db/queries";
+import { availableThisWeek, effectivePayMethods, getPantryBySlug, listDistributions, listShifts, weNeedList } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -47,7 +47,7 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
   const shifts = await listShifts(pantry.id);
   const days = await listDistributions(pantry.id);
   const upcoming = days.filter((d) => d.status !== "cancelled" && d.status !== "done");
-  const pay = await postedPayMethods(pantry.id).catch(() => []);
+  const pay = await effectivePayMethods(pantry).catch(() => []);
 
   return (
     <main className="shell">
@@ -56,7 +56,8 @@ export default async function PantryPublicPage({ params }: { params: Promise<{ s
       <p className="lede">{pantry.about || "This is a food pantry. If you are having a hard time feeding your family, you can get groceries here. You can also volunteer or donate food, money, space, or a vehicle."}</p>
       <p className="note">Share this pantry: <a href={`/p/${pantry.slug}`}>{pantryPublicUrl(pantry.slug)}</a></p>
       <div className="action-row">
-        <a className="button primary" href="/need-food">I need food</a>
+        <a className="button primary" href={`/line/${pantry.slug}`}>Check in at the line</a>
+        <a className="button" href="/need-food">I need food</a>
         <a className="button leaf" href="/volunteer">Volunteer</a>
         <a className="button" href="/donate">Give</a>
         <a className="button" href="/for-stores">Stores: donate food</a>

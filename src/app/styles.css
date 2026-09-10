@@ -141,6 +141,9 @@ textarea.input { min-height: 96px; resize: vertical; }
 .app-footer-nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
 .app-footer-nav a:hover { color: var(--ink); }
 .empty { margin-top: 12px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); background: transparent; }
+.desk-switch { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.desk-switch span { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.desk-switch .input { width: auto; min-width: 180px; }
 .subnav { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 .subnav a { font-size: .88rem; font-weight: 600; text-decoration: none; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
 button.chip {

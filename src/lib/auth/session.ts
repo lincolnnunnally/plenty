@@ -34,13 +34,16 @@ export async function requireCustomerAccess(nextPath = "/app") {
 
 export async function requirePantryDesk(nextPath = "/run") {
   const user = await requireCustomerAccess(nextPath);
-  const { getDefaultPantry, isSteward } = await import("@/lib/db/queries");
-  const pantry = await getDefaultPantry();
+  const { getDefaultPantry, getPantryById, isSteward, listStewardPantries } = await import("@/lib/db/queries");
+  const { cookies } = await import("next/headers");
   const superAdmin = isSuperAdminEmail(user.email);
+  const pantries = await listStewardPantries(user.id, user.email);
+  const selected = (await cookies()).get("plenty_desk")?.value || "";
+  let pantry = pantries.find((p) => p.id === selected) || pantries[0] || (await getDefaultPantry()) || (selected ? await getPantryById(selected) : null);
   if (!pantry) {
     if (!superAdmin) redirect("/app");
-    return { user, pantry: null, superAdmin: true };
+    return { user, pantry: null, superAdmin: true, pantries: [] as Awaited<ReturnType<typeof listStewardPantries>> };
   }
   if (!(await isSteward(pantry.id, user.id, user.email))) redirect("/app");
-  return { user, pantry, superAdmin };
+  return { user, pantry, superAdmin, pantries: pantries.length ? pantries : [pantry] };
 }

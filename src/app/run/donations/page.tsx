@@ -3,32 +3,80 @@ import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { listAssets, listDonations, listPayMethods } from "@/lib/db/queries";
 import { payHint, payLabel, type PayKind } from "@/lib/pay";
+import { pantryLineUrl } from "@/lib/public-url";
+import { stripeConfigured } from "@/lib/stripe-give";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DonationsAdminPage() {
-  const { pantry } = await requirePantryDesk("/run/donations");
+  const { pantry, pantries, superAdmin } = await requirePantryDesk("/run/donations");
   if (!pantry) redirect("/run");
   const offers = await listDonations(pantry.id);
   const assets = await listAssets(pantry.id);
   const methods = await listPayMethods(pantry.id).catch(() => []);
   const kinds: PayKind[] = ["venmo", "cashapp", "zelle", "cash"];
+  const cardLive = await stripeConfigured();
+  const line = pantryLineUrl(pantry.slug);
 
   return (
     <main className="shell">
       <p className="eyebrow">Gifts</p>
       <h1>Food, money, vehicles, and property</h1>
-      <p className="note">Card gifts show as received after checkout. Cash App, Venmo, and Zelle only appear publicly when you post the real handle. Vehicles and buildings stay on the pantry's books. <a href="/run/receipts">Year-end receipts</a></p>
-      <RunNav />
+      <p className="note">
+        Put the Stripe secret and the Cash App / Venmo / Zelle handles on this page. Card gifts record after checkout.
+        A pantry can use United Under God giving, or post its own handles. <a href="/run/receipts">Year-end receipts</a>
+      </p>
+      <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
+
+      {superAdmin ? (
+        <section className="panel">
+          <h2>Card charging — United Under God Stripe</h2>
+          <p className="note">
+            {cardLive
+              ? "A Stripe key is on file. Paste a new one only if you rotated it."
+              : "Paste the live Stripe secret here. This is the United Under God 501(c)(3) key — the same one used for giving. It is not shown again after you save."}
+          </p>
+          <PostForm action="/api/settings/stripe" submitLabel="Save Stripe secret">
+            <label className="field">
+              <span>Stripe secret (sk_live_… or rk_live_…)</span>
+              <input className="input" name="secret" type="password" autoComplete="off" placeholder="sk_live_…" />
+            </label>
+          </PostForm>
+        </section>
+      ) : (
+        <p className="note">{cardLive ? "Card charging is live." : "Ask Lincoln to paste the Stripe secret on this page."}</p>
+      )}
 
       <section className="panel">
-        <h2>How neighbors can pay</h2>
-        <p className="note">Post the real Cash App, Venmo, and Zelle. Do not invent a handle. A QR prints on Give for families who do not have a card.</p>
+        <h2>Whose Cash App, Venmo, and Zelle</h2>
+        <p className="note">
+          If this pantry collects through United Under God, use ours. If they have their own, post those handles below
+          and choose “this pantry.”
+        </p>
+        <PostForm action="/api/pantries" submitLabel="Save who gets the gift">
+          <input type="hidden" name="pantryId" value={pantry.id} />
+          <label className="field">
+            <span>Money goes to</span>
+            <select className="input" name="givingMode" defaultValue={pantry.giving_mode || "own"}>
+              <option value="uug">United Under God / Plenty — use our card, Cash App, Venmo, and Zelle</option>
+              <option value="own">This pantry — its own Cash App, Venmo, and Zelle</option>
+            </select>
+          </label>
+        </PostForm>
+      </section>
+
+      <section className="panel">
+        <h2>This pantry&apos;s Cash App, Venmo, and Zelle</h2>
+        <p className="note">
+          Post the real handles. Do not invent them. They print as QR on Give and at the line
+          ({line}) when this pantry uses its own giving.
+        </p>
         {kinds.map((kind) => {
           const row = methods.find((m) => m.kind === kind);
           return (
             <PostForm key={kind} action="/api/pay-methods" submitLabel={`Save ${payLabel(kind)}`}>
+              <input type="hidden" name="pantryId" value={pantry.id} />
               <input type="hidden" name="kind" value={kind} />
               <label className="field">
                 <span>{payLabel(kind)} — {payHint(kind)}</span>
