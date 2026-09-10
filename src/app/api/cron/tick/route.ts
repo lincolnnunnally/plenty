@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listStorePartners, listVolunteers, markRecurringRun } from "@/lib/db/queries";
 import { offerFoodLoad } from "@/lib/db/food-loads";
 import { notifyCrew } from "@/lib/notify";
-import { nextEasternOccurrence } from "@/lib/schedule";
+import { nextEasternOccurrence, shouldRunThisWeek } from "@/lib/schedule";
 import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const day = when.toISOString().slice(0, 10);
     if (job.last_run_on === day) continue;
     if (when.getTime() - Date.now() > 36 * 3600000) continue;
+    if (!shouldRunThisWeek(job.notes, when)) continue;
     if (job.kind === "distribution") {
       await addDistribution({
         pantryId: job.pantry_id,

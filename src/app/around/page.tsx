@@ -2,7 +2,7 @@ import { AroundPlace } from "@/components/around-place";
 import { PantryMap } from "@/components/pantry-map";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
-import { coordsForName, type MapPlace } from "@/lib/maps";
+import { coordsForName, geocodePlace, type MapPlace } from "@/lib/maps";
 import { ensureToombsStartingPoints, getDefaultPantrySafe, isSteward, listAllies, listedAllies } from "@/lib/db/queries";
 import { alliesForOperator } from "@/lib/db/food-loads";
 import { pageMeta } from "@/lib/seo";
@@ -13,9 +13,10 @@ export const metadata = pageMeta(
   "Plenty lists food pantries in Toombs County only after someone walks in. Hours are what we saw, not what a directory guessed."
 );
 
-function pin(a: { id: string; name: string; address: string; city: string; state?: string; zip?: string; hours_text?: string; relationship: string }): MapPlace | null {
-  const coords = coordsForName(a.name);
-  if (!coords || !a.address) return null;
+async function pin(a: { id: string; name: string; address: string; city: string; state?: string; zip?: string; hours_text?: string; relationship: string }): Promise<MapPlace | null> {
+  if (!a.address) return null;
+  const coords = coordsForName(a.name) || (await geocodePlace(a));
+  if (!coords) return null;
   return {
     id: a.id,
     name: a.name,
@@ -85,7 +86,8 @@ export default async function AroundPage() {
   const toCheck = steward
     ? all.filter((a) => a.kind === "pantry" && a.relationship === "to_meet" && a.address)
     : [];
-  const pins = [...open, ...closed, ...toCheck].map(pin).filter((p): p is MapPlace => Boolean(p));
+  const pinRows = await Promise.all([...open, ...closed, ...toCheck].map(pin));
+  const pins = pinRows.filter((p): p is MapPlace => Boolean(p));
 
   return (
     <main className="shell">

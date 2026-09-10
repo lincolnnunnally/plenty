@@ -3,6 +3,7 @@ import { requireCustomerAccess } from "@/lib/auth/session";
 import { alliesForOperator, listFoodLoads } from "@/lib/db/food-loads";
 import { getDefaultPantrySafe } from "@/lib/db/queries";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
+import { WEEKDAYS } from "@/lib/schedule";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,32 @@ export default async function ServePage() {
             <label className="check"><input type="checkbox" name="hasFreezer" value="1" defaultChecked={a.has_freezer} /> We have a freezer</label>
             <input type="hidden" name="canPickup" value="1" />
           </PostForm>
+          {a.operator_pantry_id ? (
+            <PostForm action="/api/recurring" submitLabel="Repeat this serving day">
+              <input type="hidden" name="pantryId" value={a.operator_pantry_id} />
+              <input type="hidden" name="kind" value="distribution" />
+              <input type="hidden" name="title" value={`${a.name} distribution`} />
+              <input type="hidden" name="location" value={[a.address, a.city].filter(Boolean).join(", ")} />
+              <label className="field">
+                <span>Day we serve</span>
+                <select className="input" name="weekday" defaultValue="5">
+                  {WEEKDAYS.map((name, i) => (
+                    <option key={name} value={i}>{name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field"><span>Start time</span><input className="input" type="time" name="timeLocal" defaultValue="16:00" required /></label>
+              <p className="note">Which weeks? Third Wednesday = Wednesday + 3rd. Second and fourth Friday = Friday + 2nd and 4th.</p>
+              <div className="chip-row">
+                <label className="check"><input type="checkbox" name="monthWeeks" value="1" /> 1st</label>
+                <label className="check"><input type="checkbox" name="monthWeeks" value="2" /> 2nd</label>
+                <label className="check"><input type="checkbox" name="monthWeeks" value="3" /> 3rd</label>
+                <label className="check"><input type="checkbox" name="monthWeeks" value="4" /> 4th</label>
+              </div>
+            </PostForm>
+          ) : (
+            <p className="note">Claim this pantry to post a repeating serve day on your own desk.</p>
+          )}
         </section>
       ))}
 

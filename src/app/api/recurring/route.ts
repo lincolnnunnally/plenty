@@ -1,18 +1,18 @@
-import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
-import { addRecurring, getDefaultPantry, isVolunteerRole, setRecurringActive } from "@/lib/db/queries";
+import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
+import { addRecurring, isVolunteerRole, setRecurringActive } from "@/lib/db/queries";
 import { encodeFoodNote, foodTypesFrom, normalizeTimeLocal } from "@/lib/store-pitch";
+import { encodeMonthWeeks } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
 const KINDS = new Set(["shift", "distribution", "store_pickup"]);
 
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const { error } = await requireStewardFor(pantry.id);
-  if (error) return error;
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
+  const desk = await requireDeskPantry(body);
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
   if (str(body.id) && body.active != null) {
     const active = body.active === true || body.active === "on" || body.active === "1";
     await setRecurringActive(str(body.id), pantry.id, active);
@@ -30,7 +30,10 @@ export async function POST(request: Request) {
   if (kind === "shift" && !isVolunteerRole(role)) return fail("Choose a volunteer role.");
   if (kind === "store_pickup" && !str(body.partnerId)) return fail("Choose which store this pickup repeats at.");
   const foods = foodTypesFrom(body.foodTypes);
-  const notes = [str(body.notes), kind === "store_pickup" && foods.length ? encodeFoodNote(foods) : ""]
+  const weeks = (Array.isArray(body.monthWeeks) ? body.monthWeeks : [body.monthWeeks])
+    .map((v) => Number(v))
+    .filter((n) => n >= 1 && n <= 5);
+  const notes = [str(body.notes), encodeMonthWeeks(weeks), kind === "store_pickup" && foods.length ? encodeFoodNote(foods) : ""]
     .filter(Boolean)
     .join("\n");
   try {

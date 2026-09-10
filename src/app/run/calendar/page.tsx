@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/queries";
 import { twilioConfigured } from "@/lib/notify";
 import { resendConfigured } from "@/lib/promote/email";
-import { WEEKDAYS } from "@/lib/schedule";
+import { WEEKDAYS, parseMonthWeeks, monthWeeksLabel } from "@/lib/schedule";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
@@ -73,6 +73,17 @@ export default async function CalendarPage() {
             </select>
           </label>
           <label className="field"><span>Time (Eastern)</span><input className="input" type="time" name="timeLocal" required defaultValue="09:00" /></label>
+          <p className="note">Which weeks of the month? Leave blank for every week. Church of God is the third Wednesday. Free Will is the second and fourth Friday.</p>
+          <div className="chip-row">
+            {[
+              [1, "1st"],
+              [2, "2nd"],
+              [3, "3rd"],
+              [4, "4th"]
+            ].map(([value, label]) => (
+              <label className="check" key={value}><input type="checkbox" name="monthWeeks" value={String(value)} /> {label}</label>
+            ))}
+          </div>
           <label className="field">
             <span>Volunteer role (for shifts)</span>
             <select className="input" name="role" defaultValue="serve">
@@ -107,7 +118,7 @@ export default async function CalendarPage() {
           <div className="grid" style={{ marginTop: 18 }}>
             {jobs.map((job) => (
               <article className="card" key={job.id}>
-                <span>{job.kind.replace("_", " ")} · {WEEKDAYS[job.weekday]} {job.time_local} · {job.active ? "repeating" : "stopped"}</span>
+                <span>{job.kind.replace("_", " ")} · {WEEKDAYS[job.weekday]} {job.time_local} · {monthWeeksLabel(parseMonthWeeks(job.notes))} · {job.active ? "repeating" : "stopped"}</span>
                 <strong>{job.title}</strong>
                 <p className="note">{job.location}{job.last_run_on ? ` · last posted ${job.last_run_on}` : ""}</p>
                 <PostForm action="/api/recurring" submitLabel={job.active ? "Stop repeating" : "Start again"}>

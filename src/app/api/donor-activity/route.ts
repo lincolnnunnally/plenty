@@ -1,14 +1,14 @@
-import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
-import { addDonation, getDefaultPantry, listStorePartners, updateStorePartner } from "@/lib/db/queries";
+import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
+import { addDonation, listStorePartners, updateStorePartner } from "@/lib/db/queries";
 import { DONOR_ACTIVITY_KINDS, encodeDonorMeta, parseDonorMeta } from "@/lib/donors/starting";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const steward = await requireStewardFor(pantry.id);
-  if (steward.error) return steward.error;
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
+  const user = desk.user;
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
   const partnerId = str(body.partnerId);
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   try {
     await addDonation({
       pantryId: pantry.id,
-      userId: steward.user?.id || null,
+      userId: user?.id || null,
       kind,
       title: partner.name,
       description,

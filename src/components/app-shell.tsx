@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { LangToggle } from "@/components/lang-toggle";
 import { SignOutForm } from "@/components/sign-out-form";
-import { getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
+import { getDefaultPantrySafe, isSteward, listStewardPantries } from "@/lib/db/queries";
 
 const NAV = [
   { href: "/need-food", label: "Get food" },
@@ -18,6 +18,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser().catch(() => null);
   const pantry = await getDefaultPantrySafe();
   let steward = Boolean(user && isSuperAdminEmail(user.email));
+  if (user && !steward) {
+    const mine = await listStewardPantries(user.id, user.email).catch(() => []);
+    steward = mine.length > 0;
+  }
   if (user && pantry && !steward) {
     steward = await isSteward(pantry.id, user.id, user.email).catch(() => false);
   }

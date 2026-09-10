@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDefaultPantry, getPantryById, getPantryBySlug, isSteward } from "@/lib/db/queries";
+import { getDefaultPantry, getPantryById, getPantryBySlug, isSteward, listStewardPantries } from "@/lib/db/queries";
 
 export async function readJson(request: Request) {
   try {
@@ -67,4 +67,15 @@ export async function requireStewardFor(pantryId: string) {
   const allowed = await isSteward(pantryId, user.id, user.email);
   if (!allowed) return { error: fail("Only a pantry admin can do that.", 403), user };
   return { error: null, user };
+}
+
+/** Desk writes follow the selected pantry cookie / pantryId — not always Vidalia. */
+export async function requireDeskPantry(body?: Record<string, unknown> | null) {
+  const { error, user } = await requireUser();
+  if (error || !user) return { error: error || fail("Sign in first.", 401), pantry: null, user: null };
+  const mine = await listStewardPantries(user.id, user.email);
+  const requested = await resolvePantry(body);
+  const pantry = (requested && mine.some((p) => p.id === requested.id) ? requested : null) || mine[0] || null;
+  if (!pantry) return { error: fail("No pantry desk for this account.", 403), pantry: null, user };
+  return { error: null, pantry, user };
 }

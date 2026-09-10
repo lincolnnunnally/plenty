@@ -67,8 +67,12 @@ export function AroundPlace({
         ) : null}
         {canClaim && !place.operator_pantry_id ? (
           signedIn ? (
-            <PostForm className="claim-form" action={`/api/allies/${place.id}/claim`} submitLabel="This is my pantry" successHref="/serve">
+            <PostForm className="claim-form" action={`/api/allies/${place.id}/claim`} submitLabel="This is my pantry" successHref="/run">
               <input type="hidden" name="claim" value="1" />
+              <label className="field">
+                <span>Type the pantry name</span>
+                <input className="input" name="confirmName" required placeholder={place.name} />
+              </label>
             </PostForm>
           ) : (
             <a className="button" href={`/sign-in?next=/around`}>
@@ -76,7 +80,7 @@ export function AroundPlace({
             </a>
           )
         ) : null}
-        {place.operator_pantry_id ? <a className="button" href="/serve">Manage</a> : null}
+        {place.operator_pantry_id ? <a className="button" href="/run">Manage</a> : null}
       </div>
       {canEdit ? (
         <details className="field-edit">

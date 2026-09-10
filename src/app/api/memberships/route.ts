@@ -1,6 +1,6 @@
-import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
+import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
-import { addMembership, getDefaultPantry, removeMembership } from "@/lib/db/queries";
+import { addMembership, removeMembership } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +8,10 @@ const PEOPLE_ROLES = new Set(["neighbor", "volunteer", "donor"]);
 const DESK_ROLES = new Set(["steward", "admin"]);
 
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const { error, user } = await requireStewardFor(pantry.id);
-  if (error || !user) return error || fail("Sign in first.", 401);
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
+  const user = desk.user;
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
   const userId = str(body.userId);

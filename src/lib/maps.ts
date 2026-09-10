@@ -62,3 +62,34 @@ export function coordsForName(name: string) {
   const key = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
   return TOOMBS_COORDS[key] || null;
 }
+
+const geocodeCache = new Map<string, { lat: number; lon: number } | null>();
+
+export async function geocodePlace(place: {
+  name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}): Promise<{ lat: number; lon: number } | null> {
+  const named = coordsForName(place.name || "");
+  if (named) return named;
+  const q = [place.address, place.city, place.state || "GA", place.zip].filter(Boolean).join(", ");
+  if (!q || q.length < 8) return null;
+  if (geocodeCache.has(q)) return geocodeCache.get(q) || null;
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "PlentyPantryMap/1.0 (lincoln@unitedundergod.org)" },
+      signal: AbortSignal.timeout(8000)
+    });
+    const data = (await res.json()) as { lat: string; lon: string }[];
+    const hit = data?.[0];
+    const coords = hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
+    geocodeCache.set(q, coords && Number.isFinite(coords.lat) ? coords : null);
+    return geocodeCache.get(q) || null;
+  } catch {
+    geocodeCache.set(q, null);
+    return null;
+  }
+}

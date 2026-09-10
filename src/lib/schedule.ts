@@ -49,4 +49,38 @@ export function nextEasternOccurrence(weekday: number, timeLocal: string, now = 
   return new Date(now.getTime() + 7 * 86400000);
 }
 
+/** 1–5: which Friday/Wednesday of the month this date is in America/New_York. */
+export function easternWeekOfMonth(when: Date): number {
+  const day = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", day: "numeric" }).format(when)
+  );
+  return Math.ceil(day / 7);
+}
+
+/** `nth:3` or `nth:2,4` in notes. Empty = every week. */
+export function parseMonthWeeks(notes: string): number[] {
+  const raw = (notes.match(/nth:([0-9,-]+)/i) || [])[1] || "";
+  return raw
+    .split(",")
+    .map((n) => Number(n.trim()))
+    .filter((n) => n >= 1 && n <= 5);
+}
+
+export function encodeMonthWeeks(weeks: number[]): string {
+  const clean = weeks.filter((n) => n >= 1 && n <= 5);
+  return clean.length ? `nth:${clean.join(",")}` : "";
+}
+
+export function monthWeeksLabel(weeks: number[]): string {
+  if (!weeks.length) return "every week";
+  const names = ["", "first", "second", "third", "fourth", "fifth"];
+  return weeks.map((w) => names[w] || String(w)).join(" and ") + " of the month";
+}
+
+export function shouldRunThisWeek(notes: string, when: Date): boolean {
+  const weeks = parseMonthWeeks(notes);
+  if (!weeks.length) return true;
+  return weeks.includes(easternWeekOfMonth(when));
+}
+
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

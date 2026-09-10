@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
-import { addPickup, addShift, getPantryById, listAllies, listDistributions, listStorePartners, listVolunteers, patchPickup, patchShift, type Ally } from "@/lib/db/queries";
+import { addInventory, addPickup, addShift, getPantryById, listAllies, listDistributions, listInventory, listStorePartners, listVolunteers, patchPickup, patchShift, recordStockMove, updateInventory, type Ally } from "@/lib/db/queries";
 import { notifyCrew, notifyDesk } from "@/lib/notify";
 
 async function sb() {
@@ -324,6 +324,7 @@ export async function updateFoodLoad(
     notes?: string;
   }
 ): Promise<FoodLoad | null> {
+  const prior = await getFoodLoad(id);
   const client = await sb();
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.status != null) row.status = patch.status;
@@ -336,6 +337,9 @@ export async function updateFoodLoad(
   const { data, error } = await client.from("plenty_food_loads").update(row).eq("id", id).eq("pantry_id", pantryId).select(LOAD_COLS).maybeSingle();
   fail(error);
   const updated = data as FoodLoad | null;
+  if (updated && patch.status === "received" && prior?.status !== "received") {
+    await putLoadOnShelves(updated).catch(() => null);
+  }
   const destChanged = patch.destAllyId !== undefined || patch.destNote != null || patch.pickupAt !== undefined;
   if (updated && destChanged) {
     const allies = await listAllies(pantryId);
@@ -369,6 +373,60 @@ export async function updateFoodLoad(
     }
   }
   return updated;
+}
+
+function shelfCategory(cat: string) {
+  if (cat === "produce") return "produce";
+  if (cat === "refrigerated") return "dairy";
+  if (cat === "frozen") return "protein";
+  return "staple";
+}
+
+function qtyFrom(text: string) {
+  const n = Number(String(text).replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
+}
+
+async function putLoadOnShelves(load: FoodLoad): Promise<void> {
+  const full = await getFoodLoad(load.id);
+  if (!full) return;
+  const allies = await listAllies(load.pantry_id);
+  const dest = full.dest_ally_id ? allies.find((a) => a.id === full.dest_ally_id) : null;
+  const shelfPantryId = dest?.operator_pantry_id || load.pantry_id;
+  const pantry = await getPantryById(shelfPantryId);
+  if (!pantry) return;
+  const shelves = await listInventory(shelfPantryId).catch(() => [] as Awaited<ReturnType<typeof listInventory>>);
+  for (const item of full.items || []) {
+    const name = item.title || item.category;
+    const qty = qtyFrom(item.quantity);
+    const existing = shelves.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      await recordStockMove({
+        pantryId: shelfPantryId,
+        inventoryId: existing.id,
+        direction: "in",
+        quantity: qty,
+        itemName: name,
+        note: `Received from ${full.partner_name || "a pickup"}`,
+        createdBy: null
+      });
+      await updateInventory(existing.id, { availableThisWeek: true, weNeed: false });
+      existing.quantity = Number(existing.quantity) + qty;
+    } else {
+      const row = await addInventory({
+        pantryId: shelfPantryId,
+        name,
+        category: shelfCategory(item.category),
+        quantity: qty,
+        unit: "item",
+        availableThisWeek: true,
+        weNeed: false,
+        lowAt: null,
+        notes: `From ${full.partner_name || "pickup"}${item.must_use_by ? ` · use by ${item.must_use_by}` : ""}`
+      });
+      shelves.push(row);
+    }
+  }
 }
 
 export async function listAllyMemberships(userId: string): Promise<{ ally_id: string; role: string }[]> {

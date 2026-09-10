@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireStewardFor } from "@/lib/api";
-import { getDefaultPantry } from "@/lib/db/queries";
+import { requireDeskPantry } from "@/lib/api";
 import { kitFor } from "@/lib/promote/facts";
 import { flyerPdf } from "@/lib/promote/pdf";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return NextResponse.json({ ok: false, message: "No pantry is set up yet." }, { status: 503 });
-  const { error } = await requireStewardFor(pantry.id);
-  if (error) return error;
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || NextResponse.json({ ok: false, message: "No pantry is set up yet." }, { status: 503 });
+  const pantry = desk.pantry;
   const { searchParams } = new URL(request.url);
   const audience = searchParams.get("audience") || "families";
   const kind = searchParams.get("kind") === "card" ? "card" : "flyer";

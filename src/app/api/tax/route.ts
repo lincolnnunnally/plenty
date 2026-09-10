@@ -1,13 +1,13 @@
-import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
-import { getDefaultPantry, upsertTaxProfile } from "@/lib/db/queries";
+import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
+import { upsertTaxProfile } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const { error } = await requireStewardFor(pantry.id);
-  if (error) return error;
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
+  const user = desk.user;
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
   try {

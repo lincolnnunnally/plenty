@@ -1,16 +1,16 @@
-import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
+import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
 import { offerFoodLoad } from "@/lib/db/food-loads";
-import { getDefaultPantry, listStorePartners, updateStorePartner } from "@/lib/db/queries";
+import { listStorePartners, updateStorePartner } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 const CATS = new Set(["dry", "refrigerated", "frozen", "produce"]);
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const steward = await requireStewardFor(pantry.id);
-  if (steward.error) return steward.error;
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
+  const user = desk.user;
   const { id } = await context.params;
   const partners = await listStorePartners(pantry.id);
   const partner = partners.find((p) => p.id === id);

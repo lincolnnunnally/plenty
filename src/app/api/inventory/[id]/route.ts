@@ -1,13 +1,13 @@
-import { fail, ok, readJson, requireStewardFor } from "@/lib/api";
-import { getDefaultPantry, updateInventory } from "@/lib/db/queries";
+import { fail, ok, readJson, requireStewardFor, requireDeskPantry } from "@/lib/api";
+import { updateInventory } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const pantry = await getDefaultPantry();
-  if (!pantry) return fail("No pantry is set up yet.", 503);
-  const { error } = await requireStewardFor(pantry.id);
-  if (error) return error;
+  const desk = await requireDeskPantry();
+  if (desk.error || !desk.pantry) return desk.error || fail("No pantry is set up yet.", 503);
+  const pantry = desk.pantry;
+  const user = desk.user;
   const { id } = await context.params;
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
