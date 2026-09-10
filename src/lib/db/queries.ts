@@ -47,6 +47,8 @@ export type Household = {
   delivery_ok: boolean;
   porch_leave_ok: boolean;
   porch_notes: string;
+  food_waiver_signed_at: string | null;
+  food_waiver_version: string;
 };
 
 export type InventoryItem = {
@@ -205,7 +207,7 @@ export async function getDefaultPantrySafe() {
 }
 
 const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source, receive_rules, donation_policy, donation_note, residency_rules, id_required, frequency_rules";
-const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes";
+const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes, food_waiver_signed_at, food_waiver_version";
 const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
 const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent, tenure, asset_kind";
 const VISIT_COLS = "id, pantry_id, household_id, user_id, visited_at, items_summary, notes, location_id";
@@ -1440,4 +1442,58 @@ export async function emailsForAudience(pantryId: string, audience: string): Pro
     for (const p of profiles || []) if (p.email) add(p.email, p.name || p.email);
   }
   return [...found.entries()].map(([email, name]) => ({ email, name }));
+}
+
+export type WaiverRow = {
+  id: string;
+  pantry_id: string;
+  user_id: string;
+  household_id: string | null;
+  version: string;
+  signed_name: string;
+  agreed: boolean;
+  created_at: string;
+};
+
+export async function signFoodWaiver(input: {
+  pantryId: string;
+  userId: string;
+  householdId: string | null;
+  version: string;
+  signedName: string;
+}): Promise<WaiverRow> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_waivers").insert({
+    pantry_id: input.pantryId,
+    user_id: input.userId,
+    household_id: input.householdId,
+    version: input.version,
+    signed_name: input.signedName,
+    agreed: true
+  }).select("id, pantry_id, user_id, household_id, version, signed_name, agreed, created_at").single();
+  fail(error);
+  if (input.householdId) {
+    const { error: hErr } = await client.from("plenty_households").update({
+      food_waiver_signed_at: new Date().toISOString(),
+      food_waiver_version: input.version,
+      updated_at: new Date().toISOString()
+    }).eq("id", input.householdId);
+    fail(hErr);
+  }
+  return data as WaiverRow;
+}
+
+export async function latestWaiverForUser(pantryId: string, userId: string): Promise<WaiverRow | null> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_waivers")
+    .select("id, pantry_id, user_id, household_id, version, signed_name, agreed, created_at")
+    .eq("pantry_id", pantryId)
+    .eq("user_id", userId)
+    .eq("agreed", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(error);
+  return (data as WaiverRow | null) ?? null;
 }

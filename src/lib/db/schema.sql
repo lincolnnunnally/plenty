@@ -279,6 +279,21 @@ create table if not exists plenty_assets (
   donation_id uuid,
   created_at timestamptz not null default now()
 );
+alter table plenty_households add column if not exists food_waiver_signed_at timestamptz;
+alter table plenty_households add column if not exists food_waiver_version text not null default '';
+
+create table if not exists plenty_waivers (
+  id uuid primary key default gen_random_uuid(),
+  pantry_id uuid not null references plenty_pantries(id) on delete cascade,
+  user_id uuid not null,
+  household_id uuid,
+  version text not null,
+  signed_name text not null default '',
+  agreed boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists plenty_waivers_user_idx on plenty_waivers (pantry_id, user_id, created_at desc);
+
 alter table plenty_pantries add column if not exists receive_rules text not null default '';
 alter table plenty_pantries add column if not exists donation_policy text not null default 'welcome';
 alter table plenty_pantries add column if not exists donation_note text not null default '';

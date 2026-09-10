@@ -1,5 +1,6 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
-import { getDefaultPantry, householdForUser, recordVisit } from "@/lib/db/queries";
+import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
+import { getDefaultPantry, householdForUser, latestWaiverForUser, listHouseholds, recordVisit } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,18 @@ export async function POST(request: Request) {
     if (!mine || mine.id !== householdId) return fail("You can only check in your own household.", 403);
   }
 
+  const households = asSteward ? await listHouseholds(pantry.id) : [];
+  const target = asSteward
+    ? households.find((h) => h.id === householdId) || null
+    : await householdForUser(pantry.id, user.id);
+  const ownerId = target?.user_id || user.id;
+  const signedOnHousehold = Boolean(target?.food_waiver_signed_at) && target?.food_waiver_version === FOOD_WAIVER_VERSION;
+  const signedRecord = await latestWaiverForUser(pantry.id, ownerId);
+  const signed = signedOnHousehold || Boolean(signedRecord);
+  if (!signed && !asSteward) {
+    return fail("Please sign the food responsibility agreement first. It protects the stores that donate so we can keep giving food.", 403);
+  }
+
   try {
     const visit = await recordVisit({
       pantryId: pantry.id,
@@ -34,7 +47,11 @@ export async function POST(request: Request) {
       notes: str(body.notes),
       locationId: str(body.locationId) || null
     });
-    return ok({ visitId: visit.id, message: "Checked in. If you want a next step beyond groceries, open A path — it is optional." });
+    const extra = signed ? "" : " Have them sign the food agreement on a phone before they leave the line.";
+    return ok({
+      visitId: visit.id,
+      message: `Checked in.${extra} If you want a next step beyond groceries, open A path — it is optional.`
+    });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not record the visit.", 503);
   }

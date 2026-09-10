@@ -1,6 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { availableThisWeek, getDefaultPantrySafe, householdForUser } from "@/lib/db/queries";
+import { FOOD_WAIVER_VERSION } from "@/lib/legal/food-waiver";
+import { availableThisWeek, getDefaultPantrySafe, householdForUser, latestWaiverForUser } from "@/lib/db/queries";
 import { donationPolicyCopy, receiveRulesCopy } from "@/lib/promote/compose";
 import { pantryPublicUrl } from "@/lib/public-url";
 import { pageMeta } from "@/lib/seo";
@@ -16,6 +17,10 @@ export default async function NeedFoodPage() {
   const pantry = await getDefaultPantrySafe();
   const available = pantry ? await availableThisWeek(pantry.id) : [];
   const household = user && pantry ? await householdForUser(pantry.id, user.id) : null;
+  const waiver = user && pantry ? await latestWaiverForUser(pantry.id, user.id) : null;
+  const waiverOk =
+    (household?.food_waiver_version === FOOD_WAIVER_VERSION && Boolean(household.food_waiver_signed_at)) ||
+    waiver?.version === FOOD_WAIVER_VERSION;
   const photos = available.filter((item) => item.image_url);
 
   return (
@@ -147,6 +152,15 @@ export default async function NeedFoodPage() {
           </PostForm>
           {household ? (
             <>
+              <h3 style={{ marginTop: 24 }}>Food responsibility agreement</h3>
+              {waiverOk ? (
+                <p className="note">You have signed. Grocery stores can keep donating because this record is on file. <a href="/waiver">Read it again</a>.</p>
+              ) : (
+                <p>
+                  Before you check in, sign the short agreement that you take donated food as-is.
+                  It protects the stores that gave the food. It is not a bill. <a className="button primary" href="/waiver">Sign the agreement</a>
+                </p>
+              )}
               <h3 style={{ marginTop: 24 }}>Check in when you pick up food</h3>
               <PostForm action="/api/visits" submitLabel="Check in this visit">
                 <input type="hidden" name="householdId" value={household.id} />

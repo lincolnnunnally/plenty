@@ -113,7 +113,7 @@ export default async function PeoplePage() {
         {households.length ? (
           <div className="table-scroll">
             <table className="table">
-              <thead><tr><th>Name</th><th>Family</th><th>Contact</th><th>Address</th><th>Visits</th><th>Delivery</th></tr></thead>
+              <thead><tr><th>Name</th><th>Family</th><th>Contact</th><th>Address</th><th>Visits</th><th>Waiver</th><th>Delivery</th></tr></thead>
               <tbody>
                 {households.map((h) => {
                   const v = visitCounts.get(h.id);
@@ -124,6 +124,7 @@ export default async function PeoplePage() {
                       <td>{[h.phone, h.email, h.preferred_contact.replace("_", " ")].filter(Boolean).join(" · ") || "—"}</td>
                       <td>{[h.address, h.city, h.state, h.zip].filter(Boolean).join(", ") || "—"}</td>
                       <td>{v ? `${v.count}${v.lastVisit ? ` · last ${new Date(v.lastVisit).toLocaleDateString()}` : ""}` : "0"}</td>
+                      <td>{h.food_waiver_signed_at ? `Signed ${new Date(h.food_waiver_signed_at).toLocaleDateString()}` : "Needed"}</td>
                       <td>{h.delivery_ok ? (h.porch_leave_ok ? "Yes · porch ok" : "Yes · someone home") : "Pickup"}</td>
                     </tr>
                   );

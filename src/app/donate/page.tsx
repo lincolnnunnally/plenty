@@ -38,6 +38,11 @@ export default async function DonatePage() {
           <strong>Space or a vehicle</strong>
           <p>A warehouse to hold food, a hall or lot to distribute, a van for pickups. Donated, loaned, leased, rented, or owned by the pantry — we record it so it is not lost in one person's pocket.</p>
         </article>
+        <article className="card">
+          <strong>Grocery store or warehouse</strong>
+          <p>Federal Good Samaritan law and Georgia law protect a good-faith food gift. Donating unsold food can beat throwing it away on taxes. Recipients sign a digital waiver.</p>
+          <a className="button" href="/for-stores">For stores: law, tax, and the waiver</a>
+        </article>
       </div>
 
       {needs.length ? (

@@ -110,6 +110,17 @@ export default async function PromotePage({ searchParams }: { searchParams: Prom
             <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/donate")}&format=png&size=360`} alt="QR code to give" width={180} height={180} />
             <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/donate")}&format=png&size=1024`}>Download</a>
           </article>
+          <article className="card">
+            <span>Sign the food agreement</span>
+            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/waiver")}&format=png&size=360`} alt="QR code to the food waiver" width={180} height={180} />
+            <p className="note">Put this at the line. Phone, sign, then check in.</p>
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/waiver")}&format=png&size=1024`}>Download</a>
+          </article>
+          <article className="card">
+            <span>For grocery stores</span>
+            <img src={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/for-stores")}&format=png&size=360`} alt="QR code for stores" width={180} height={180} />
+            <a className="button" href={`/api/promote/qr?to=${encodeURIComponent("https://plenty.unitedundergod.org/for-stores")}&format=png&size=1024`}>Download</a>
+          </article>
         </div>
       </section>
 
