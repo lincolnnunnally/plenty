@@ -102,7 +102,7 @@ function SignInForm() {
       <h1>{mode === "join" ? "Create a free account" : "Sign in"}</h1>
       <p>
         {mode === "join"
-          ? "Everyone who uses this pantry — families getting food, volunteers, and donors — creates an account. Tell us how you are coming. You can change that later."
+          ? "Get food, keep a pass, pick which pantries you go to, and take a next step when you are ready. You can also volunteer or give — same account."
           : "Sign in to pick up food, take a volunteer shift, or record a gift."}
       </p>
 

@@ -1,12 +1,15 @@
+import { DriveLink } from "@/components/drive-link";
 import { GiveCardForm } from "@/components/give-card";
 import { PostForm } from "@/components/post-form";
 import { SignOutForm } from "@/components/sign-out-form";
 import { membershipLabel } from "@/lib/auth/roles";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listStoreVouchers, membershipsForUser, myShiftSignups, openDeliveriesForHousehold, unusedHandling, visitsForUser } from "@/lib/db/queries";
+import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listedAllies, listStoreVouchers, membershipsForUser, myShiftSignups, openDeliveriesForHousehold, unusedHandling, visitsForUser, ensureToombsStartingPoints } from "@/lib/db/queries";
 import { ABUNDANCE_SHARE, DELIVERY_INVITE, HANDLING_DONATION } from "@/lib/promote/compose";
 import { HANDOFFS } from "@/lib/handoffs";
+import { coordsForName } from "@/lib/maps";
 import { passUrl } from "@/lib/pass";
+import { planIdsFromNotes } from "@/lib/plan";
 import { stripeConfigured } from "@/lib/stripe-give";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +27,12 @@ export default async function AccountPage() {
   const hours = pantry ? await hoursForUser(pantry.id, user.id).catch(() => []) : [];
   const myShifts = await myShiftSignups(user.id).catch(() => []);
   const household = pantry ? await householdForUser(pantry.id, user.id).catch(() => null) : null;
+  if (pantry) await ensureToombsStartingPoints(pantry.id).catch(() => 0);
+  const around = pantry ? await listedAllies(pantry.id).catch(() => []) : [];
+  const openPantries = around.filter((a) => a.kind === "pantry" && a.relationship !== "closed");
+  const plan = planIdsFromNotes(household?.notes || "");
+  const chosen = openPantries.filter((a) => plan.includes(a.id));
+  const hubOn = plan.includes("hub") || plan.includes(pantry?.id || "");
   const storeCards = household && pantry ? (await listStoreVouchers(pantry.id, { householdId: household.id }).catch(() => [])).filter((v) => v.status === "issued") : [];
   const credits = household ? await unusedHandling(household.id).catch(() => []) : [];
   const deliveries = household && pantry ? await openDeliveriesForHousehold(pantry.id, household.id).catch(() => []) : [];
@@ -44,7 +53,7 @@ export default async function AccountPage() {
       <p className="eyebrow">Your account</p>
       <h1>{user.name}</h1>
       <p>{user.email}</p>
-      <p className="lede">{roleLabel}</p>
+      <p className="lede">{roleLabel} Food is free. Visits are a count, not a bill.</p>
       <div className="chip-row">
         {roles.filter((r) => r !== "steward" && r !== "admin").map((role) => (
           <span className="chip active" key={role}>{membershipLabel(role)}</span>
@@ -98,6 +107,89 @@ export default async function AccountPage() {
       ) : null}
 
       <section className="panel">
+        <h2>Your visits</h2>
+        <p className="lede">{visits.length} time{visits.length === 1 ? "" : "s"} we saw you. Not a limit. Not a charge.</p>
+        {visits.length ? (
+          <ul>
+            {visits.slice(0, 8).map((v) => (
+              <li key={v.id}>{new Date(v.visited_at).toLocaleDateString()}{v.items_summary ? ` · ${v.items_summary}` : ""}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="empty">Come through the line. We will write it down here.</p>
+        )}
+      </section>
+
+      {household ? (
+        <section className="panel">
+          <h2>Pantries you go to</h2>
+          <p className="note">Pick the doors you use. Hours are what we saw, not a guess. Food at Plenty is still free if you walk in without this list.</p>
+          {hubOn || chosen.length ? (
+            <div className="grid">
+              {hubOn && pantry ? (
+                <article className="card">
+                  <span>{pantry.city || "Vidalia"}</span>
+                  <strong>{pantry.name}</strong>
+                  <p>{pantry.hours_text || "Hours posted when we have a line."}</p>
+                  <div className="action-row">
+                    <a className="button primary" href={`/line/${pantry.slug}`}>Check in</a>
+                    {pantry.address ? <DriveLink address={pantry.address} city={pantry.city} state={pantry.state} zip={pantry.zip} /> : null}
+                  </div>
+                </article>
+              ) : null}
+              {chosen.map((a) => {
+                const pin = coordsForName(a.name);
+                return (
+                  <article className="card" key={a.id}>
+                    <span>{a.city}</span>
+                    <strong>{a.name}</strong>
+                    <p>{a.hours_text || "Call for hours."}</p>
+                    <DriveLink address={a.address} city={a.city} state={a.state} zip={a.zip} lat={pin?.lat} lon={pin?.lon} />
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="empty">No pantries picked yet.</p>
+          )}
+          <h3 style={{ marginTop: 20 }}>Save which doors you use</h3>
+          <PostForm action="/api/households" submitLabel="Save my pantries">
+            <input type="hidden" name="displayName" value={household.display_name} />
+            <input type="hidden" name="householdSize" value={String(household.household_size)} />
+            <input type="hidden" name="phone" value={household.phone || ""} />
+            <input type="hidden" name="planIds" value="" />
+            <label className="check"><input type="checkbox" name="planIds" value="hub" defaultChecked={hubOn} /> {pantry?.name || "Vidalia Plenty"}</label>
+            {openPantries.map((a) => (
+              <label className="check" key={a.id}><input type="checkbox" name="planIds" value={a.id} defaultChecked={plan.includes(a.id)} /> {a.name} — {a.hours_text || a.city}</label>
+            ))}
+          </PostForm>
+        </section>
+      ) : null}
+
+      <section className="panel">
+        <h2>A next step — when you want it</h2>
+        <p className="note">Groceries do not depend on this. When you are ready, receiving can become helping, or growing.</p>
+        <div className="grid">
+          <article className="card">
+            <strong>Help at the pantry</strong>
+            <p>Pickup, the line, or a delivery. Same account.</p>
+            <a className="button leaf" href="/volunteer">Take a shift</a>
+          </article>
+          <article className="card">
+            <strong>Grow in faith</strong>
+            <p>A church, a prayer, a friend who walks with you.</p>
+            <a className="button" href="https://churchconnect.unitedundergod.org/" target="_blank" rel="noreferrer">ChurchConnect</a>
+          </article>
+          <article className="card">
+            <strong>Learn a skill</strong>
+            <p>Work, money, habits, a practical next step.</p>
+            <a className="button" href="https://bestlife.unitedundergod.org/" target="_blank" rel="noreferrer">Best Life</a>
+          </article>
+        </div>
+        <p className="note"><a href="/become">Write one next step in your own words</a>.</p>
+      </section>
+
+      <section className="panel">
         <h2>Connected help</h2>
         <p className="note">{ABUNDANCE_SHARE} This account is you across United Under God — we can walk with you after groceries, if you want.</p>
         <div className="grid">
@@ -129,11 +221,6 @@ export default async function AccountPage() {
           </div>
         </section>
       ) : null}
-
-      <section className="panel">
-        <h2>Your visits</h2>
-        <p className="note">{visits.length ? `${visits.length} recorded — a count, not a limit.` : "No visits recorded yet."}</p>
-      </section>
 
       <section className="panel">
         <h2>Your volunteer time</h2>

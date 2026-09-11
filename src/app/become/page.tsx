@@ -34,6 +34,10 @@ export default async function BecomePage() {
         <section className="panel">
           <h2>Write this season down</h2>
           <PostForm action="/api/paths" submitLabel="Save this next step">
+            <p className="note">Pick a direction if you want. Then write it in your words.</p>
+            <label className="check"><input type="radio" name="handoffApp" value="lom" /> Help someone else — volunteer</label>
+            <label className="check"><input type="radio" name="handoffApp" value="churchconnect" /> Grow in faith</label>
+            <label className="check"><input type="radio" name="handoffApp" value="bestlife" /> Learn a skill / get unstuck</label>
             <label className="field">
               <span>What is making this season hard</span>
               <textarea className="input" name="whatsHard" defaultValue={latest?.whats_hard || ""} placeholder="Work, bills, health, loneliness, a closed door…" />

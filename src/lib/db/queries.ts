@@ -457,9 +457,10 @@ export async function upsertHousehold(input: {
   porchLeaveOk?: boolean;
   porchNotes?: string;
   reachOk?: boolean;
+  notes?: string;
 }): Promise<Household> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_households").upsert({
+  const row: Record<string, unknown> = {
     pantry_id: input.pantryId,
     user_id: input.userId,
     display_name: input.displayName,
@@ -480,7 +481,9 @@ export async function upsertHousehold(input: {
     porch_notes: input.porchNotes ?? "",
     reach_ok: Boolean(input.reachOk),
     updated_at: new Date().toISOString()
-  }, { onConflict: "pantry_id,user_id" }).select(HOUSEHOLD_COLS).single();
+  };
+  if (input.notes != null) row.notes = input.notes;
+  const { data, error } = await client.from("plenty_households").upsert(row, { onConflict: "pantry_id,user_id" }).select(HOUSEHOLD_COLS).single();
   fail(error);
   await addMembership(input.pantryId, input.userId, "neighbor");
   return ensureHouseholdPass(data as Household);

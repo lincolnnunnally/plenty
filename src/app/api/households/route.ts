@@ -1,6 +1,7 @@
 import { fail, ok, readJson, requireUser, resolvePantry, str } from "@/lib/api";
-import { upsertHousehold } from "@/lib/db/queries";
+import { upsertHousehold, householdForUser } from "@/lib/db/queries";
 import { shareHouseholdToEcosystem } from "@/lib/ecosystem";
+import { planIdsFrom, withPlanIds } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -17,27 +18,31 @@ export async function POST(request: Request) {
   if (!pantry) return fail("No pantry is set up yet.", 503);
   const displayName = str(body.displayName) || user.name;
   const size = Math.max(1, Number(body.householdSize) || 1);
+  const existing = await householdForUser(pantry.id, user.id).catch(() => null);
+  const planTouched = body.planIds != null || body.plan != null;
+  const notes = planTouched ? withPlanIds(existing?.notes || "", planIdsFrom(body.planIds ?? body.plan)) : undefined;
   try {
     const household = await upsertHousehold({
       pantryId: pantry.id,
       userId: user.id,
       displayName,
       householdSize: size,
-      dietaryNotes: str(body.dietaryNotes),
-      phone: str(body.phone),
-      preferredContact: str(body.preferredContact) || "in_person",
+      dietaryNotes: str(body.dietaryNotes) || existing?.dietary_notes || "",
+      phone: str(body.phone) || existing?.phone || "",
+      preferredContact: str(body.preferredContact) || existing?.preferred_contact || "in_person",
       email: str(body.email) || user.email,
-      address: str(body.address),
-      city: str(body.city),
-      state: str(body.state),
-      zip: str(body.zip),
-      adultsCount: Math.max(1, Number(body.adultsCount) || 1),
-      childrenCount: Math.max(0, Number(body.childrenCount) || 0),
-      familyNotes: str(body.familyNotes),
-      deliveryOk: on(body.deliveryOk),
-      porchLeaveOk: on(body.porchLeaveOk),
-      porchNotes: str(body.porchNotes),
-      reachOk: on(body.reachOk)
+      address: str(body.address) || existing?.address || "",
+      city: str(body.city) || existing?.city || "",
+      state: str(body.state) || existing?.state || "",
+      zip: str(body.zip) || existing?.zip || "",
+      adultsCount: Math.max(1, Number(body.adultsCount) || existing?.adults_count || 1),
+      childrenCount: Math.max(0, Number(body.childrenCount) || existing?.children_count || 0),
+      familyNotes: str(body.familyNotes) || existing?.family_notes || "",
+      deliveryOk: body.deliveryOk != null ? on(body.deliveryOk) : Boolean(existing?.delivery_ok),
+      porchLeaveOk: body.porchLeaveOk != null ? on(body.porchLeaveOk) : Boolean(existing?.porch_leave_ok),
+      porchNotes: str(body.porchNotes) || existing?.porch_notes || "",
+      reachOk: body.reachOk != null ? on(body.reachOk) : Boolean(existing?.reach_ok),
+      notes
     });
     await shareHouseholdToEcosystem({ household, pantry, event: "registered" }).catch(() => ({ ok: false, error: "" }));
     return ok({ householdId: household.id, message: "Your household is on the list. Come when we are open — food is never held back." });
