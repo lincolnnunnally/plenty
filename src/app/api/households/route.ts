@@ -2,6 +2,7 @@ import { fail, ok, readJson, requireUser, resolvePantry, str } from "@/lib/api";
 import { upsertHousehold, householdForUser } from "@/lib/db/queries";
 import { shareHouseholdToEcosystem } from "@/lib/ecosystem";
 import { planIdsFrom, withPlanIds } from "@/lib/plan";
+import { withPlaceAlerts } from "@/lib/invite";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export async function POST(request: Request) {
   const size = Math.max(1, Number(body.householdSize) || 1);
   const existing = await householdForUser(pantry.id, user.id).catch(() => null);
   const planTouched = body.planIds != null || body.plan != null;
-  const notes = planTouched ? withPlanIds(existing?.notes || "", planIdsFrom(body.planIds ?? body.plan)) : undefined;
+  let notes: string | undefined = planTouched ? withPlanIds(existing?.notes || "", planIdsFrom(body.planIds ?? body.plan)) : undefined;
+  if (body.placeAlerts != null) {
+    notes = withPlaceAlerts(notes ?? existing?.notes ?? "", on(body.placeAlerts));
+  }
   try {
     const household = await upsertHousehold({
       pantryId: pantry.id,

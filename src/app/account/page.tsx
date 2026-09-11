@@ -4,12 +4,13 @@ import { PostForm } from "@/components/post-form";
 import { SignOutForm } from "@/components/sign-out-form";
 import { membershipLabel } from "@/lib/auth/roles";
 import { requireCustomerAccess } from "@/lib/auth/session";
-import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listedAllies, listStoreVouchers, membershipsForUser, myShiftSignups, openDeliveriesForHousehold, unusedHandling, visitsForUser, ensureToombsStartingPoints } from "@/lib/db/queries";
+import { getDefaultPantrySafe, giftsForUser, getTaxProfile, hoursForUser, householdForUser, isSteward, listedAllies, listStoreVouchers, membershipsForUser, myShiftSignups, openDeliveriesForHousehold, unusedHandling, visitsForHousehold, availableThisWeek, ensureToombsStartingPoints } from "@/lib/db/queries";
 import { ABUNDANCE_SHARE, DELIVERY_INVITE, HANDLING_DONATION } from "@/lib/promote/compose";
 import { HANDOFFS } from "@/lib/handoffs";
 import { coordsForName } from "@/lib/maps";
 import { passUrl } from "@/lib/pass";
-import { planIdsFromNotes } from "@/lib/plan";
+import { planIdsFromNotes, visitTally } from "@/lib/plan";
+import { wantsPlaceAlerts } from "@/lib/invite";
 import { stripeConfigured } from "@/lib/stripe-give";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,12 @@ export default async function AccountPage() {
   const tax = pantry ? await getTaxProfile(pantry.id).catch(() => null) : null;
   const receivedMoney = gifts.filter((g) => g.kind === "money" && g.status === "received");
   const roles = memberships.map((m) => m.role);
-  const visits = pantry ? await visitsForUser(pantry.id, user.id).catch(() => []) : [];
   const hours = pantry ? await hoursForUser(pantry.id, user.id).catch(() => []) : [];
   const myShifts = await myShiftSignups(user.id).catch(() => []);
   const household = pantry ? await householdForUser(pantry.id, user.id).catch(() => null) : null;
+  const visits = household ? await visitsForHousehold(household.id).catch(() => []) : [];
+  const weekFood = pantry ? await availableThisWeek(pantry.id).catch(() => []) : [];
+  const tally = pantry ? visitTally(visits, pantry.id) : new Map();
   if (pantry) await ensureToombsStartingPoints(pantry.id).catch(() => 0);
   const around = pantry ? await listedAllies(pantry.id).catch(() => []) : [];
   const openPantries = around.filter((a) => a.kind === "pantry" && a.relationship !== "closed");
@@ -107,16 +110,55 @@ export default async function AccountPage() {
       ) : null}
 
       <section className="panel">
-        <h2>Your visits</h2>
-        <p className="lede">{visits.length} time{visits.length === 1 ? "" : "s"} we saw you. Not a limit. Not a charge.</p>
+        <h2>Where you get food</h2>
+        <p className="lede">{visits.length} visit{visits.length === 1 ? "" : "s"} total. A count, not a limit, not a charge.</p>
+        <div className="grid">
+          {pantry ? (
+            <article className="card">
+              <span>{tally.get("hub")?.count || 0} time{(tally.get("hub")?.count || 0) === 1 ? "" : "s"}</span>
+              <strong>{pantry.name}</strong>
+              <p>{pantry.hours_text || "Hours posted when we have a line."}</p>
+              {tally.get("hub")?.last ? <p className="note">Last {new Date(tally.get("hub")!.last).toLocaleDateString()}</p> : null}
+              {weekFood.length ? <p>This week: {weekFood.map((i) => i.name).slice(0, 6).join(", ")}</p> : <p className="note">This week’s list is not up yet.</p>}
+              {household ? (
+                <PostForm action="/api/visits" submitLabel="I got food here">
+                  <input type="hidden" name="selfReport" value="1" />
+                  <input type="hidden" name="locationId" value="hub" />
+                </PostForm>
+              ) : null}
+            </article>
+          ) : null}
+          {openPantries.map((a) => {
+            const row = tally.get(a.id);
+            const pin = coordsForName(a.name);
+            return (
+              <article className="card" key={a.id}>
+                <span>{row?.count || 0} time{(row?.count || 0) === 1 ? "" : "s"}</span>
+                <strong>{a.name}</strong>
+                <p>{a.hours_text || "Call for hours."}</p>
+                {row?.last ? <p className="note">Last {new Date(row.last).toLocaleDateString()}</p> : null}
+                <div className="action-row">
+                  <DriveLink address={a.address} city={a.city} state={a.state} zip={a.zip} lat={pin?.lat} lon={pin?.lon} />
+                  {household ? (
+                    <PostForm action="/api/visits" submitLabel="I got food here">
+                      <input type="hidden" name="selfReport" value="1" />
+                      <input type="hidden" name="locationId" value={a.id} />
+                    </PostForm>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
         {visits.length ? (
           <ul>
-            {visits.slice(0, 8).map((v) => (
-              <li key={v.id}>{new Date(v.visited_at).toLocaleDateString()}{v.items_summary ? ` · ${v.items_summary}` : ""}</li>
-            ))}
+            {visits.slice(0, 8).map((v) => {
+              const loc = !v.location_id || v.location_id === pantry?.id ? pantry?.name : openPantries.find((a) => a.id === v.location_id)?.name || "A pantry";
+              return <li key={v.id}>{new Date(v.visited_at).toLocaleDateString()} · {loc}{v.items_summary ? ` · ${v.items_summary}` : ""}</li>;
+            })}
           </ul>
         ) : (
-          <p className="empty">Come through the line. We will write it down here.</p>
+          <p className="empty">Check in at the line, or tap I got food here after a visit.</p>
         )}
       </section>
 
@@ -162,6 +204,8 @@ export default async function AccountPage() {
             {openPantries.map((a) => (
               <label className="check" key={a.id}><input type="checkbox" name="planIds" value={a.id} defaultChecked={plan.includes(a.id)} /> {a.name} — {a.hours_text || a.city}</label>
             ))}
+            <label className="check"><input type="checkbox" name="placeAlerts" defaultChecked={wantsPlaceAlerts(household.notes)} /> Text me when a pantry opens or hours change</label>
+            <label className="check"><input type="checkbox" name="reachOk" defaultChecked={household.reach_ok} /> Texts are OK (not ads)</label>
           </PostForm>
         </section>
       ) : null}

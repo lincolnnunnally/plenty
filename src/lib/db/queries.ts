@@ -749,6 +749,13 @@ export async function visitsForUser(pantryId: string, userId: string): Promise<V
   return (data as Visit[]) || [];
 }
 
+export async function visitsForHousehold(householdId: string): Promise<Visit[]> {
+  const client = await sb();
+  const { data, error } = await client.from("plenty_visits").select(VISIT_COLS).eq("household_id", householdId).order("visited_at", { ascending: false }).limit(200);
+  fail(error);
+  return (data as Visit[]) || [];
+}
+
 export async function addDonation(input: {
   pantryId: string;
   userId: string | null;

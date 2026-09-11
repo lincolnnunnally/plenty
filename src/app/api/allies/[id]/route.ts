@@ -1,7 +1,9 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
 import { alliesForOperator } from "@/lib/db/food-loads";
-import { getDefaultPantry, updateAlly } from "@/lib/db/queries";
+import { getAlly, getDefaultPantry, listHouseholds, updateAlly } from "@/lib/db/queries";
 import { withDoorPhoto } from "@/lib/door-photo";
+import { followsPlace, inviteCopy, wantsPlaceAlerts } from "@/lib/invite";
+import { notifyNeighbors } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const visitNotes = body.visitNotes != null || body.doorPhoto != null
     ? withDoorPhoto(str(body.visitNotes), str(body.doorPhoto))
     : undefined;
+  const prior = await getAlly(id, pantry.id).catch(() => null);
   try {
     const row = await updateAlly(id, pantry.id, {
       kind: kind || undefined,
@@ -66,7 +69,34 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       lastVisitedAt: flag(body.markVisited) ? new Date().toISOString() : undefined
     });
     if (!row) return fail("Place not found.", 404);
-    return ok({ message: "Visit notes saved. We do not force a partnership." });
+    const wasPublic = Boolean(prior?.listed_publicly);
+    const hoursChanged = Boolean(row.hours_text) && row.hours_text !== (prior?.hours_text || "");
+    const justListed = Boolean(row.listed_publicly) && !wasPublic && row.relationship !== "closed";
+    if (row.listed_publicly && row.relationship !== "closed" && (hoursChanged || justListed)) {
+      const copy = inviteCopy({
+        name: row.name,
+        hours: row.hours_text,
+        address: row.address,
+        city: row.city,
+        state: row.state,
+        zip: row.zip,
+        kind: justListed ? "new_place" : "hours"
+      });
+      const households = await listHouseholds(pantry.id).catch(() => []);
+      const people = households.filter((h) => {
+        if (!h.reach_ok || (!h.phone && !h.email)) return false;
+        return followsPlace(h, row.id) || (justListed && wantsPlaceAlerts(h.notes));
+      }).slice(0, 200);
+      if (people.length) {
+        await notifyNeighbors({
+          pantryId: pantry.id,
+          people: people.map((h) => ({ email: h.email, phone: h.phone, name: h.display_name, notes: h.notes })),
+          subject: copy.subject,
+          text: copy.text
+        }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+      }
+    }
+    return ok({ message: justListed ? "Listed. Neighbors who asked for pantry news will hear." : "Visit notes saved. We do not force a partnership." });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not update that place.", 503);
   }

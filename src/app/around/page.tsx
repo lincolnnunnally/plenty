@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { AroundPlace } from "@/components/around-place";
 import { PantryMap } from "@/components/pantry-map";
+import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { coordsForName, geocodePlace, type MapPlace } from "@/lib/maps";
@@ -127,6 +128,13 @@ export default async function AroundPage() {
               <a className="button primary" href="/need-food">Get food</a>
               <a className="button leaf" href="/volunteer">Volunteer</a>
               <a className="button" href={`/p/${pantry.slug}`}>Profile</a>
+              {steward ? (
+                <PostForm action="/api/invites" submitLabel="Invite neighbors">
+                  <input type="hidden" name="kind" value="invite" />
+                  <input type="hidden" name="placeId" value="hub" />
+                  <input type="hidden" name="audience" value="all" />
+                </PostForm>
+              ) : null}
             </div>
           </article>
         </section>
@@ -143,6 +151,7 @@ export default async function AroundPage() {
                 canEdit={steward || operatedIds.has(a.id)}
                 canClaim={!a.operator_pantry_id}
                 signedIn={Boolean(user)}
+                canInvite={steward}
               />
             ))}
           </div>

@@ -150,3 +150,24 @@ export async function notifyDesk(input: {
     audience: "desk"
   });
 }
+
+export async function notifyNeighbors(input: {
+  pantryId: string;
+  people: { email: string | null; phone: string | null; name: string | null; notes?: string | null }[];
+  subject: string;
+  text: string;
+}): Promise<{ emailed: number; texted: number; failed: number; detail: string }> {
+  return notifyPeople({
+    pantryId: input.pantryId,
+    people: input.people.map((p) => ({
+      email: p.email,
+      phone: p.phone,
+      name: p.name,
+      roles: ["neighbor"],
+      notes: p.notes
+    })),
+    subject: input.subject,
+    text: input.text,
+    audience: "neighbors"
+  });
+}

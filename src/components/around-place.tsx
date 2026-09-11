@@ -31,13 +31,15 @@ export function AroundPlace({
   closed = false,
   canEdit = false,
   canClaim = false,
-  signedIn = false
+  signedIn = false,
+  canInvite = false
 }: {
   place: Place;
   closed?: boolean;
   canEdit?: boolean;
   canClaim?: boolean;
   signedIn?: boolean;
+  canInvite?: boolean;
 }) {
   const coords = coordsForName(place.name);
   const photo = place.door_photo || doorPhotoFromNotes(place.visit_notes);
@@ -89,6 +91,19 @@ export function AroundPlace({
           )
         ) : null}
         {place.operator_pantry_id ? <a className="button" href="/run">Manage</a> : null}
+        {signedIn && !closed ? (
+          <PostForm action="/api/visits" submitLabel="I got food here">
+            <input type="hidden" name="selfReport" value="1" />
+            <input type="hidden" name="locationId" value={place.id} />
+          </PostForm>
+        ) : null}
+        {canInvite && !closed && place.listed_publicly ? (
+          <PostForm action="/api/invites" submitLabel="Invite neighbors">
+            <input type="hidden" name="kind" value="invite" />
+            <input type="hidden" name="placeId" value={place.id} />
+            <input type="hidden" name="audience" value="all" />
+          </PostForm>
+        ) : null}
       </div>
       {canEdit ? (
         <details className="field-edit">

@@ -1,4 +1,6 @@
-import { availableThisWeek, getDefaultPantrySafe } from "@/lib/db/queries";
+import { PostForm } from "@/components/post-form";
+import { getCurrentUser } from "@/lib/auth/session";
+import { availableThisWeek, getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,8 @@ export const metadata = pageMeta(
 
 export default async function ThisWeekPage() {
   const pantry = await getDefaultPantrySafe();
+  const user = await getCurrentUser().catch(() => null);
+  const steward = pantry && user ? await isSteward(pantry.id, user.id, user.email).catch(() => false) : false;
   const available = pantry ? await availableThisWeek(pantry.id).catch(() => []) : [];
 
   return (
@@ -34,6 +38,13 @@ export default async function ThisWeekPage() {
       <div className="action-row">
         <a className="button primary" href="/need-food">Get food for your family</a>
         <a className="button" href="/donate">Donate something on this list</a>
+        {steward && pantry ? (
+          <PostForm action="/api/invites" submitLabel="Text neighbors this list">
+            <input type="hidden" name="kind" value="this_week" />
+            <input type="hidden" name="placeId" value="hub" />
+            <input type="hidden" name="audience" value="all" />
+          </PostForm>
+        ) : null}
       </div>
     </main>
   );

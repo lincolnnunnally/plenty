@@ -20,3 +20,18 @@ export function planIdsFrom(value: unknown): string[] {
   const raw = Array.isArray(value) ? value.map((v) => String(v)) : String(value ?? "").split(/[,\s]+/);
   return [...new Set(raw.map((s) => s.trim()).filter((s) => s.length > 8 || s === "hub"))];
 }
+
+export function visitTally(
+  visits: { location_id?: string | null; visited_at: string }[],
+  hubId: string
+) {
+  const rows = new Map<string, { count: number; last: string }>();
+  for (const v of visits) {
+    const id = !v.location_id || v.location_id === hubId ? "hub" : v.location_id;
+    const cur = rows.get(id) || { count: 0, last: v.visited_at };
+    cur.count += 1;
+    if (v.visited_at > cur.last) cur.last = v.visited_at;
+    rows.set(id, cur);
+  }
+  return rows;
+}
