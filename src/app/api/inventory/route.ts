@@ -1,5 +1,6 @@
-import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@/lib/api";
+import { fail, ok, readJson, requireDeskPantry, str } from "@/lib/api";
 import { addInventory } from "@/lib/db/queries";
+import { withUseBy } from "@/lib/use-by";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
       availableThisWeek: body.availableThisWeek === "on" || body.availableThisWeek === true || body.availableThisWeek === "true",
       weNeed: body.weNeed === "on" || body.weNeed === true || body.weNeed === "true",
       lowAt: body.lowAt === "" || body.lowAt == null ? null : Number(body.lowAt),
-      notes: str(body.notes),
+      notes: withUseBy(str(body.notes), str(body.useBy)),
       imageUrl: str(body.imageUrl)
     });
     return ok({ itemId: item.id, message: "Shelf updated." });

@@ -1,4 +1,4 @@
-import { fail, ok, readJson, requireStewardFor, requireDeskPantry } from "@/lib/api";
+import { fail, ok, readJson, requireDeskPantry, str } from "@/lib/api";
 import { updateInventory } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     body.weNeed == null ? undefined : body.weNeed === "on" || body.weNeed === true || body.weNeed === "true";
   try {
     const imageUrl = body.imageUrl == null ? undefined : String(body.imageUrl);
-    const item = await updateInventory(id, { quantity, availableThisWeek: available, weNeed, imageUrl });
+    const useBy = body.useBy == null ? undefined : str(body.useBy);
+    const item = await updateInventory(id, { quantity, availableThisWeek: available, weNeed, imageUrl, useBy });
     if (!item) return fail("Item not found.", 404);
     return ok({ message: "Updated." });
   } catch (err) {

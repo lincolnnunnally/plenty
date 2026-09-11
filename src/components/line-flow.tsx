@@ -7,7 +7,7 @@ import { useLang } from "@/lib/use-lang";
 import { passUrl } from "@/lib/pass";
 
 type Found = { id: string; displayName: string; size: number; phone: string; handlingPrepaid?: boolean; passCode?: string; lastVisit?: string };
-type WeekItem = { id: string; name: string; quantity: number; unit: string };
+type WeekItem = { id: string; name: string; quantity: number; unit: string; hint?: string };
 
 export function LineFlow({
   slug,
@@ -299,7 +299,7 @@ export function LineFlow({
                   onChange={(e) => setBag((prev) => ({ ...prev, [item.id]: Number(e.target.value) || 0 }))}
                   style={{ width: 72, display: "inline-block", marginRight: 8 }}
                 />
-                {item.name} ({item.quantity} {item.unit})
+                {item.name} ({item.quantity} {item.unit}){item.hint ? ` · ${item.hint}` : ""}
               </label>
             ))}
           </div>

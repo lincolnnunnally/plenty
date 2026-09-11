@@ -31,7 +31,7 @@ export function PhotoField({ name = "imageUrl", defaultUrl = "", label = "Photo 
   return (
     <label className="field">
       <span>{label}</span>
-      <input className="input" type="file" accept="image/*" onChange={(event) => void onFile(event.target.files?.[0])} />
+      <input className="input" type="file" accept="image/*" capture="environment" onChange={(event) => void onFile(event.target.files?.[0])} />
       <input type="hidden" name={name} value={url} />
       {busy ? <p className="note">Uploading photo…</p> : null}
       {error ? <p className="note error">{error}</p> : null}

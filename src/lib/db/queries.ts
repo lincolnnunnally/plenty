@@ -3,6 +3,7 @@ import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 import { newHouseholdPass, normalizePass } from "@/lib/pass";
+import { withUseBy } from "@/lib/use-by";
 
 export type Pantry = {
   id: string;
@@ -693,17 +694,19 @@ export async function addInventory(input: {
 
 export async function updateInventory(
   id: string,
-  fields: { quantity?: number; availableThisWeek?: boolean; weNeed?: boolean; imageUrl?: string }
+  fields: { quantity?: number; availableThisWeek?: boolean; weNeed?: boolean; imageUrl?: string; notes?: string; useBy?: string }
 ): Promise<InventoryItem | null> {
   const client = await sb();
   const { data: current, error: cErr } = await client.from("plenty_inventory").select(INV_COLS).eq("id", id).maybeSingle();
   fail(cErr);
   if (!current) return null;
+  const notes = fields.useBy != null ? withUseBy(String((current as InventoryItem).notes || ""), fields.useBy) : fields.notes ?? (current as InventoryItem).notes;
   const { data, error } = await client.from("plenty_inventory").update({
     quantity: fields.quantity ?? current.quantity,
     available_this_week: fields.availableThisWeek ?? current.available_this_week,
     we_need: fields.weNeed ?? current.we_need,
     image_url: fields.imageUrl ?? current.image_url,
+    notes,
     updated_at: new Date().toISOString()
   }).eq("id", id).select(INV_COLS).single();
   fail(error);

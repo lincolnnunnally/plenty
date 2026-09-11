@@ -1,6 +1,7 @@
 import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantrySafe, isSteward } from "@/lib/db/queries";
+import { sortForUse, useByFromNotes, useByLabel } from "@/lib/use-by";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export default async function ThisWeekPage() {
   const pantry = await getDefaultPantrySafe();
   const user = await getCurrentUser().catch(() => null);
   const steward = pantry && user ? await isSteward(pantry.id, user.id, user.email).catch(() => false) : false;
-  const available = pantry ? await availableThisWeek(pantry.id).catch(() => []) : [];
+  const available = pantry ? sortForUse(await availableThisWeek(pantry.id).catch(() => [])) : [];
 
   return (
     <main className="shell">
@@ -28,6 +29,7 @@ export default async function ThisWeekPage() {
               {item.image_url ? <img src={item.image_url} alt={item.name} /> : <div className="photo-fallback">{item.name.slice(0, 1)}</div>}
               <figcaption>
                 <strong>{item.name}</strong>
+                {useByFromNotes(item.notes) ? <span className="note">{useByLabel(useByFromNotes(item.notes))}</span> : null}
               </figcaption>
             </figure>
           ))}

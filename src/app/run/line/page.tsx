@@ -4,6 +4,7 @@ import { requirePantryDesk } from "@/lib/auth/session";
 import { availableThisWeek, effectivePayMethods, visitsTodayCount } from "@/lib/db/queries";
 import { pantryLineUrl } from "@/lib/public-url";
 import { stripeConfigured } from "@/lib/stripe-give";
+import { sortForUse, useByFromNotes, useByLabel } from "@/lib/use-by";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,13 @@ export default async function RunLinePage({ searchParams }: { searchParams: Prom
   const methods = await effectivePayMethods(pantry).catch(() => []);
   const cardLive = await stripeConfigured();
   const line = pantryLineUrl(pantry.slug);
-  const week = await availableThisWeek(pantry.id).catch(() => []);
+  const week = sortForUse(await availableThisWeek(pantry.id).catch(() => [])).map((item) => ({
+    id: item.id,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    hint: useByLabel(useByFromNotes(item.notes))
+  }));
   const today = await visitsTodayCount(pantry.id).catch(() => 0);
 
   return (
