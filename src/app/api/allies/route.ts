@@ -52,7 +52,8 @@ export async function POST(request: Request) {
       hasFreezer: flag(body.hasFreezer),
       hasSpace: flag(body.hasSpace),
       visitNotes: str(body.visitNotes),
-      sourceNote: str(body.sourceNote)
+      sourceNote: str(body.sourceNote),
+      takesOverflow: flag(body.takesOverflow)
     });
     return ok({ allyId: ally.id, message: listedPublicly ? "Listed for neighbors to see." : "Saved on the visit list. Not public yet." });
   } catch (err) {

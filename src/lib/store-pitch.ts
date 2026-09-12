@@ -127,7 +127,12 @@ export const STORE_CONCERNS = [
   {
     value: "corporate",
     title: "Corporate has to say yes",
-    line: "Leave the one-pager. We wait. No one stands at your dock until you say so."
+    line: "Leave the one-pager. We wait. No one stands at your dock until you say so. If the banner already says you feed kids, meat and dairy can match that — same 501(c)(3), same waiver, same pickup."
+  },
+  {
+    value: "banner",
+    title: "We already run ads about feeding kids",
+    line: "A commercial is a promise. The dock is how it happens in Vidalia. Department managers do not have to invent a program — Plenty already exists, recipients already sign, and we already pick up."
   },
   {
     value: "time",

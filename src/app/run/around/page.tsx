@@ -78,6 +78,8 @@ export default async function AroundDeskPage() {
           <label className="field"><span>Address</span><input className="input" name="address" /></label>
           <label className="field"><span>City</span><input className="input" name="city" defaultValue="Vidalia" /></label>
           <label className="field"><span>Phone</span><input className="input" name="phone" /></label>
+          <input type="hidden" name="takesOverflow" value="0" />
+          <label className="check"><input type="checkbox" name="takesOverflow" value="1" /> Will take produce we cannot move in time (pigs, compost, livestock feed — not a promise of meat back)</label>
           <input type="hidden" name="relationship" value="to_meet" />
         </PostForm>
       </section>
@@ -135,7 +137,7 @@ export default async function AroundDeskPage() {
           <div className="grid">
             {allies.map((a) => (
               <article className="card" key={a.id}>
-                <span>{a.kind} · {a.city} · {relLabel(a.relationship)}{a.listed_publicly ? " · public" : " · desk only"}{a.last_visited_at ? ` · ${new Date(a.last_visited_at).toLocaleDateString()}` : ""}</span>
+                <span>{a.kind} · {a.city} · {relLabel(a.relationship)}{a.takes_overflow ? " · overflow" : ""}{a.listed_publicly ? " · public" : " · desk only"}{a.last_visited_at ? ` · ${new Date(a.last_visited_at).toLocaleDateString()}` : ""}</span>
                 <strong>{a.name}</strong>
                 {a.address ? <p>{a.address}</p> : null}
                 {a.address ? (
@@ -187,6 +189,8 @@ export default async function AroundDeskPage() {
                   <label className="check"><input type="checkbox" name="acceptsFrozen" value="1" defaultChecked={a.accepts_frozen} /> Can take frozen</label>
                   <input type="hidden" name="acceptsProduce" value="0" />
                   <label className="check"><input type="checkbox" name="acceptsProduce" value="1" defaultChecked={a.accepts_produce} /> Can take produce (needs a distribution soon)</label>
+                  <input type="hidden" name="takesOverflow" value="0" />
+                  <label className="check"><input type="checkbox" name="takesOverflow" value="1" defaultChecked={a.takes_overflow} /> Overflow: will take food we cannot move in time (pigs, compost). Not a promise we get meat back.</label>
                   <label className="field"><span>Next distribution</span><input className="input" type="datetime-local" name="nextDistributionAt" defaultValue={a.next_distribution_at ? a.next_distribution_at.slice(0, 16) : ""} /></label>
                 {superAdmin && a.kind === "pantry" ? (
                   <PostForm action="/api/pantries" submitLabel={a.operator_pantry_id ? "Plenty desk already open" : "Open a Plenty desk for them"}>

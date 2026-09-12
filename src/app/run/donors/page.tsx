@@ -2,9 +2,10 @@ import { DriveLink } from "@/components/drive-link";
 import { PostForm } from "@/components/post-form";
 import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
-import { ensureFoodDonors, listDonorActivity, listStorePartners } from "@/lib/db/queries";
+import { ensureFoodDonors, listDonorActivity, listStorePartners, listStorePeople } from "@/lib/db/queries";
 import { activityLabel, donorKindLabel, parseDonorMeta } from "@/lib/donors/starting";
 import { coordsForName } from "@/lib/maps";
+import { COVERAGE, DEPARTMENTS, coverageLabel, departmentLabel, leftoverPotential } from "@/lib/store-people";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
@@ -22,6 +23,7 @@ export default async function FoodDonorsPage() {
   if (!pantry) redirect("/run");
   await ensureFoodDonors(pantry.id).catch(() => 0);
   const partners = await listStorePartners(pantry.id);
+  const people = await listStorePeople(pantry.id).catch(() => []);
   const activity = await listDonorActivity(pantry.id).catch(() => []);
   const today = new Date().toISOString().slice(0, 10);
   const followUps = partners.filter((p) => {
@@ -33,7 +35,10 @@ export default async function FoodDonorsPage() {
     <main className="shell">
       <p className="eyebrow">Food donors</p>
       <h1>Who has food. Who we have asked.</h1>
-      <p className="lede">Warehouses, grocery docks, farms. Log the call. When they have a load, post a pickup — volunteers get a text.</p>
+      <p className="lede">
+        Names, departments, and whether we get all of it or they still throw some.
+        Log the visit. When they have a load, post a pickup — volunteers get a text.
+      </p>
       <RunNav pantries={pantries} currentId={pantry.id} superAdmin={superAdmin} />
 
       {followUps.length ? (
@@ -60,6 +65,8 @@ export default async function FoodDonorsPage() {
               const meta = parseDonorMeta(p.notes);
               const coords = coordsForName(p.name);
               const log = activity.filter((a) => a.title.toLowerCase().includes(p.name.toLowerCase().slice(0, 8))).slice(0, 5);
+              const crew = people.filter((person) => person.partner_id === p.id);
+              const leftover = crew.filter((person) => person.coverage === "none" || person.coverage === "some");
               return (
                 <article className="card" id={`donor-${p.id}`} key={p.id}>
                   <span>{statusLabel(p.status)} · {donorKindLabel(meta.kind) || (p.pickup_mode === "dock_pickup" ? "Dock pickup" : "Store")}</span>
@@ -67,12 +74,79 @@ export default async function FoodDonorsPage() {
                   <p>{[p.address, p.city].filter(Boolean).join(", ") || "Address not set"}</p>
                   {meta.gives.length ? <p>{meta.gives.join(" · ")}</p> : null}
                   {p.contact_name ? <p className="note">{[p.contact_name, p.hold_desk, p.phone, p.contact_email].filter(Boolean).join(" · ")}</p> : null}
+                  {leftover.length ? (
+                    <p className="note">
+                      Still on the table: {leftover.map((person) => `${departmentLabel(person.department)} (${coverageLabel(person.coverage)})`).join(" · ")}
+                    </p>
+                  ) : null}
+                  {crew.length ? (
+                    <div className="coverage-row">
+                      {crew.map((person) => (
+                        <span className={`coverage-chip ${person.coverage}`} key={person.id}>
+                          {departmentLabel(person.department)} · {person.name || person.role || "unnamed"} · {leftoverPotential(person.coverage)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {meta.body ? <p className="note">{meta.body.split("\n").filter((line) => !line.startsWith("[")).slice(0, 3).join(" ")}</p> : null}
                   {meta.next ? <p className="note">Follow up {meta.next.slice(0, 10)}</p> : null}
                   <div className="action-row">
                     <DriveLink address={p.address} city={p.city} state={p.state || "GA"} zip={p.zip} lat={coords?.lat} lon={coords?.lon} />
                     {p.phone ? <a className="button" href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>Call</a> : null}
                   </div>
+
+                  <h3 style={{ marginTop: 16 }}>People we met</h3>
+                  {crew.map((person) => (
+                    <article className="card" key={person.id} style={{ marginBottom: 10 }}>
+                      <span>{departmentLabel(person.department)} · {coverageLabel(person.coverage)}</span>
+                      <strong>{person.name || person.role || "Unnamed"}</strong>
+                      {person.throwing ? <p>Throws: {person.throwing}</p> : null}
+                      {person.concern ? <p className="note">Concern: {person.concern}</p> : null}
+                      {person.phone ? <p><a href={`tel:${person.phone.replace(/[^\d+]/g, "")}`}>{person.phone}</a></p> : null}
+                      <PostForm action={`/api/store-people/${person.id}`} submitLabel="Update this person">
+                        <label className="field"><span>Name</span><input className="input" name="name" defaultValue={person.name} /></label>
+                        <label className="field"><span>Role</span><input className="input" name="role" defaultValue={person.role} /></label>
+                        <label className="field">
+                          <span>How much we get from this department</span>
+                          <select className="input" name="coverage" defaultValue={person.coverage}>
+                            {COVERAGE.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                          </select>
+                        </label>
+                        <label className="field"><span>What they throw</span><input className="input" name="throwing" defaultValue={person.throwing} /></label>
+                        <label className="field"><span>Their concern</span><input className="input" name="concern" defaultValue={person.concern} /></label>
+                        <label className="field"><span>Phone</span><input className="input" name="phone" defaultValue={person.phone} /></label>
+                        <label className="field">
+                          <span>Status</span>
+                          <select className="input" name="status" defaultValue={person.status}>
+                            <option value="talking">Talking — not giving yet</option>
+                            <option value="giving">Giving</option>
+                            <option value="paused">Paused</option>
+                          </select>
+                        </label>
+                      </PostForm>
+                    </article>
+                  ))}
+                  <PostForm action="/api/store-people" submitLabel="Add a person at this store">
+                    <input type="hidden" name="partnerId" value={p.id} />
+                    <label className="field"><span>Name</span><input className="input" name="name" placeholder="If they gave it" /></label>
+                    <label className="field"><span>Role</span><input className="input" name="role" placeholder="Meat manager, dairy, store manager…" /></label>
+                    <label className="field">
+                      <span>Department</span>
+                      <select className="input" name="department" defaultValue="meat">
+                        {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>How much we get</span>
+                      <select className="input" name="coverage" defaultValue="none">
+                        {COVERAGE.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="field"><span>What they throw</span><input className="input" name="throwing" placeholder="Eggs, close-dated meat…" /></label>
+                    <label className="field"><span>Their concern</span><input className="input" name="concern" placeholder="Liability, corporate, no time…" /></label>
+                    <label className="field"><span>Phone</span><input className="input" name="phone" /></label>
+                    <label className="field"><span>Notes</span><textarea className="input" name="notes" placeholder="What they said this morning…" /></label>
+                  </PostForm>
 
                   <h3 style={{ marginTop: 16 }}>Log</h3>
                   <PostForm action="/api/donor-activity" submitLabel="Save log">

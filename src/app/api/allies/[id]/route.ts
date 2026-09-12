@@ -64,6 +64,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       acceptsRefrigerated: body.acceptsRefrigerated != null ? flag(body.acceptsRefrigerated) : undefined,
       acceptsFrozen: body.acceptsFrozen != null ? flag(body.acceptsFrozen) : undefined,
       acceptsProduce: body.acceptsProduce != null ? flag(body.acceptsProduce) : undefined,
+      takesOverflow: body.takesOverflow != null ? flag(body.takesOverflow) : undefined,
       nextDistributionAt: body.nextDistributionAt != null ? (str(body.nextDistributionAt) ? new Date(str(body.nextDistributionAt)).toISOString() : null) : undefined,
       visitNotes,
       lastVisitedAt: flag(body.markVisited) ? new Date().toISOString() : undefined

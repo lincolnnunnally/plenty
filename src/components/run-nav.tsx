@@ -21,6 +21,7 @@ export function RunNav({
         <a href="/run/food">Rescue</a>
         <a href="/run/donors">Donors</a>
         <a href="/run/stores">Stores</a>
+        <a href="/run/locations">Places</a>
         <a href="/run/donations">Gifts</a>
         <a href="/run/around">Around</a>
         <a href="/run/promote">Promote</a>

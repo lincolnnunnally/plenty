@@ -1,5 +1,6 @@
 import { PostForm } from "@/components/post-form";
 import { PrintButton } from "@/components/print-button";
+import { StoreCalculator } from "@/components/store-calculator";
 import { StorePitchCase, StorePitchIntro } from "@/components/store-pitch";
 import { EIN, LEGAL_NAME } from "@/lib/legal/org";
 import { FOOD_TYPES, STORE_CONCERNS, STORE_DESCRIPTION, STORE_TITLE, WEEKDAYS } from "@/lib/store-pitch";
@@ -15,10 +16,12 @@ export default function ForStoresPage() {
       <StorePitchIntro einLine={`EIN ${EIN} · ${LEGAL_NAME} · 501(c)(3) · Plenty is our pantry program`} />
       <div className="action-row" style={{ marginTop: 16 }}>
         <a className="button primary" href="#signup">Leave a pickup — or just a name</a>
+        <a className="button" href="#calculator">Punch your numbers</a>
         <a className="button" href="/for-stores/brief">Print the one-pager</a>
         <a className="button" href="/tax-exempt">EIN letter</a>
       </div>
       <StorePitchCase />
+      <StoreCalculator />
 
       <section className="panel">
         <h2>If you are not sure</h2>

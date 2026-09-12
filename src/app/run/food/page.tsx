@@ -11,16 +11,43 @@ export default async function FoodRescuePage() {
   const { pantry } = await requirePantryDesk("/run/food");
   if (!pantry) redirect("/run");
   const loads = await listFoodLoads(pantry.id);
-  const dests = (await listAllies(pantry.id)).filter(
+  const allies = await listAllies(pantry.id);
+  const dests = allies.filter(
     (a) => a.kind === "pantry" || a.kind === "church" || a.kind === "farm" || a.kind === "compost" || a.wants_food
   );
+  const overflow = allies.filter((a) => a.takes_overflow || a.kind === "farm" || a.kind === "compost");
+  const cold = allies.filter((a) => a.accepts_frozen || a.accepts_refrigerated || a.has_freezer);
 
   return (
     <main className="shell">
       <p className="eyebrow">Food rescue</p>
       <h1>From the store to a table — or a farm</h1>
-      <p className="lede">A store pickup posts a volunteer shift and a destination. Produce goes where it will be eaten first.</p>
+      <p className="lede">A store pickup posts a volunteer shift and a destination. Produce goes where it will be eaten first. Frozen and dairy only go where there is cold space. If a load cannot move in time, it goes to a farm or compost — not the dumpster twice.</p>
       <RunNav />
+
+      <section className="panel">
+        <h2>Where food can go</h2>
+        <p className="note">If this gets bigger than one pantry, send extra to pantries that asked, or overflow to a farm. Do not invent a farm.</p>
+        <div className="grid">
+          <article className="card">
+            <span>Cold / frozen / dairy</span>
+            <strong>{cold.length ? cold.map((a) => a.name).join(" · ") : "No cold destination listed"}</strong>
+            <p className="note">Need a freezer or cooler? Post it under Around → operating needs.</p>
+          </article>
+          <article className="card">
+            <span>Overflow if produce will not keep</span>
+            <strong>{overflow.length ? overflow.map((a) => `${a.name} (${a.kind})`).join(" · ") : "No farm or compost listed yet"}</strong>
+            <p className="note">A pig farmer can take food we cannot move. That is an exchange of surplus, not a promise we will have pork to give out.</p>
+            <a className="button" href="/run/around">Add a farm or compost</a>
+          </article>
+          <article className="card">
+            <span>Other pantries</span>
+            <strong>{dests.filter((a) => a.kind === "pantry" || a.wants_food).map((a) => a.name).join(" · ") || "Plenty only, until another pantry asks"}</strong>
+            <p className="note">We supply them if they asked. We do not take them over. Extra sites: Places.</p>
+            <a className="button" href="/run/locations">Manage locations</a>
+          </article>
+        </div>
+      </section>
 
       {loads.length ? (
         <div className="grid">

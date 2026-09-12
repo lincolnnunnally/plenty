@@ -1,4 +1,5 @@
 import { DEFAULT_PANTRY_SLUG } from "@/lib/app-brand";
+import { joinDonorNotes, newPersonId, splitDonorNotes } from "@/lib/store-people";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
@@ -2347,6 +2348,7 @@ export type Ally = {
   accepts_produce: boolean;
   next_distribution_at: string | null;
   operator_pantry_id: string | null;
+  takes_overflow: boolean;
   created_at: string;
 };
 
@@ -2364,14 +2366,26 @@ export async function getAlly(id: string, pantryId: string): Promise<Ally | null
   const client = await sb();
   const { data, error } = await client.from("plenty_allies").select(ALLY_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
   fail(error);
-  return (data as Ally | null) ?? null;
+  return data ? asAlly(data as Ally) : null;
+}
+
+function withOverflowNote(notes: string, takes: boolean) {
+  const stripped = String(notes || "").replace(/\s*\[overflow\]\s*/gi, " ").trim();
+  return takes ? `[overflow] ${stripped}`.trim() : stripped;
+}
+
+function asAlly(row: Ally): Ally {
+  return {
+    ...row,
+    takes_overflow: Boolean(row.takes_overflow) || /\[overflow\]/i.test(row.visit_notes || "")
+  };
 }
 
 export async function listAllies(pantryId: string): Promise<Ally[]> {
   const client = await sb();
   const { data, error } = await client.from("plenty_allies").select(ALLY_COLS).eq("pantry_id", pantryId).order("city").order("name");
   fail(error);
-  return (data as Ally[]) || [];
+  return ((data as Ally[]) || []).map(asAlly);
 }
 
 export async function listedAllies(pantryId: string): Promise<Ally[]> {
@@ -2384,7 +2398,7 @@ export async function listedAllies(pantryId: string): Promise<Ally[]> {
     .order("city")
     .order("name");
   fail(error);
-  return (data as Ally[]) || [];
+  return ((data as Ally[]) || []).map(asAlly);
 }
 
 export async function addAlly(input: {
@@ -2411,6 +2425,7 @@ export async function addAlly(input: {
   hasSpace: boolean;
   visitNotes: string;
   sourceNote: string;
+  takesOverflow?: boolean;
 }): Promise<Ally> {
   const client = await sb();
   const { data, error } = await client
@@ -2437,13 +2452,13 @@ export async function addAlly(input: {
       wants_volunteers: Boolean(input.wantsVolunteers),
       has_freezer: Boolean(input.hasFreezer),
       has_space: Boolean(input.hasSpace),
-      visit_notes: input.visitNotes,
+      visit_notes: withOverflowNote(input.visitNotes, Boolean(input.takesOverflow)),
       source_note: input.sourceNote
     })
     .select(ALLY_COLS)
     .single();
   fail(error);
-  return data as Ally;
+  return asAlly(data as Ally);
 }
 
 export async function updateAlly(
@@ -2479,6 +2494,7 @@ export async function updateAlly(
     acceptsProduce: boolean;
     nextDistributionAt: string | null;
     operatorPantryId: string | null;
+    takesOverflow: boolean;
   }>
 ): Promise<Ally | null> {
   const client = await sb();
@@ -2512,6 +2528,10 @@ export async function updateAlly(
   if (patch.lastVisitedAt !== undefined) row.last_visited_at = patch.lastVisitedAt;
   if (patch.sourceNote != null) row.source_note = patch.sourceNote;
   if (patch.operatorPantryId !== undefined) row.operator_pantry_id = patch.operatorPantryId;
+  if (patch.takesOverflow != null) {
+    const current = await getAlly(id, pantryId);
+    row.visit_notes = withOverflowNote(String(patch.visitNotes ?? current?.visit_notes ?? ""), patch.takesOverflow);
+  }
   const { data, error } = await client
     .from("plenty_allies")
     .update(row)
@@ -2520,7 +2540,7 @@ export async function updateAlly(
     .select(ALLY_COLS)
     .maybeSingle();
   fail(error);
-  return (data as Ally | null) ?? null;
+  return data ? asAlly(data as Ally) : null;
 }
 
 export async function ensureToombsStartingPoints(pantryId: string): Promise<number> {
@@ -2629,41 +2649,64 @@ export async function ensureFoodDonors(pantryId: string): Promise<number> {
   const names = new Set(existing.map((p) => donorNameKey(p.name)));
   let added = 0;
   for (const row of FOOD_DONOR_STARTING) {
-    if (row.names.some((n) => names.has(donorNameKey(n)))) continue;
-    try {
-      const partner = await addStorePartner({
-        pantryId,
-        name: row.name,
-        address: row.address,
-        city: row.city,
-        state: "GA",
-        zip: row.zip,
-        phone: row.phone,
-        contactName: row.contactName,
-        contactEmail: "",
-        pickupMode: "dock_pickup",
-        holdDesk: row.contactRole || "Dock",
-        hoursText: "",
-        notes: `${encodeDonorMeta({ kind: row.kind, gives: row.gives })}\n${row.notes}`,
-        status: "invited"
-      });
-      await addDonation({
-        pantryId,
-        userId: null,
-        kind: "donor_note",
-        title: partner.name,
-        description: row.notes,
-        quantity: row.gives.join(", "),
-        amountCents: null,
-        availableWhen: "",
-        contactName: row.contactName,
-        contactPhone: row.phone,
-        contactEmail: ""
-      }).catch(() => null);
-      names.add(donorNameKey(row.name));
-      added += 1;
-    } catch {
-      continue;
+    let partner = existing.find((p) => row.names.some((n) => donorNameKey(n) === donorNameKey(p.name)));
+    if (!partner && !row.names.some((n) => names.has(donorNameKey(n)))) {
+      try {
+        partner = await addStorePartner({
+          pantryId,
+          name: row.name,
+          address: row.address,
+          city: row.city,
+          state: "GA",
+          zip: row.zip,
+          phone: row.phone,
+          contactName: row.contactName,
+          contactEmail: "",
+          pickupMode: "dock_pickup",
+          holdDesk: row.contactRole || "Dock",
+          hoursText: "",
+          notes: `${encodeDonorMeta({ kind: row.kind, gives: row.gives })}\n${row.notes}`,
+          status: "invited"
+        });
+        await addDonation({
+          pantryId,
+          userId: null,
+          kind: "donor_note",
+          title: partner.name,
+          description: row.notes,
+          quantity: row.gives.join(", "),
+          amountCents: null,
+          availableWhen: "",
+          contactName: row.contactName,
+          contactPhone: row.phone,
+          contactEmail: ""
+        }).catch(() => null);
+        names.add(donorNameKey(row.name));
+        added += 1;
+      } catch {
+        continue;
+      }
+    }
+    if (partner && row.people?.length) {
+      const have = await listStorePeople(pantryId, partner.id).catch(() => []);
+      for (const person of row.people) {
+        const key = `${person.department}:${person.role}`.toLowerCase();
+        if (have.some((p) => `${p.department}:${p.role}`.toLowerCase() === key)) continue;
+        await addStorePerson({
+          pantryId,
+          partnerId: partner.id,
+          name: person.name,
+          role: person.role,
+          department: person.department,
+          phone: "",
+          email: "",
+          coverage: person.coverage,
+          throwing: person.throwing,
+          concern: person.concern,
+          status: "talking",
+          notes: person.notes
+        }).catch(() => null);
+      }
     }
   }
   return added;
@@ -2845,4 +2888,127 @@ export async function listActiveRecurring(): Promise<RecurringJob[]> {
   const { data, error } = await client.from("plenty_recurring").select("id, pantry_id, kind, title, weekday, time_local, role, location, partner_id, notes, active, last_run_on").eq("active", true);
   fail(error);
   return (data as RecurringJob[]) || [];
+}
+
+export type StorePerson = {
+  id: string;
+  pantry_id: string;
+  partner_id: string;
+  name: string;
+  role: string;
+  department: string;
+  phone: string;
+  email: string;
+  coverage: string;
+  throwing: string;
+  concern: string;
+  status: string;
+  notes: string;
+  last_talked_at: string | null;
+  created_at: string;
+};
+
+function peopleOnPartner(partner: StorePartner): StorePerson[] {
+  return splitDonorNotes(partner.notes).people.map((p) => ({
+    ...p,
+    pantry_id: partner.pantry_id,
+    partner_id: partner.id,
+    created_at: p.last_talked_at || partner.created_at
+  }));
+}
+
+export async function listStorePeople(pantryId: string, partnerId?: string): Promise<StorePerson[]> {
+  const partners = await listStorePartners(pantryId);
+  const rows = partners.flatMap(peopleOnPartner);
+  return partnerId ? rows.filter((p) => p.partner_id === partnerId) : rows;
+}
+
+export async function addStorePerson(input: {
+  pantryId: string;
+  partnerId: string;
+  name: string;
+  role: string;
+  department: string;
+  phone: string;
+  email: string;
+  coverage: string;
+  throwing: string;
+  concern: string;
+  status: string;
+  notes: string;
+}): Promise<StorePerson> {
+  const partners = await listStorePartners(input.pantryId);
+  const partner = partners.find((p) => p.id === input.partnerId);
+  if (!partner) throw new Error("Pick a store.");
+  const split = splitDonorNotes(partner.notes);
+  const person: StorePerson = {
+    id: newPersonId(),
+    pantry_id: input.pantryId,
+    partner_id: input.partnerId,
+    name: input.name,
+    role: input.role,
+    department: input.department || "other",
+    phone: input.phone,
+    email: input.email,
+    coverage: input.coverage || "none",
+    throwing: input.throwing,
+    concern: input.concern,
+    status: input.status || "talking",
+    notes: input.notes,
+    last_talked_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
+  };
+  await updateStorePartner(partner.id, input.pantryId, {
+    notes: joinDonorNotes(split.head, [...split.people, person])
+  });
+  return person;
+}
+
+export async function updateStorePerson(
+  id: string,
+  pantryId: string,
+  patch: Partial<{
+    name: string;
+    role: string;
+    department: string;
+    phone: string;
+    email: string;
+    coverage: string;
+    throwing: string;
+    concern: string;
+    status: string;
+    notes: string;
+    lastTalkedAt: string | null;
+  }>
+): Promise<StorePerson | null> {
+  const partners = await listStorePartners(pantryId);
+  for (const partner of partners) {
+    const split = splitDonorNotes(partner.notes);
+    const idx = split.people.findIndex((p) => p.id === id);
+    if (idx < 0) continue;
+    const current = split.people[idx];
+    const next = {
+      ...current,
+      name: patch.name ?? current.name,
+      role: patch.role ?? current.role,
+      department: patch.department ?? current.department,
+      phone: patch.phone ?? current.phone,
+      email: patch.email ?? current.email,
+      coverage: patch.coverage ?? current.coverage,
+      throwing: patch.throwing ?? current.throwing,
+      concern: patch.concern ?? current.concern,
+      status: patch.status ?? current.status,
+      notes: patch.notes ?? current.notes,
+      last_talked_at: patch.lastTalkedAt !== undefined ? patch.lastTalkedAt : new Date().toISOString()
+    };
+    split.people[idx] = next;
+    await updateStorePartner(partner.id, pantryId, { notes: joinDonorNotes(split.head, split.people) });
+    return {
+      ...next,
+      pantry_id: pantryId,
+      partner_id: partner.id,
+      created_at: next.last_talked_at || partner.created_at
+    };
+  }
+  return null;
 }
