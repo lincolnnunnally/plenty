@@ -1,23 +1,61 @@
+export const STORE_HEADLINE =
+  "Throw it away, deduct the cost. Donate it, you may deduct twice as much.";
+export const STORE_TITLE = STORE_HEADLINE.replace(/\.$/, "");
+export const STORE_DESCRIPTION =
+  "Unsold food in the dumpster is a cost write-off. Donate it to Plenty and you may deduct up to twice what you paid — then neighbors who felt that kindness come back and spend in your store.";
+export const STORE_LEDE =
+  "A grocery store is a business. This is the better number. Toss unsold food and you write off what you paid — then you pay to haul it. Give that same food to Plenty, a program of United Under God (a 501(c)(3)), and federal tax law may let you deduct the cost plus half the profit you would have made, up to twice the cost of the product. That is twice the financial benefit. Then people who appreciate the kindness come back. They spend the money they have left — milk, meat, soap, a birthday cake — in your store.";
+export const STORE_LEDE_SHORT =
+  "A grocery store is a business. Throw unsold food away and you deduct what you paid. Donate it to our 501(c)(3) and you may deduct the cost plus half the profit you would have made — up to twice the cost. Then people who felt that kindness come back and spend leftover money in your store.";
+export const STORE_PROOF = "That’s why Publix, Kroger, Walmart, and Costco already do it.";
+export const STORE_FINE =
+  "Not legal or tax advice. Eligibility depends on the food, your entity, and your books. Show this to your accountant.";
+
+export const STORE_TOSS = {
+  title: "If you throw it away",
+  items: [
+    "You only deduct what you paid for it.",
+    "You still pay the dumpster and the hauler.",
+    "The food is gone. Nobody sees the gift."
+  ]
+} as const;
+
+export const STORE_DONATE = {
+  title: "If you donate it to Plenty",
+  items: [
+    "You may deduct up to twice the cost.",
+    "We pick it up. Receipt in your hand.",
+    "Neighbors remember. They come back and shop."
+  ]
+} as const;
+
+export const STORE_MATH = {
+  setup: "You paid $200. You would have sold it for $600.",
+  toss: "Dumpster write-off ≈ $200",
+  donate: "Donate write-off ≈ $400 — twice the cost",
+  note: "Formula: cost plus half the profit you would have received, capped at twice what you paid."
+} as const;
+
 export const STORE_PITCH = [
   {
     kicker: "Tax",
-    title: "A deduction the dumpster cannot give you",
-    line: "Federal law (IRC §170(e)(3)): cost plus half the unsold profit — often more than throwing it away. Ask your accountant. Not tax advice."
-  },
-  {
-    kicker: "Law",
-    title: "Federal and Georgia law both cover you",
-    line: "Bill Emerson Act (42 U.S.C. § 1791) and O.C.G.A. § 51-1-31. Recipients sign a waiver. Gross negligence is the exception — not ordinary donation."
+    title: "Twice the write-off",
+    line: "Throw it away: deduct cost. Donate wholesome food to our 501(c)(3): deduct the cost plus 50% of the profit you would have received — up to twice the cost of the product. Ask your accountant about IRC § 170(e)(3)."
   },
   {
     kicker: "Sales",
-    title: "Your register does not go with the food",
-    line: "Pantry families still buy what we cannot give. Research finds no significant drop in grocer revenue when a pantry is nearby."
+    title: "Kindness comes back as sales",
+    line: "People who feel a store’s kindness reciprocate. They walk your aisles and often spend leftover money on other items at your store — not the one down the road."
   },
   {
     kicker: "Ops",
-    title: "Fresher shelves. Less hauling.",
-    line: "Pull aging food, donate it, restock. Stores that do this have been shown to earn higher markups — and stop paying to haul waste."
+    title: "The dumpster charges you",
+    line: "Disposal is a fee. Donation is often cheaper per pound, and it clears the shelf for food people will pay full price for."
+  },
+  {
+    kicker: "Law",
+    title: "You are covered",
+    line: "Bill Emerson Act (42 U.S.C. § 1791) and O.C.G.A. § 51-1-31. Recipients sign a waiver. Gross negligence is the exception — not ordinary donation."
   }
 ] as const;
 
@@ -99,7 +137,7 @@ export const STORE_CONCERNS = [
   {
     value: "sales",
     title: "It will hurt the register",
-    line: "Pantry families still buy what we cannot give. Studies do not show a drop in grocer sales when a pantry is nearby."
+    line: "People who feel the kindness come back. They spend leftover money on other items in your store. Studies do not show a drop in grocer sales when a pantry is nearby."
   },
   {
     value: "who",

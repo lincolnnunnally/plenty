@@ -11,7 +11,7 @@ import { stripeConfigured } from "@/lib/stripe-give";
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Give to the Vidalia food pantry",
-  "Give by card, Cash App, Venmo, or Zelle. Groceries stay free. Money pays pickup and the line. Grocery stores: leftover food is better business than the dumpster."
+  "Give by card, Cash App, Venmo, or Zelle. Groceries stay free. Money pays pickup and the line. Grocery stores: throw it away and deduct cost; donate it and you may deduct twice as much."
 );
 
 export default async function DonatePage({ searchParams }: { searchParams: Promise<{ cancelled?: string }> }) {
@@ -33,9 +33,9 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
 
       <article className="card" style={{ marginTop: 18 }}>
         <span>Grocery stores</span>
-        <strong>Throwing food away is the expensive option.</strong>
-        <p>Tax deduction. Two legal shields. A weekly dock pickup. We route it to whoever can use it first.</p>
-        <a className="button primary" href="/for-stores">Set a weekly pickup</a>
+        <strong>Throw it away, deduct the cost. Donate it, you may deduct twice as much.</strong>
+        <p>Then people who felt that kindness come back and spend leftover money in your store. Weekly dock pickup if you want it.</p>
+        <a className="button primary" href="/for-stores">See why it pays</a>
       </article>
 
       <div className="grid">

@@ -215,6 +215,8 @@ button.chip {
   body { background: #fff; }
   .print-flyer, .print-card { box-shadow: none; }
   .brief-sheet { box-shadow: none; border: 0; }
+  .store-versus { grid-template-columns: 1fr 1fr; }
+  .store-math { break-inside: avoid; }
 }
 .brief-page { width: min(900px, 100%); margin: 0 auto; padding: 16px; }
 .brief-sheet {
@@ -287,9 +289,65 @@ button.chip {
 .brief-qr img { width: 140px; height: 140px; }
 .brief-qr p { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: .85rem; margin: 6px 0 0; }
 .brief-grid h2 { font-size: 1.25rem; line-height: 1.2; }
+.store-proof { font-weight: 700; }
+.store-versus {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+.store-versus article {
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.store-versus h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+.store-versus ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.store-versus li {
+  padding: 8px 0;
+  border-top: 1px solid rgba(31, 42, 34, 0.08);
+  font-size: 0.98rem;
+  line-height: 1.4;
+}
+.store-versus li:first-child { border-top: 0; padding-top: 0; }
+.store-versus .toss {
+  background: #f4ece3;
+  border: 1px solid var(--line);
+}
+.store-versus .give {
+  background: #eef6ef;
+  border: 2px solid var(--leaf);
+}
+.store-versus .give h2 { color: var(--leaf); }
+.store-math {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--leaf);
+  color: #fffdf8;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.store-math strong { font-size: 1.02rem; }
+.store-math span { font-size: 1.05rem; font-weight: 700; }
+.store-math em {
+  font-style: normal;
+  font-size: 0.82rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
 @media (min-width: 720px) {
   .brief-grid { grid-template-columns: 1fr 1fr; }
   .brief-foot { grid-template-columns: 1fr auto; }
+  .store-versus { grid-template-columns: 1fr 1fr; }
 }
 .store-card-sheet h2 { margin-bottom: 8px; }
 .store-card-rule {

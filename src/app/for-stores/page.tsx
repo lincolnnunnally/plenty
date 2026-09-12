@@ -1,37 +1,24 @@
 import { PostForm } from "@/components/post-form";
 import { PrintButton } from "@/components/print-button";
+import { StorePitchCase, StorePitchIntro } from "@/components/store-pitch";
 import { EIN, LEGAL_NAME } from "@/lib/legal/org";
-import { FOOD_TYPES, STORE_CONCERNS, STORE_PITCH, WEEKDAYS } from "@/lib/store-pitch";
+import { FOOD_TYPES, STORE_CONCERNS, STORE_DESCRIPTION, STORE_TITLE, WEEKDAYS } from "@/lib/store-pitch";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(
-  "Donating leftover food is better business than throwing it away",
-  "Tax deduction, two legal shields, a weekly pickup. Plenty is a program of United Under God, Inc., EIN 81-3554390."
-);
+export const metadata = pageMeta(STORE_TITLE, STORE_DESCRIPTION);
 
 export default function ForStoresPage() {
   return (
     <main className="shell">
       <p className="eyebrow">Grocery stores · warehouses · farms</p>
-      <h1>Throwing food away is the expensive option.</h1>
-      <p className="lede">A deduction. Two legal shields. We pick up. You can say not this week.</p>
-      <p className="note">EIN {EIN} · {LEGAL_NAME} · 501(c)(3) · Not legal or tax advice.</p>
-      <div className="action-row">
+      <StorePitchIntro einLine={`EIN ${EIN} · ${LEGAL_NAME} · 501(c)(3) · Plenty is our pantry program`} />
+      <div className="action-row" style={{ marginTop: 16 }}>
         <a className="button primary" href="#signup">Leave a pickup — or just a name</a>
         <a className="button" href="/for-stores/brief">Print the one-pager</a>
         <a className="button" href="/tax-exempt">EIN letter</a>
       </div>
-
-      <div className="grid" style={{ marginTop: 18 }}>
-        {STORE_PITCH.map((item) => (
-          <article className="card" key={item.kicker}>
-            <span>{item.kicker}</span>
-            <strong>{item.title}</strong>
-            <p>{item.line}</p>
-          </article>
-        ))}
-      </div>
+      <StorePitchCase />
 
       <section className="panel">
         <h2>If you are not sure</h2>

@@ -65,7 +65,7 @@ export default async function WaiverPage() {
         </section>
       )}
 
-      <p className="note">Stores and warehouses: <a href="/for-stores">why donating is protected</a>.</p>
+      <p className="note">Stores and warehouses: <a href="/for-stores">why donating pays, and why you are covered</a>.</p>
     </main>
   );
 }

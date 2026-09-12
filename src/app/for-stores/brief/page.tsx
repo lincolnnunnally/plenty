@@ -1,13 +1,11 @@
 import { PrintButton } from "@/components/print-button";
+import { StorePitchCase, StorePitchIntro } from "@/components/store-pitch";
 import { EIN, LEGAL_NAME } from "@/lib/legal/org";
-import { STORE_PITCH } from "@/lib/store-pitch";
+import { STORE_DESCRIPTION, STORE_FINE, STORE_TITLE } from "@/lib/store-pitch";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-static";
-export const metadata = pageMeta(
-  "Donating leftover food is better business than throwing it away",
-  `Tax deduction, two legal shields, a weekly pickup. Plenty is a program of ${LEGAL_NAME}, EIN ${EIN}.`
-);
+export const metadata = pageMeta(STORE_TITLE, STORE_DESCRIPTION);
 
 export default function StoreBriefPage() {
   const signup = "https://plenty.unitedundergod.org/for-stores";
@@ -21,30 +19,19 @@ export default function StoreBriefPage() {
       <article className="brief-sheet">
         <header className="brief-top">
           <p className="brief-kicker">Plenty food pantry · {LEGAL_NAME} · 501(c)(3)</p>
-          <h1 className="store-pop">Throwing food away is the expensive option.</h1>
-          <p className="lede">A deduction. Two legal shields. A weekly pickup. We route it to whoever can use it first.</p>
-          <p className="brief-ein">EIN {EIN} · A gift to Plenty is a gift to {LEGAL_NAME}</p>
+          <StorePitchIntro compact einLine={`EIN ${EIN} · A gift to Plenty is a gift to ${LEGAL_NAME}`} />
         </header>
-
-        <div className="brief-grid">
-          {STORE_PITCH.map((w, i) => (
-            <section key={w.kicker}>
-              <span>{i + 1}</span>
-              <h2>{w.title}</h2>
-              <p>{w.line}</p>
-            </section>
-          ))}
-        </div>
+        <StorePitchCase />
 
         <p className="note" style={{ marginTop: 16 }}>
-          You choose: dock pickup, a bag at customer service, or volunteers on the floor if you ask. Extra purchase is never required. Corporate has to say yes? Leave this page. We wait.
+          You choose: dock pickup, a bag at customer service, or volunteers on the floor if you ask. Extra purchase is never required. People who felt the kindness often spend leftover money in your store anyway. Corporate has to say yes? Leave this page. We wait.
         </p>
 
         <footer className="brief-foot brief-foot-qr">
           <div>
             <strong>Set a repeating pickup. We come on that day.</strong>
             <p>Pickup volunteers get a text. Produce goes where it will be eaten soonest.</p>
-            <p className="brief-fine">Not legal or tax advice. Show this to your accountant.</p>
+            <p className="brief-fine">{STORE_FINE}</p>
           </div>
           <div className="brief-qr">
             <img src={`/api/promote/qr?to=${encodeURIComponent(signup)}&format=png&size=480`} alt="Scan to set a weekly pickup" width={140} height={140} />
