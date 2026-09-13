@@ -25,7 +25,7 @@ export default async function HomePage() {
         <div className="action-row">
           <a className="button primary" href="/need-food">{t(lang, "homeGet")}</a>
           <a className="button leaf" href="/volunteer">{t(lang, "homeVolunteer")}</a>
-          <a className="button" href="/for-stores">{t(lang, "homeStores")}</a>
+          <a className="button" href="https://unitedundergod.org/food-donors">{t(lang, "homeStores")}</a>
         </div>
         {user ? <p className="note">Signed in as {user.name}. <a href="/account">Account</a></p> : null}
       </section>
@@ -63,8 +63,9 @@ export default async function HomePage() {
         </article>
         <article className="card">
           <strong>Grocery stores</strong>
-          <p>Tax deduction. Two legal shields. A weekly dock pickup. We route food to whoever can use it first.</p>
-          <a className="button" href="/for-stores">Set a pickup</a>
+          <p>New stores sign up once on United Under God for the tax record. Then live here for every pickup.</p>
+          <a className="button" href="https://unitedundergod.org/food-donors">New: sign up on United Under God</a>
+          <a className="button" href="/for-stores">Pickup on Plenty</a>
         </article>
         <article className="card">
           <strong>Give money or space</strong>

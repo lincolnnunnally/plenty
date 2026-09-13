@@ -13,12 +13,15 @@ export default function ForStoresPage() {
   return (
     <main className="shell">
       <p className="eyebrow">Grocery stores · warehouses · farms</p>
-      <StorePitchIntro einLine={`EIN ${EIN} · ${LEGAL_NAME} · 501(c)(3) · Plenty is our pantry program`} />
+      <StorePitchIntro einLine={`EIN ${EIN} · ${LEGAL_NAME} · 501(c)(3) · Plenty is the pantry program`} />
+      <p className="lede" style={{ marginTop: 8 }}>
+        New store? Sign up once on United Under God — that is the charity and the tax record.
+        Already on the list? Request a pickup here. Receipts always say United Under God, Inc.
+      </p>
       <div className="action-row" style={{ marginTop: 16 }}>
-        <a className="button primary" href="#signup">Leave a pickup — or just a name</a>
-        <a className="button" href="#calculator">Punch your numbers</a>
+        <a className="button primary" href="https://unitedundergod.org/food-donors">New: sign up on United Under God</a>
+        <a className="button leaf" href="#signup">Already on the list: request a pickup</a>
         <a className="button" href="/for-stores/brief">Print the one-pager</a>
-        <a className="button" href="/tax-exempt">EIN letter</a>
       </div>
       <StorePitchCase />
       <StoreCalculator />
@@ -36,8 +39,11 @@ export default function ForStoresPage() {
       </section>
 
       <section className="panel" id="signup">
-        <h2>Set a pickup — or just talk</h2>
-        <p className="note">A weekly day is optional. If corporate has to say yes, leave a name. We wait.</p>
+        <h2>Already on the list? Request a pickup</h2>
+        <p className="note">
+          First time giving? <a href="https://unitedundergod.org/food-donors">Sign up on United Under God</a> so the tax record is clean.
+          Then tell us here when food is on the dock. A weekly day is optional.
+        </p>
         <PostForm action="/api/store-partners" submitLabel="Send this to the pantry">
           <input type="hidden" name="asInterest" value="1" />
           <label className="field"><span>Store name</span><input className="input" name="name" required /></label>

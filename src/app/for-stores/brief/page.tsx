@@ -8,12 +8,13 @@ export const dynamic = "force-static";
 export const metadata = pageMeta(STORE_TITLE, STORE_DESCRIPTION);
 
 export default function StoreBriefPage() {
-  const signup = "https://plenty.unitedundergod.org/for-stores";
+  const signup = "https://unitedundergod.org/food-donors";
   return (
     <main className="brief-page">
       <div className="print-hide action-row" style={{ marginBottom: 12 }}>
         <PrintButton label="Print this one-pager" />
-        <a className="button" href="/for-stores">Set a weekly pickup</a>
+        <a className="button" href="https://unitedundergod.org/food-donors">New stores: United Under God</a>
+        <a className="button" href="/for-stores">Already on the list: pickup</a>
       </div>
 
       <article className="brief-sheet">

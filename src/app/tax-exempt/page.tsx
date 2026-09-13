@@ -20,7 +20,7 @@ export default async function TaxExemptPage() {
       <h1>Tax-exempt information</h1>
       <div className="panel">
         <p>{TAX_LINE}</p>
-        <p>Gifts of food inventory and money to Plenty are gifts to {legalName}. They may be tax-deductible to the extent allowed by law. Grocery stores: throw it away and you deduct cost; donate it and you may deduct up to twice as much. See the <a href="/for-stores">store brief</a> for the enhanced food-inventory deduction.</p>
+        <p>Gifts of food inventory and money to Plenty are gifts to {legalName}. They may be tax-deductible to the extent allowed by law. Grocery stores: sign up once on <a href="https://unitedundergod.org/food-donors">United Under God</a> for the tax record, then request pickups on Plenty. Throw it away and you deduct cost; donate it and you may deduct up to twice as much.</p>
         <p><strong>Legal name:</strong> {legalName}</p>
         <p><strong>EIN:</strong> {ein}</p>
         <p><strong>Status:</strong> 501(c)(3)</p>

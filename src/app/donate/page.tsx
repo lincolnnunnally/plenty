@@ -34,8 +34,8 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
       <article className="card" style={{ marginTop: 18 }}>
         <span>Grocery stores</span>
         <strong>Throw it away, deduct the cost. Donate it, you may deduct twice as much.</strong>
-        <p>Then people who felt that kindness come back and spend leftover money in your store. Weekly dock pickup if you want it.</p>
-        <a className="button primary" href="/for-stores">See why it pays</a>
+        <p>Sign up once on United Under God — the 501(c)(3). Then request pickups here. Receipts always say United Under God, Inc.</p>
+        <a className="button primary" href="https://unitedundergod.org/food-donors">See what you are missing</a>
       </article>
 
       <div className="grid">
