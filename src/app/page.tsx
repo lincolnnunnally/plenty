@@ -5,7 +5,7 @@ import { readLang, t } from "@/lib/i18n";
 import { HOME_DESCRIPTION, pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta("Vidalia food pantry", HOME_DESCRIPTION);
+export const metadata = pageMeta("Free groceries in Vidalia — no income test", HOME_DESCRIPTION);
 
 export default async function HomePage() {
   const user = await getCurrentUser().catch(() => null);
