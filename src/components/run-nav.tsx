@@ -15,6 +15,7 @@ export function RunNav({
         <a href="/run">Setup</a>
         <a href="/run/line">Line</a>
         <a href="/run/calendar">Today</a>
+        <a href="/run/pickups">Pickups</a>
         <a href="/run/people">People</a>
         <a href="/run/invite">Invite</a>
         <a href="/run/inventory">Shelves</a>

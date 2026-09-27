@@ -1263,6 +1263,44 @@ export async function listPickups(pantryId: string): Promise<Pickup[]> {
   return (data as Pickup[]) || [];
 }
 
+const REMINDER_COLS =
+  "id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, window_text, assigned_user_id, reminder_24h_at, reminder_morning_at, overdue_alert_at";
+
+export type PickupReminderRow = {
+  id: string;
+  pantry_id: string;
+  kind: string;
+  scheduled_for: string | null;
+  address: string;
+  contact_name: string;
+  contact_phone: string;
+  notes: string;
+  status: string;
+  window_text: string;
+  assigned_user_id: string | null;
+  reminder_24h_at: string | null;
+  reminder_morning_at: string | null;
+  overdue_alert_at: string | null;
+};
+
+export async function listPickupReminders(): Promise<PickupReminderRow[]> {
+  const client = await sb();
+  const { data, error } = await client
+    .from("plenty_pickups")
+    .select(REMINDER_COLS)
+    .in("status", ["requested", "scheduled", "offered"])
+    .not("scheduled_for", "is", null);
+  fail(error);
+  return (data as PickupReminderRow[]) || [];
+}
+
+export async function markPickupReminder(id: string, kind: "24h" | "morning" | "overdue"): Promise<void> {
+  const client = await sb();
+  const column = kind === "24h" ? "reminder_24h_at" : kind === "morning" ? "reminder_morning_at" : "overdue_alert_at";
+  const { error } = await client.from("plenty_pickups").update({ [column]: new Date().toISOString() }).eq("id", id);
+  fail(error);
+}
+
 export async function setPickupStatus(id: string, status: string, extra?: { assignedUserId?: string; scheduledFor?: string | null }): Promise<Pickup | null> {
   const client = await sb();
   const payload: Record<string, unknown> = { status };

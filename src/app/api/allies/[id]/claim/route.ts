@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { fail, ok, readJson, requireUser, str } from "@/lib/api";
 import { grantAllyOperator } from "@/lib/db/food-loads";
-import { addMembership, getAlly, getDefaultPantry, getPantryBySlug, isSteward, updateAlly, upsertPantry } from "@/lib/db/queries";
-import { notifyDesk } from "@/lib/notify";
+import { addMembership, getAlly, getDefaultPantry, getPantryBySlug, isSteward, updateAlly, upsertPantry, userPhone } from "@/lib/db/queries";
+import { notifyDesk, sendPlainEmail } from "@/lib/notify";
+import { withOwnerPantrySignupNotice } from "@/lib/owner-signup-notice";
 import { pantryPublicUrl } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
@@ -81,12 +82,28 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       subject: `Plenty: ${user.name || user.email} claimed ${ally.name}`,
       text: `${user.name || ""} ${user.email} claimed ${ally.name}.\nDesk: https://plenty.unitedundergod.org/run\nPublic: ${pantryPublicUrl(pantry.slug)}`
     }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
-    return ok({
-      pantryId: pantry.id,
-      slug: pantry.slug,
-      publicUrl: pantryPublicUrl(pantry.slug),
-      message: `${pantry.name} is yours to run. Hours, shelves, and volunteers stay on this pantry — not Vidalia.`
-    });
+    const profilePhone = await userPhone(user.id).catch(() => "");
+    return withOwnerPantrySignupNotice(
+      {
+        kind: ally.kind,
+        pantryName: pantry.name,
+        contactName: user.name || ally.contact_name || "",
+        email: user.email || ally.contact_email || "",
+        phone: ally.phone || profilePhone,
+        address: ally.address || "",
+        city: ally.city || "",
+        state: ally.state || "",
+        signedUpAt: new Date().toISOString()
+      },
+      sendPlainEmail,
+      () =>
+        ok({
+          pantryId: pantry.id,
+          slug: pantry.slug,
+          publicUrl: pantryPublicUrl(pantry.slug),
+          message: `${pantry.name} is yours to run. Hours, shelves, and volunteers stay on this pantry — not Vidalia.`
+        })
+    );
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not claim that pantry.", 503);
   }

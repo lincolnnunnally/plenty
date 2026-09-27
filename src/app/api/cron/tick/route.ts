@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listStorePartners, listVolunteers, markRecurringRun } from "@/lib/db/queries";
+import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listPickupReminders, listStorePartners, listVolunteers, markPickupReminder, markRecurringRun } from "@/lib/db/queries";
 import { listFoodLoads, offerFoodLoad, updateFoodLoad } from "@/lib/db/food-loads";
-import { notifyCrew, notifyDesk } from "@/lib/notify";
+import { notifyCrew, notifyDesk, sendPlainEmail } from "@/lib/notify";
+import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { runPickupWatch } from "@/lib/pickup-watch";
 import { nextEasternOccurrence, shouldRunThisWeek } from "@/lib/schedule";
 import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
 
@@ -92,7 +94,23 @@ export async function GET(request: Request) {
     made.push(job.title);
   }
   const holds = await escalateHolds().catch(() => [] as string[]);
-  return NextResponse.json({ ok: true, posted: made, holdAlerts: holds });
+  const reminders = await watchPickups().catch((err) => {
+    made.push(`pickup watch skipped: ${err instanceof Error ? err.message : "unknown"}`);
+    return { sent: 0, failed: 0 };
+  });
+  return NextResponse.json({ ok: true, posted: made, holdAlerts: holds, pickupReminders: reminders });
+}
+
+async function watchPickups() {
+  const rows = await listPickupReminders();
+  const watch = await runPickupWatch({
+    rows,
+    now: new Date(),
+    reviewUrl: ownerDeskUrl("/run/pickups"),
+    deliver: (notice) => deliverOwnerAttention(notice, sendPlainEmail),
+    mark: markPickupReminder
+  });
+  return { sent: watch.sent.length, failed: watch.failed };
 }
 
 async function escalateHolds() {

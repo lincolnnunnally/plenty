@@ -1,6 +1,8 @@
 import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
 import { addRecurring, addStorePartner, getDefaultPantry, listRecurring } from "@/lib/db/queries";
-import { notifyDesk } from "@/lib/notify";
+import { notifyDesk, sendPlainEmail } from "@/lib/notify";
+import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { composePickupAttention } from "@/lib/pickup-watch";
 import { validStaffPin } from "@/lib/store-card/code";
 import { encodeConcerns, encodeFoodNote, foodTypesFrom, normalizeTimeLocal, weekdayName } from "@/lib/store-pitch";
 
@@ -107,6 +109,22 @@ export async function POST(request: Request) {
         ? `${name} set a weekly leftover pickup.\nWhen: ${whenLine}\nFood: ${foods.join(", ") || "see store"}\nHow: ${pickupMode.replace("_", " ")}\nConcerns: ${concernNote || "none"}\n${contactName} ${phone}\nDesk: https://plenty.unitedundergod.org/run/stores`
         : `${name} asked to donate leftover food — not ready for a weekly pickup yet.\nConcerns: ${concernNote || "none"}\n${str(body.notes)}\n${contactName} ${phone}\nDesk: https://plenty.unitedundergod.org/run/stores`
     }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+
+    if (!asSteward) {
+      await deliverOwnerAttention(
+        composePickupAttention({
+          org: name,
+          contactName,
+          contactPhone: phone,
+          address: [str(body.address), str(body.city) || pantry.city, str(body.state) || pantry.state].filter(Boolean).join(", "),
+          whenIso: null,
+          windowText: whenLine || hoursText,
+          what: [foods.join(", "), concernNote, str(body.notes)].filter(Boolean).join(" · ") || pickupMode.replace(/_/g, " "),
+          reviewUrl: ownerDeskUrl("/run/pickups")
+        }),
+        sendPlainEmail
+      );
+    }
 
     return ok({
       partnerId: partner.id,
