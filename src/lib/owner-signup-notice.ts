@@ -1,16 +1,26 @@
 /**
- * Owner attention mail for a new pantry desk.
- * APP_ENGINE_OWNER_EMAIL is the notice recipient only. It does not grant the pantry desk.
- * When it is unset, the notice goes to the super admin.
+ * Owner attention mail.
+ * lincoln@unitedundergod.org is always a recipient.
+ * PLENTY_OWNER_ALERT_EMAILS may add more addresses. It cannot replace Lincoln.
+ * APP_ENGINE_OWNER_EMAIL is not a mail recipient and does not grant the pantry desk.
  */
-export const OWNER_ATTENTION_FALLBACK = "lincoln@unitedundergod.org";
+export const OWNER_ATTENTION_EMAIL = "lincoln@unitedundergod.org";
 
 const PRODUCTION_ORIGIN = "https://plenty.unitedundergod.org";
 
+function extraAlertEmails() {
+  return (process.env.PLENTY_OWNER_ALERT_EMAILS || "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.includes("@") && !/[\s;]/.test(entry));
+}
+
+export function ownerAttentionRecipients() {
+  return [...new Set([OWNER_ATTENTION_EMAIL, ...extraAlertEmails()])];
+}
+
 export function ownerAttentionEmail() {
-  const configured = (process.env.APP_ENGINE_OWNER_EMAIL || "").trim().toLowerCase();
-  if (configured.includes("@") && !/[\s,;]/.test(configured)) return configured;
-  return OWNER_ATTENTION_FALLBACK;
+  return OWNER_ATTENTION_EMAIL;
 }
 
 /** Admin link. APP_PUBLIC_URL on production; the live host when a preview has no public URL. */
@@ -29,17 +39,17 @@ export async function deliverOwnerAttention(
   input: { subject: string; text: string },
   send: MailSender
 ): Promise<{ ok: boolean }> {
-  try {
-    const result = await send(ownerAttentionEmail(), input.subject, input.text);
-    if (!result.ok) {
-      console.error("[plenty] owner attention email failed:", ownerNoticeFailureReason(result.error));
-      return { ok: false };
+  let lincolnOk = false;
+  for (const to of ownerAttentionRecipients()) {
+    try {
+      const result = await send(to, input.subject, input.text);
+      if (to === OWNER_ATTENTION_EMAIL && result.ok) lincolnOk = true;
+      if (!result.ok) console.error("[plenty] owner attention email failed:", ownerNoticeFailureReason(result.error));
+    } catch (err) {
+      console.error("[plenty] owner attention email failed:", ownerNoticeFailureReason(err));
     }
-    return { ok: true };
-  } catch (err) {
-    console.error("[plenty] owner attention email failed:", ownerNoticeFailureReason(err));
-    return { ok: false };
   }
+  return { ok: lincolnOk };
 }
 
 export type MailSender = (to: string, subject: string, text: string) => Promise<{ ok: boolean; error: string }>;
@@ -102,7 +112,7 @@ export function composeOwnerPantrySignupNotice(input: OwnerPantrySignupInput): O
     `Signed up: ${line(input.signedUpAt)}`,
     `Review: ${ownerReviewUrl()}`
   ].join("\n");
-  return { to: ownerAttentionEmail(), subject, text };
+  return { to: OWNER_ATTENTION_EMAIL, subject, text };
 }
 
 export async function deliverOwnerPantrySignupNotice(
@@ -111,17 +121,8 @@ export async function deliverOwnerPantrySignupNotice(
 ): Promise<{ ok: boolean; skipped: boolean }> {
   const message = composeOwnerPantrySignupNotice(input);
   if (!message) return { ok: true, skipped: true };
-  try {
-    const result = await send(message.to, message.subject, message.text);
-    if (!result.ok) {
-      console.error("[plenty] owner pantry signup notice failed:", ownerNoticeFailureReason(result.error));
-      return { ok: false, skipped: false };
-    }
-    return { ok: true, skipped: false };
-  } catch (err) {
-    console.error("[plenty] owner pantry signup notice failed:", ownerNoticeFailureReason(err));
-    return { ok: false, skipped: false };
-  }
+  const result = await deliverOwnerAttention(message, send);
+  return { ok: result.ok, skipped: false };
 }
 
 /** Signup response is returned even when the owner email throws or the key is missing. */

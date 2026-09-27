@@ -12,7 +12,7 @@ import {
 import { twilioConfigured } from "@/lib/notify";
 import { resendConfigured } from "@/lib/promote/email";
 import { WEEKDAYS, parseMonthWeeks, monthWeeksLabel } from "@/lib/schedule";
-import { formatEasternWhen, pickupIsOverdue, sortUpcoming } from "@/lib/pickup-watch";
+import { formatEasternWhen, groupPickups, pickupIsOverdue, pickupNeedsScheduling } from "@/lib/pickup-watch";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
@@ -30,7 +30,7 @@ export default async function CalendarPage() {
     listPromoSends(pantry.id).catch(() => [])
   ]);
   const now = new Date();
-  const openPickups = sortUpcoming(pickups.filter((p) => p.status !== "done" && p.status !== "cancelled" && p.status !== "completed" && p.status !== "canceled"));
+  const pickupGroups = groupPickups(pickups, now);
   const openDays = days.filter((d) => d.status !== "done" && d.status !== "cancelled");
 
   return (
@@ -162,24 +162,74 @@ export default async function CalendarPage() {
 
       <section className="panel">
         <h2>Pickups and deliveries</h2>
-        {openPickups.length ? (
-          <div className="grid">
-            {openPickups.map((p) => (
-              <article className="card" key={p.id}>
-                <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
-                {pickupIsOverdue(p, now) ? <p className="note error">Overdue — the time passed and this is still open.</p> : null}
-                <strong>{p.address}</strong>
-                <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
-                <PostForm action="/api/pickups" submitLabel="Move this pickup">
-                  <input type="hidden" name="id" value={p.id} />
-                  {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
-                  <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                  <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
-                  <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
-                </PostForm>
-              </article>
-            ))}
-          </div>
+        {pickupGroups.needsScheduling.length || pickupGroups.upcoming.length || pickupGroups.overdue.length ? (
+          <>
+            {pickupGroups.needsScheduling.length ? (
+              <>
+                <h3>Needs scheduling</h3>
+                <div className="grid">
+                  {pickupGroups.needsScheduling.map((p) => (
+                    <article className="card" key={p.id}>
+                      <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
+                      {pickupNeedsScheduling(p) ? <p className="note">Needs scheduling — no confirmed date yet.</p> : null}
+                      <strong>{p.address}</strong>
+                      <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                      <PostForm action="/api/pickups" submitLabel="Move this pickup">
+                        <input type="hidden" name="id" value={p.id} />
+                        {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
+                        <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
+                        <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                        <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
+                      </PostForm>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {pickupGroups.upcoming.length ? (
+              <>
+                <h3>Upcoming</h3>
+                <div className="grid">
+                  {pickupGroups.upcoming.map((p) => (
+                    <article className="card" key={p.id}>
+                      <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
+                      <strong>{p.address}</strong>
+                      <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                      <PostForm action="/api/pickups" submitLabel="Move this pickup">
+                        <input type="hidden" name="id" value={p.id} />
+                        {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
+                        <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
+                        <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                        <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
+                      </PostForm>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {pickupGroups.overdue.length ? (
+              <>
+                <h3>Overdue</h3>
+                <div className="grid">
+                  {pickupGroups.overdue.map((p) => (
+                    <article className="card" key={p.id}>
+                      <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
+                      {pickupIsOverdue(p, now) ? <p className="note error">Overdue — the time passed and this is still open.</p> : null}
+                      <strong>{p.address}</strong>
+                      <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                      <PostForm action="/api/pickups" submitLabel="Move this pickup">
+                        <input type="hidden" name="id" value={p.id} />
+                        {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
+                        <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
+                        <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                        <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
+                      </PostForm>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </>
         ) : (
           <p className="empty">No open pickups. <a href="/run/pickups">Pickup desk</a>.</p>
         )}

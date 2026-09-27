@@ -6,7 +6,7 @@ export type PickupTiming = {
   assigned_user_id?: string | null;
 };
 
-export type ReminderKind = "24h" | "2h" | "overdue";
+export type ReminderKind = "24h" | "morning" | "overdue";
 
 export type ReminderRow = PickupTiming & {
   id: string;
@@ -17,7 +17,7 @@ export type ReminderRow = PickupTiming & {
   notes: string;
   window_text: string;
   reminder_24h_at: string | null;
-  reminder_2h_at: string | null;
+  reminder_morning_at: string | null;
   overdue_alert_at: string | null;
 };
 
@@ -31,20 +31,47 @@ export function pickupIsOverdue(row: PickupTiming, now: Date) {
   return Number.isFinite(at) && at < now.getTime();
 }
 
+/** No confirmed clock time. A window phrase alone still needs a date. */
+export function pickupNeedsScheduling(row: PickupTiming) {
+  return !pickupIsClosed(row.status) && !row.scheduled_for;
+}
+
+export function groupPickups<T extends PickupTiming>(rows: T[], now = new Date()) {
+  const byTime = (a: T, b: T) => new Date(a.scheduled_for || 0).getTime() - new Date(b.scheduled_for || 0).getTime();
+  return {
+    needsScheduling: rows.filter((row) => pickupNeedsScheduling(row)),
+    upcoming: rows.filter((row) => !pickupIsClosed(row.status) && row.scheduled_for && !pickupIsOverdue(row, now)).sort(byTime),
+    overdue: rows.filter((row) => pickupIsOverdue(row, now)).sort(byTime),
+    finished: rows.filter((row) => pickupIsClosed(row.status))
+  };
+}
+
 export function sortUpcoming<T extends PickupTiming>(rows: T[], now = new Date()): T[] {
-  return [...rows].sort((a, b) => {
-    const rank = (row: T) => {
-      if (pickupIsOverdue(row, now)) return 0;
-      if (!pickupIsClosed(row.status) && row.scheduled_for) return 1;
-      if (!pickupIsClosed(row.status)) return 2;
-      return 3;
-    };
-    const byRank = rank(a) - rank(b);
-    if (byRank !== 0) return byRank;
-    const at = a.scheduled_for ? new Date(a.scheduled_for).getTime() : Number.POSITIVE_INFINITY;
-    const bt = b.scheduled_for ? new Date(b.scheduled_for).getTime() : Number.POSITIVE_INFINITY;
-    return at - bt;
-  });
+  const groups = groupPickups(rows, now);
+  return [...groups.needsScheduling, ...groups.upcoming, ...groups.overdue, ...groups.finished];
+}
+
+function easternClock(when: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false
+  }).formatToParts(when);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  const hour = Number(get("hour"));
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: hour === 24 ? 0 : hour };
+}
+
+/** True once it is 7 AM America/New_York on the pickup's calendar day, and the pickup is still ahead. */
+export function isPickupMorning(scheduledFor: string, now: Date) {
+  const at = new Date(scheduledFor);
+  if (Number.isNaN(at.getTime()) || at.getTime() <= now.getTime()) return false;
+  const pickup = easternClock(at);
+  const current = easternClock(now);
+  return pickup.date === current.date && current.hour >= 7;
 }
 
 export function formatEasternWhen(iso: string | null, windowText = "") {
@@ -102,7 +129,7 @@ export function dueReminders(row: ReminderRow, now: Date): ReminderKind[] {
   if (ms <= 0) return row.overdue_alert_at ? [] : ["overdue"];
   const due: ReminderKind[] = [];
   if (ms <= 24 * 3600000 && !row.reminder_24h_at) due.push("24h");
-  if (ms <= 2 * 3600000 && !row.assigned_user_id && !row.reminder_2h_at) due.push("2h");
+  if (isPickupMorning(row.scheduled_for, now) && !row.reminder_morning_at) due.push("morning");
   return due;
 }
 
@@ -111,8 +138,8 @@ export function composeReminder(row: ReminderRow, kind: ReminderKind, reviewUrl:
   const headline =
     kind === "overdue"
       ? `Pickup time passed and it is not finished: ${oneLine(org, "a pickup")}`
-      : kind === "2h"
-        ? `Pickup in about 2 hours and nobody is assigned: ${oneLine(org, "a pickup")}`
+      : kind === "morning"
+        ? `Pickup today: ${oneLine(org, "a pickup")}`
         : `Pickup in about 24 hours: ${oneLine(org, "a pickup")}`;
   return composePickupAttention({
     org: row.contact_name,

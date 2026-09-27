@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  OWNER_ATTENTION_FALLBACK,
+  OWNER_ATTENTION_EMAIL,
   composeOwnerPantrySignupNotice,
+  deliverOwnerAttention,
   deliverOwnerPantrySignupNotice,
   ownerAttentionEmail,
+  ownerAttentionRecipients,
   ownerNoticeFailureReason,
   ownerReviewUrl,
   withOwnerPantrySignupNotice,
@@ -16,13 +18,17 @@ import {
 function withoutOwnerEnv(run: () => Promise<void> | void) {
   const previousOwner = process.env.APP_ENGINE_OWNER_EMAIL;
   const previousPublic = process.env.APP_PUBLIC_URL;
+  const previousExtra = process.env.PLENTY_OWNER_ALERT_EMAILS;
   delete process.env.APP_ENGINE_OWNER_EMAIL;
   delete process.env.APP_PUBLIC_URL;
+  delete process.env.PLENTY_OWNER_ALERT_EMAILS;
   const finish = () => {
     if (previousOwner === undefined) delete process.env.APP_ENGINE_OWNER_EMAIL;
     else process.env.APP_ENGINE_OWNER_EMAIL = previousOwner;
     if (previousPublic === undefined) delete process.env.APP_PUBLIC_URL;
     else process.env.APP_PUBLIC_URL = previousPublic;
+    if (previousExtra === undefined) delete process.env.PLENTY_OWNER_ALERT_EMAILS;
+    else process.env.PLENTY_OWNER_ALERT_EMAILS = previousExtra;
   };
   return Promise.resolve()
     .then(run)
@@ -58,7 +64,7 @@ test("pantry signup emails the owner with the signup fields", async () => {
     assert.equal(result.skipped, false);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].to, ownerAttentionEmail());
-    assert.equal(calls[0].to, OWNER_ATTENTION_FALLBACK);
+    assert.equal(calls[0].to, OWNER_ATTENTION_EMAIL);
     assert.equal(calls[0].to, "lincoln@unitedundergod.org");
     assert.equal(calls[0].subject, "New food pantry signup needs your attention: qa-delete-me- Lyons Pantry");
     assert.match(calls[0].text, /Pantry: qa-delete-me- Lyons Pantry/);
@@ -72,25 +78,50 @@ test("pantry signup emails the owner with the signup fields", async () => {
   });
 });
 
-test("recipient and review link follow the production owner env vars", async () => {
+test("Lincoln always receives owner alerts, and extras can only be added", async () => {
   await withoutOwnerEnv(async () => {
     process.env.APP_ENGINE_OWNER_EMAIL = "owner@example.com";
     process.env.APP_PUBLIC_URL = "https://plenty.unitedundergod.org/";
+    process.env.PLENTY_OWNER_ALERT_EMAILS = "desk@example.com, lincoln@unitedundergod.org, not-an-email, second@example.com";
     const { calls, send } = sent();
     await deliverOwnerPantrySignupNotice(signup, send);
-    assert.equal(calls[0].to, "owner@example.com");
+    assert.deepEqual(calls.map((call) => call.to), [
+      "lincoln@unitedundergod.org",
+      "desk@example.com",
+      "second@example.com"
+    ]);
+    assert.equal(calls.some((call) => call.to === "owner@example.com"), false);
     assert.match(calls[0].text, /Review: https:\/\/plenty\.unitedundergod\.org\/run/);
-    process.env.APP_ENGINE_OWNER_EMAIL = "not-an-email";
+    assert.deepEqual(ownerAttentionRecipients(), [
+      "lincoln@unitedundergod.org",
+      "desk@example.com",
+      "second@example.com"
+    ]);
     assert.equal(ownerAttentionEmail(), "lincoln@unitedundergod.org");
+
+    const original = console.error;
+    console.error = () => undefined;
+    try {
+      const mixed = await deliverOwnerAttention(
+        { subject: calls[0].subject, text: calls[0].text },
+        async (to) => ({ ok: to === OWNER_ATTENTION_EMAIL, error: to === OWNER_ATTENTION_EMAIL ? "" : "extra mailbox rejected" })
+      );
+      assert.equal(mixed.ok, true);
+    } finally {
+      console.error = original;
+    }
   });
 });
 
 test("church claim uses the same pantry desk, so the owner is emailed", async () => {
-  const { calls, send } = sent();
-  const result = await deliverOwnerPantrySignupNotice({ ...signup, kind: "church", pantryName: "qa-delete-me- Chapel" }, send);
-  assert.equal(result.skipped, false);
-  assert.equal(calls.length, 1);
-  assert.match(calls[0].subject, /qa-delete-me- Chapel/);
+  await withoutOwnerEnv(async () => {
+    const { calls, send } = sent();
+    const result = await deliverOwnerPantrySignupNotice({ ...signup, kind: "church", pantryName: "qa-delete-me- Chapel" }, send);
+    assert.equal(result.skipped, false);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].to, "lincoln@unitedundergod.org");
+    assert.match(calls[0].subject, /qa-delete-me- Chapel/);
+  });
 });
 
 test("signup still succeeds when the mailer throws", async () => {
@@ -111,7 +142,7 @@ test("signup still succeeds when the mailer throws", async () => {
     assert.equal(response.ok, true);
     assert.equal(response.pantryId, "pantry-1");
     assert.equal(logs.length, 1);
-    assert.equal(logs[0][0], "[plenty] owner pantry signup notice failed:");
+    assert.equal(logs[0][0], "[plenty] owner attention email failed:");
     assert.equal(logs[0][1], "mailer rejected");
     assert.equal(JSON.stringify(logs).includes("ada@example.com"), false);
     assert.equal(JSON.stringify(logs).includes("912-555-0100"), false);

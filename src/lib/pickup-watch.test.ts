@@ -6,7 +6,9 @@ import {
   composePickupAttention,
   composeReminder,
   dueReminders,
+  groupPickups,
   pickupIsOverdue,
+  pickupNeedsScheduling,
   runPickupWatch,
   sortUpcoming,
   type ReminderRow
@@ -27,7 +29,7 @@ function row(patch: Partial<ReminderRow> = {}): ReminderRow {
     notes: "leftover produce",
     window_text: "",
     reminder_24h_at: null,
-    reminder_2h_at: null,
+    reminder_morning_at: null,
     overdue_alert_at: null,
     ...patch
   };
@@ -82,34 +84,44 @@ test("the request still completes when the owner email fails", async () => {
   assert.deepEqual(watch.sent, []);
 });
 
-test("upcoming pickups sort soonest first and flag overdue open rows", () => {
+test("unscheduled requests sit above upcoming pickups, then overdue", () => {
   const now = new Date("2026-09-28T16:00:00.000Z");
   const rows = [
     row({ id: "later", scheduled_for: "2026-09-29T16:00:00.000Z" }),
-    row({ id: "none", scheduled_for: null }),
+    row({ id: "none", scheduled_for: null, window_text: "" }),
+    row({ id: "window", scheduled_for: null, window_text: "sometime Tuesday" }),
     row({ id: "done", status: "done", scheduled_for: "2026-09-27T16:00:00.000Z" }),
     row({ id: "overdue", scheduled_for: "2026-09-28T15:00:00.000Z" }),
     row({ id: "cancelled", status: "cancelled", scheduled_for: "2026-09-28T14:00:00.000Z" })
   ];
-  assert.deepEqual(sortUpcoming(rows, now).map((item) => item.id), ["overdue", "later", "none", "done", "cancelled"]);
-  assert.equal(pickupIsOverdue(rows[3], now), true);
-  assert.equal(pickupIsOverdue(rows[2], now), false);
-  assert.equal(pickupIsOverdue(rows[4], now), false);
+  assert.deepEqual(sortUpcoming(rows, now).map((item) => item.id), ["none", "window", "later", "overdue", "done", "cancelled"]);
+  const groups = groupPickups(rows, now);
+  assert.deepEqual(groups.needsScheduling.map((item) => item.id), ["none", "window"]);
+  assert.deepEqual(groups.upcoming.map((item) => item.id), ["later"]);
+  assert.deepEqual(groups.overdue.map((item) => item.id), ["overdue"]);
+  assert.equal(pickupNeedsScheduling(rows[1]), true);
+  assert.equal(pickupNeedsScheduling(rows[2]), true);
+  assert.equal(pickupNeedsScheduling(rows[0]), false);
+  assert.equal(pickupIsOverdue(rows[4], now), true);
+  assert.equal(pickupIsOverdue(rows[3], now), false);
+  assert.equal(pickupIsOverdue(rows[5], now), false);
 });
 
-test("reminders send once at 24h, again at 2h only if unassigned, and once when overdue", async () => {
+test("reminders send once about 24h before, once at 7 AM Eastern on the pickup day, and once when overdue", async () => {
   const soon = row({ scheduled_for: "2026-09-28T20:00:00.000Z" });
   assert.deepEqual(dueReminders(soon, new Date("2026-09-27T20:00:00.000Z")), ["24h"]);
   assert.deepEqual(dueReminders({ ...soon, reminder_24h_at: "sent" }, new Date("2026-09-27T20:00:00.000Z")), []);
 
-  const almost = row({ scheduled_for: "2026-09-28T18:00:00.000Z", reminder_24h_at: "sent" });
-  assert.deepEqual(dueReminders(almost, new Date("2026-09-28T16:30:00.000Z")), ["2h"]);
+  const today = row({ scheduled_for: "2026-09-28T18:00:00.000Z", reminder_24h_at: "sent" });
+  assert.deepEqual(dueReminders(today, new Date("2026-09-28T10:59:00.000Z")), []);
+  assert.deepEqual(dueReminders(today, new Date("2026-09-28T11:00:00.000Z")), ["morning"]);
   assert.deepEqual(
-    dueReminders({ ...almost, assigned_user_id: "driver-1" }, new Date("2026-09-28T16:30:00.000Z")),
-    []
+    dueReminders({ ...today, assigned_user_id: "driver-1" }, new Date("2026-09-28T11:00:00.000Z")),
+    ["morning"]
   );
+  assert.deepEqual(dueReminders({ ...today, reminder_morning_at: "sent" }, new Date("2026-09-28T12:00:00.000Z")), []);
 
-  const late = row({ scheduled_for: "2026-09-28T15:00:00.000Z", reminder_24h_at: "sent", reminder_2h_at: "sent" });
+  const late = row({ scheduled_for: "2026-09-28T15:00:00.000Z", reminder_24h_at: "sent", reminder_morning_at: "sent" });
   assert.deepEqual(dueReminders(late, new Date("2026-09-28T16:00:00.000Z")), ["overdue"]);
   assert.deepEqual(dueReminders({ ...late, overdue_alert_at: "sent" }, new Date("2026-09-28T16:00:00.000Z")), []);
   assert.deepEqual(dueReminders({ ...late, status: "done" }, new Date("2026-09-28T16:00:00.000Z")), []);
@@ -138,8 +150,18 @@ test("reminders send once at 24h, again at 2h only if unassigned, and once when 
 
   const overdue = composeReminder(late, "overdue", reviewUrl);
   assert.match(overdue.subject, /time passed/);
-  const unassigned = composeReminder(almost, "2h", reviewUrl);
-  assert.match(unassigned.subject, /nobody is assigned/);
+  const morning = composeReminder(today, "morning", reviewUrl);
+  assert.equal(morning.subject, "Pickup today: qa-delete-me- Lyons Market");
+});
+
+test("the pickup desk lists unscheduled requests under Needs scheduling", () => {
+  const page = readFileSync(new URL("../app/run/pickups/page.tsx", import.meta.url), "utf8");
+  const calendar = readFileSync(new URL("../app/run/calendar/page.tsx", import.meta.url), "utf8");
+  assert.equal(page.indexOf("Needs scheduling") < page.indexOf("Upcoming pickups"), true);
+  assert.equal(page.indexOf("Upcoming pickups") < page.indexOf(">Overdue<"), true);
+  assert.equal(page.includes("groupPickups"), true);
+  assert.equal(calendar.includes("Needs scheduling"), true);
+  assert.equal(calendar.includes("groupPickups"), true);
 });
 
 test("owner pickup mail is only on pickup, food-load, and store request paths", () => {
