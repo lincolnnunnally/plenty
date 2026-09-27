@@ -1,9 +1,10 @@
 import { fail, ok, readJson, requireDeskPantry, requireStewardFor, requireUser, str } from "@/lib/api";
 import { defaultPantryDestination } from "@/lib/db/pickup-desk";
-import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
+import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listAllies, listLocations, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
 import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
 import { ownerDeskUrl } from "@/lib/owner-signup-notice";
 import { deliverPickupNotice } from "@/lib/pickup-mail";
+import { pickupDeliverLine } from "@/lib/pickup-routes";
 import { composePickupAttention } from "@/lib/pickup-watch";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,15 @@ export async function POST(request: Request) {
       if (str(body.address) && !str(body.status)) {
         const address = str(body.address);
         const when = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
-        const pounds = str(body.pounds) ? Number(str(body.pounds)) : undefined;
+        const pounds =
+          body.pounds === undefined
+            ? undefined
+            : (() => {
+                const text = str(body.pounds);
+                if (!text) return null;
+                const amount = Number(text);
+                return Number.isFinite(amount) && amount > 0 ? amount : null;
+              })();
         const current = await getPickup(str(body.id), pantry.id);
         await patchPickup(str(body.id), {
           address,
@@ -40,8 +49,21 @@ export async function POST(request: Request) {
           destLocationId: body.destLocationId !== undefined ? str(body.destLocationId) || null : undefined,
           destNote: current?.kind === "household_delivery" ? address : body.destNote !== undefined ? str(body.destNote) : undefined,
           itemsText: body.itemsText !== undefined ? str(body.itemsText) : undefined,
-          pounds: pounds !== undefined && Number.isFinite(pounds) ? pounds : undefined
+          pounds
         });
+        const moved = await getPickup(str(body.id), pantry.id);
+        const [allies, locations] = await Promise.all([
+          listAllies(pantry.id).catch(() => []),
+          listLocations(pantry.id).catch(() => [])
+        ]);
+        const place = moved?.dest_location_id ? locations.find((item) => item.id === moved.dest_location_id) : null;
+        const deliverTo = moved
+          ? pickupDeliverLine(moved, {
+              ally: moved.dest_ally_id ? allies.find((ally) => ally.id === moved.dest_ally_id)?.name || "" : "",
+              location: place ? [place.name, place.address].filter(Boolean).join(" · ") : "",
+              pantry: [pantry.name, pantry.address].filter(Boolean).join(" · ")
+            })
+          : address;
         const crew = await listVolunteers(pantry.id);
         const assigned = str(body.assignedUserId);
         const people = assigned ? crew.filter((v) => v.user_id === assigned) : crew.filter((v) => v.roles.includes("pickup") || v.roles.includes("delivery"));
@@ -49,10 +71,9 @@ export async function POST(request: Request) {
           pantryId: pantry.id,
           people,
           subject: "Plenty pickup location changed",
-          text: `Go here: ${address}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
+          text: `Go here: ${address}\nTake it to: ${deliverTo}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
           audience: assigned ? "assigned driver" : "pickup"
         });
-        const moved = await getPickup(str(body.id), pantry.id);
         if (moved?.kind === "household_delivery") {
           const hh = moved.household_id ? await getHousehold(moved.household_id, pantry.id).catch(() => null) : null;
           await pingHousehold(moved.contact_phone, moved.scheduled_for, moved.address, hh ? hh.reach_ok : true);

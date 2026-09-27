@@ -378,8 +378,9 @@ export async function updateFoodLoad(
   if (updated && patch.status === "received" && prior?.status !== "received") {
     await putLoadOnShelves(updated).catch(() => null);
   }
-  const destChanged = patch.destAllyId !== undefined || patch.destNote != null || patch.pickupAt !== undefined;
-  if (updated && destChanged) {
+  const destinationChanged = patch.destAllyId !== undefined || patch.destNote != null;
+  const scheduleChanged = destinationChanged || patch.pickupAt !== undefined;
+  if (updated && scheduleChanged) {
     const allies = await listAllies(pantryId);
     const destName = updated.dest_ally_id ? allies.find((a) => a.id === updated.dest_ally_id)?.name : updated.dest_note;
     const destLine = destName || updated.dest_note || "Plenty";
@@ -390,7 +391,14 @@ export async function updateFoodLoad(
     if (updated.pickup_id) {
       await patchPickup(updated.pickup_id, {
         notes: `Pick up at ${pickupPlace}. Take it to ${destLine}. ${updated.route_reason}`,
-        scheduledFor: when
+        scheduledFor: when,
+        ...(destinationChanged
+          ? {
+              destAllyId: updated.dest_ally_id,
+              destLocationId: null,
+              destNote: updated.dest_note || destLine
+            }
+          : {})
       });
     }
     if (updated.shift_id) {

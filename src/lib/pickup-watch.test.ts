@@ -93,11 +93,12 @@ test("unscheduled requests sit above upcoming pickups, then overdue", () => {
     row({ id: "marked", status: "needs_scheduling", scheduled_for: "2026-09-29T18:00:00.000Z" }),
     row({ id: "done", status: "done", scheduled_for: "2026-09-27T16:00:00.000Z" }),
     row({ id: "overdue", scheduled_for: "2026-09-28T15:00:00.000Z" }),
+    row({ id: "stale-unscheduled", status: "needs_scheduling", scheduled_for: "2026-09-28T12:00:00.000Z" }),
     row({ id: "cancelled", status: "cancelled", scheduled_for: "2026-09-28T14:00:00.000Z" })
   ];
-  assert.deepEqual(sortUpcoming(rows, now).map((item) => item.id), ["none", "window", "marked", "later", "overdue", "done", "cancelled"]);
+  assert.deepEqual(sortUpcoming(rows, now).map((item) => item.id), ["none", "window", "marked", "stale-unscheduled", "later", "overdue", "done", "cancelled"]);
   const groups = groupPickups(rows, now);
-  assert.deepEqual(groups.needsScheduling.map((item) => item.id), ["none", "window", "marked"]);
+  assert.deepEqual(groups.needsScheduling.map((item) => item.id), ["none", "window", "marked", "stale-unscheduled"]);
   assert.deepEqual(groups.upcoming.map((item) => item.id), ["later"]);
   assert.deepEqual(groups.overdue.map((item) => item.id), ["overdue"]);
   const byId = (id: string) => rows.find((item) => item.id === id)!;

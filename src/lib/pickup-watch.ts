@@ -44,7 +44,7 @@ export function groupPickups<T extends PickupTiming>(rows: T[], now = new Date()
   return {
     needsScheduling: rows.filter((row) => pickupNeedsScheduling(row)),
     upcoming: rows.filter((row) => !pickupIsClosed(row.status) && !pickupNeedsScheduling(row) && row.scheduled_for && !pickupIsOverdue(row, now)).sort(byTime),
-    overdue: rows.filter((row) => pickupIsOverdue(row, now)).sort(byTime),
+    overdue: rows.filter((row) => pickupIsOverdue(row, now) && !pickupNeedsScheduling(row)).sort(byTime),
     finished: rows.filter((row) => pickupIsClosed(row.status))
   };
 }
