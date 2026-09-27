@@ -6,6 +6,7 @@ import { ensureFoodDonors, listDonorActivity, listStorePartners, listStorePeople
 import { activityLabel, donorKindLabel, parseDonorMeta } from "@/lib/donors/starting";
 import { coordsForName } from "@/lib/maps";
 import { COVERAGE, DEPARTMENTS, coverageLabel, departmentLabel, leftoverPotential } from "@/lib/store-people";
+import { pickupTimeLabel, resolvePickupTimeZone } from "@/lib/schedule";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
@@ -181,7 +182,7 @@ export default async function FoodDonorsPage() {
 
                   <h3 style={{ marginTop: 16 }}>They have a load</h3>
                   <PostForm action={`/api/food-donors/${p.id}/load`} submitLabel="Post pickup for volunteers">
-                    <label className="field"><span>Pickup time (Eastern)</span><input className="input" type="datetime-local" name="pickupAt" required /></label>
+                    <label className="field"><span>{pickupTimeLabel(resolvePickupTimeZone({ pantry }), "Pickup time")}</span><input className="input" type="datetime-local" name="pickupAt" required /></label>
                     <input type="hidden" name="frozen" value="0" />
                     <input type="hidden" name="dry" value="0" />
                     <input type="hidden" name="refrigerated" value="0" />

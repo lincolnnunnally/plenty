@@ -1,3 +1,5 @@
+import { DEFAULT_PICKUP_TIMEZONE, validTimeZone } from "./schedule.ts";
+
 export const PICKUP_CLOSED = new Set(["done", "completed", "cancelled", "canceled"]);
 
 export type PickupTiming = {
@@ -20,6 +22,7 @@ export type ReminderRow = PickupTiming & {
   reminder_24h_at: string | null;
   reminder_morning_at: string | null;
   overdue_alert_at: string | null;
+  time_zone?: string | null;
 };
 
 export function pickupIsClosed(status: string) {
@@ -54,9 +57,9 @@ export function sortUpcoming<T extends PickupTiming>(rows: T[], now = new Date()
   return [...groups.needsScheduling, ...groups.upcoming, ...groups.overdue, ...groups.finished];
 }
 
-function easternClock(when: Date) {
+function zoneClock(when: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -68,22 +71,27 @@ function easternClock(when: Date) {
   return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: hour === 24 ? 0 : hour };
 }
 
-/** True once it is 7 AM America/New_York on the pickup's calendar day, and the pickup is still ahead. */
-export function isPickupMorning(scheduledFor: string, now: Date) {
+function zoneOf(timeZone?: string | null) {
+  return validTimeZone(timeZone) || DEFAULT_PICKUP_TIMEZONE;
+}
+
+/** True once it is 7 AM in the pickup zone on the pickup's calendar day, and the pickup is still ahead. */
+export function isPickupMorning(scheduledFor: string, now: Date, timeZone?: string | null) {
+  const zone = zoneOf(timeZone);
   const at = new Date(scheduledFor);
   if (Number.isNaN(at.getTime()) || at.getTime() <= now.getTime()) return false;
-  const pickup = easternClock(at);
-  const current = easternClock(now);
+  const pickup = zoneClock(at, zone);
+  const current = zoneClock(now, zone);
   return pickup.date === current.date && current.hour >= 7;
 }
 
-export function formatEasternWhen(iso: string | null, windowText = "") {
+export function formatEasternWhen(iso: string | null, windowText = "", timeZone?: string | null) {
   const window = windowText.replace(/[\r\n]+/g, " ").trim();
   if (!iso) return window || "time not set";
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return window || "time not set";
   const stamp = at.toLocaleString("en-US", {
-    timeZone: "America/New_York",
+    timeZone: zoneOf(timeZone),
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -110,11 +118,12 @@ export function composePickupAttention(input: {
   what: string;
   reviewUrl: string;
   headline?: string;
+  timeZone?: string | null;
 }) {
   const who = oneLine(input.org || input.contactName, "someone");
   const subject = input.headline || `Pickup needs someone to show up: ${who}`;
   const text = [
-    `When: ${formatEasternWhen(input.whenIso, input.windowText || "")}`,
+    `When: ${formatEasternWhen(input.whenIso, input.windowText || "", input.timeZone)}`,
     `Where: ${oneLine(input.address, "not given")}`,
     `What: ${oneLine(input.what, "not given")}`,
     `Org: ${oneLine(input.org, "not given")}`,
@@ -132,7 +141,7 @@ export function dueReminders(row: ReminderRow, now: Date): ReminderKind[] {
   if (ms <= 0) return row.overdue_alert_at ? [] : ["overdue"];
   const due: ReminderKind[] = [];
   if (ms <= 24 * 3600000 && !row.reminder_24h_at) due.push("24h");
-  if (isPickupMorning(row.scheduled_for, now) && !row.reminder_morning_at) due.push("morning");
+  if (isPickupMorning(row.scheduled_for, now, row.time_zone) && !row.reminder_morning_at) due.push("morning");
   return due;
 }
 
@@ -153,7 +162,8 @@ export function composeReminder(row: ReminderRow, kind: ReminderKind, reviewUrl:
     windowText: row.window_text,
     what: row.notes || row.kind,
     reviewUrl,
-    headline
+    headline,
+    timeZone: row.time_zone
   });
 }
 

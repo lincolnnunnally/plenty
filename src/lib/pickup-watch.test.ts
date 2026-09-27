@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { deliverOwnerAttention } from "./owner-signup-notice.ts";
-import { parseEasternDateTime } from "./schedule.ts";
+import { parseEasternDateTime, parseZonedDateTime } from "./schedule.ts";
 import {
   composePickupAttention,
   composeReminder,
@@ -160,21 +160,93 @@ test("reminders send once about 24h before, once at 7 AM Eastern on the pickup d
   assert.equal(morning.subject, "Pickup today: qa-delete-me- Lyons Market");
 });
 
-test("10:00 Eastern on the donor form is 10:00 AM EDT, and reminders use that instant", () => {
+test("10:00 AM ET on an EDT date is 14:00 UTC on the card, in every email, and in the reminder clock", () => {
   const stored = parseEasternDateTime("2026-10-01T10:00");
   assert.equal(stored, "2026-10-01T14:00:00.000Z");
   const shown = formatEasternWhen(stored);
-  assert.match(shown, /10:00 AM EDT/);
+  assert.match(shown, /Thu, Oct 1, 2026, 10:00 AM EDT/);
   assert.equal(shown.includes("6:00"), false);
+
+  const cardAndRequest = composePickupAttention({
+    org: "qa-delete-me- Lyons Market",
+    contactName: "Ada Manager",
+    contactPhone: "912-555-0199",
+    address: "12 Main St, Lyons, GA",
+    whenIso: stored,
+    what: "leftover produce",
+    reviewUrl
+  });
+  assert.match(cardAndRequest.text, /When: Thu, Oct 1, 2026, 10:00 AM EDT/);
+  assert.equal(cardAndRequest.text.includes("6:00"), false);
+
   const pickup = row({ id: "qa-delete-me-ten", scheduled_for: stored, reminder_24h_at: null, reminder_morning_at: null, overdue_alert_at: null });
   assert.deepEqual(dueReminders(pickup, new Date("2026-09-30T13:59:00.000Z")), []);
   assert.deepEqual(dueReminders(pickup, new Date("2026-09-30T14:00:00.000Z")), ["24h"]);
+  const dayBefore = composeReminder(pickup, "24h", reviewUrl);
+  assert.equal(dayBefore.subject, "Pickup in about 24 hours: qa-delete-me- Lyons Market");
+  assert.match(dayBefore.text, /When: Thu, Oct 1, 2026, 10:00 AM EDT/);
+
   assert.deepEqual(dueReminders({ ...pickup, reminder_24h_at: "sent" }, new Date("2026-10-01T10:59:00.000Z")), []);
   assert.deepEqual(dueReminders({ ...pickup, reminder_24h_at: "sent" }, new Date("2026-10-01T11:00:00.000Z")), ["morning"]);
-  assert.deepEqual(
-    dueReminders({ ...pickup, reminder_24h_at: "sent", reminder_morning_at: "sent" }, new Date("2026-10-01T14:01:00.000Z")),
-    ["overdue"]
-  );
+  const morning = composeReminder({ ...pickup, reminder_24h_at: "sent" }, "morning", reviewUrl);
+  assert.equal(morning.subject, "Pickup today: qa-delete-me- Lyons Market");
+  assert.match(morning.text, /When: Thu, Oct 1, 2026, 10:00 AM EDT/);
+
+  const late = { ...pickup, reminder_24h_at: "sent", reminder_morning_at: "sent" };
+  assert.deepEqual(dueReminders(late, new Date("2026-10-01T13:59:00.000Z")), []);
+  assert.deepEqual(dueReminders(late, new Date("2026-10-01T14:01:00.000Z")), ["overdue"]);
+  const overdue = composeReminder(late, "overdue", reviewUrl);
+  assert.match(overdue.subject, /time passed/);
+  assert.match(overdue.text, /When: Thu, Oct 1, 2026, 10:00 AM EDT/);
+  assert.equal(overdue.text.includes("6:00"), false);
+});
+
+test("10:00 AM ET on an EST date is 15:00 UTC, and the morning reminder is 7:00 AM ET", () => {
+  const stored = parseEasternDateTime("2026-12-03T10:00");
+  assert.equal(stored, "2026-12-03T15:00:00.000Z");
+  const shown = formatEasternWhen(stored);
+  assert.match(shown, /Thu, Dec 3, 2026, 10:00 AM EST/);
+  assert.equal(shown.includes("5:00"), false);
+
+  const request = composePickupAttention({
+    org: "qa-delete-me- Lyons Market",
+    contactName: "Ada Manager",
+    contactPhone: "ada@example.com",
+    address: "12 Main St, Lyons, GA",
+    whenIso: stored,
+    what: "canned goods",
+    reviewUrl
+  });
+  assert.match(request.text, /When: Thu, Dec 3, 2026, 10:00 AM EST/);
+
+  const pickup = row({ id: "qa-delete-me-dec", scheduled_for: stored });
+  assert.deepEqual(dueReminders(pickup, new Date("2026-12-02T14:59:00.000Z")), []);
+  assert.deepEqual(dueReminders(pickup, new Date("2026-12-02T15:00:00.000Z")), ["24h"]);
+  assert.match(composeReminder(pickup, "24h", reviewUrl).text, /When: Thu, Dec 3, 2026, 10:00 AM EST/);
+
+  assert.deepEqual(dueReminders({ ...pickup, reminder_24h_at: "sent" }, new Date("2026-12-03T11:59:00.000Z")), []);
+  assert.deepEqual(dueReminders({ ...pickup, reminder_24h_at: "sent" }, new Date("2026-12-03T12:00:00.000Z")), ["morning"]);
+  const morning = composeReminder({ ...pickup, reminder_24h_at: "sent" }, "morning", reviewUrl);
+  assert.match(morning.text, /When: Thu, Dec 3, 2026, 10:00 AM EST/);
+  assert.equal(morning.subject, "Pickup today: qa-delete-me- Lyons Market");
+
+  const late = { ...pickup, reminder_24h_at: "sent", reminder_morning_at: "sent" };
+  assert.deepEqual(dueReminders(late, new Date("2026-12-03T15:01:00.000Z")), ["overdue"]);
+  assert.match(composeReminder(late, "overdue", reviewUrl).text, /When: Thu, Dec 3, 2026, 10:00 AM EST/);
+});
+
+test("a non-Eastern pickup zone moves the morning reminder with the wall clock", () => {
+  const stored = parseZonedDateTime("2026-10-01T10:00", "America/Chicago");
+  assert.equal(stored, "2026-10-01T15:00:00.000Z");
+  const shown = formatEasternWhen(stored, "", "America/Chicago");
+  assert.match(shown, /10:00 AM CDT/);
+  assert.equal(shown.includes("EDT"), false);
+  const pickup = row({ scheduled_for: stored, time_zone: "America/Chicago", reminder_24h_at: "sent" });
+  assert.deepEqual(dueReminders(pickup, new Date("2026-09-30T14:59:00.000Z")), []);
+  assert.deepEqual(dueReminders({ ...pickup, reminder_24h_at: null }, new Date("2026-09-30T15:00:00.000Z")), ["24h"]);
+  assert.deepEqual(dueReminders(pickup, new Date("2026-10-01T11:00:00.000Z")), []);
+  assert.deepEqual(dueReminders(pickup, new Date("2026-10-01T12:00:00.000Z")), ["morning"]);
+  assert.match(composeReminder(pickup, "morning", reviewUrl).text, /10:00 AM CDT/);
 });
 
 test("the pickup desk lists unscheduled requests under Needs scheduling", () => {

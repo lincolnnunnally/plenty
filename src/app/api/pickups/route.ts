@@ -1,12 +1,13 @@
 import { fail, ok, readJson, requireDeskPantry, requireStewardFor, requireUser, str } from "@/lib/api";
 import { defaultPantryDestination } from "@/lib/db/pickup-desk";
-import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listAllies, listLocations, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
+import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listAllies, listLocations, listVolunteers, patchPickup, setPickupStatus, type LocationRow, type Pantry } from "@/lib/db/queries";
 import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
 import { ownerDeskUrl } from "@/lib/owner-signup-notice";
 import { deliverPickupNotice } from "@/lib/pickup-mail";
+import { donorPickupContact } from "@/lib/pickup-contact";
 import { pickupDeliverLine } from "@/lib/pickup-routes";
 import { composePickupAttention, formatEasternWhen } from "@/lib/pickup-watch";
-import { parseEasternDateTime } from "@/lib/schedule";
+import { parseZonedDateTime, resolvePickupTimeZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +15,28 @@ function on(value: unknown) {
   return value === true || value === "true" || value === "on" || value === "yes";
 }
 
-/** Blank stays blank. A filled datetime-local value is Eastern wall time. */
-function easternWhen(value: unknown): string | null | undefined {
+/** Blank stays blank. A filled datetime-local value is wall time in the pantry or location zone. */
+function zonedWhen(value: unknown, timeZone: string): string | null | undefined {
   const text = str(value);
   if (!text) return null;
-  const iso = parseEasternDateTime(text);
+  const iso = parseZonedDateTime(text, timeZone);
   if (!iso) return undefined;
   return iso;
 }
 
-async function pingHousehold(phone: string, when: string | null, extra: string, reachOk = true) {
+function timeZoneFor(pantry: Pantry, locations: LocationRow[], locationId: string | null) {
+  const location = locationId ? locations.find((place) => place.id === locationId) : null;
+  return resolvePickupTimeZone({ pantry, location });
+}
+
+async function deskZone(pantry: Pantry, locationId: string | null) {
+  const locations = await listLocations(pantry.id).catch(() => [] as LocationRow[]);
+  return { locations, timeZone: timeZoneFor(pantry, locations, locationId) };
+}
+
+async function pingHousehold(phone: string, when: string | null, extra: string, reachOk = true, timeZone?: string) {
   if (!phone || !reachOk) return;
-  const time = when ? formatEasternWhen(when) : "soon";
+  const time = when ? formatEasternWhen(when, "", timeZone) : "soon";
   await sendSms(phone, `Plenty: food is coming ${time}. ${extra} If plans change, call the pantry.`.slice(0, 1500)).catch(() => ({ ok: false, error: "" }));
 }
 
@@ -39,8 +50,10 @@ export async function POST(request: Request) {
     try {
       if (str(body.address) && !str(body.status)) {
         const address = str(body.address);
-        const when = easternWhen(body.scheduledFor);
-        if (when === undefined) return fail("Enter the pickup time in Eastern time.");
+        const current = await getPickup(str(body.id), pantry.id);
+        const zone = await deskZone(pantry, str(body.destLocationId) || current?.dest_location_id || null);
+        const when = zonedWhen(body.scheduledFor, zone.timeZone);
+        if (when === undefined) return fail(`Enter the pickup time in ${zone.timeZone}.`);
         const pounds =
           body.pounds === undefined
             ? undefined
@@ -50,7 +63,6 @@ export async function POST(request: Request) {
                 const amount = Number(text);
                 return Number.isFinite(amount) && amount > 0 ? amount : null;
               })();
-        const current = await getPickup(str(body.id), pantry.id);
         await patchPickup(str(body.id), {
           address,
           notes: str(body.notes) || undefined,
@@ -82,20 +94,22 @@ export async function POST(request: Request) {
           pantryId: pantry.id,
           people,
           subject: "Plenty pickup location changed",
-          text: `Go here: ${address}\nTake it to: ${deliverTo}\nWhen: ${when ? formatEasternWhen(when) : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
+          text: `Go here: ${address}\nTake it to: ${deliverTo}\nWhen: ${when ? formatEasternWhen(when, "", zone.timeZone) : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
           audience: assigned ? "assigned driver" : "pickup"
         });
         if (moved?.kind === "household_delivery") {
           const hh = moved.household_id ? await getHousehold(moved.household_id, pantry.id).catch(() => null) : null;
-          await pingHousehold(moved.contact_phone, moved.scheduled_for, moved.address, hh ? hh.reach_ok : true);
+          await pingHousehold(moved.contact_phone, moved.scheduled_for, moved.address, hh ? hh.reach_ok : true, zone.timeZone);
         }
         return ok({
           message: `Pickup moved. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
         });
       }
       const scheduledRaw = str(body.scheduledFor);
-      const scheduledFor = scheduledRaw ? easternWhen(scheduledRaw) : undefined;
-      if (scheduledRaw && scheduledFor === undefined) return fail("Enter the pickup time in Eastern time.");
+      const current = await getPickup(str(body.id), pantry.id);
+      const zone = await deskZone(pantry, current?.dest_location_id || null);
+      const scheduledFor = scheduledRaw ? zonedWhen(scheduledRaw, zone.timeZone) : undefined;
+      if (scheduledRaw && scheduledFor === undefined) return fail(`Enter the pickup time in ${zone.timeZone}.`);
       await setPickupStatus(str(body.id), str(body.status), {
         assignedUserId: str(body.assignedUserId) || undefined,
         scheduledFor
@@ -109,7 +123,7 @@ export async function POST(request: Request) {
               pantryId: pantry.id,
               people,
               subject: "Plenty pickup assigned to you",
-              text: `A pickup is scheduled.\nWhen: ${scheduledFor ? formatEasternWhen(scheduledFor) : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`,
+              text: `A pickup is scheduled.\nWhen: ${scheduledFor ? formatEasternWhen(scheduledFor, "", zone.timeZone) : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`,
               audience: "assigned"
             })
           : await notifyCrew({
@@ -117,12 +131,12 @@ export async function POST(request: Request) {
               crew,
               roles: ["pickup", "delivery"],
               subject: "Plenty pickup scheduled",
-              text: `A pickup is on the board.\nWhen: ${scheduledFor ? formatEasternWhen(scheduledFor) : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`
+              text: `A pickup is on the board.\nWhen: ${scheduledFor ? formatEasternWhen(scheduledFor, "", zone.timeZone) : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`
             });
         const row = await getPickup(str(body.id), pantry.id);
         if (row?.kind === "household_delivery") {
           const hh = row.household_id ? await getHousehold(row.household_id, pantry.id).catch(() => null) : null;
-          await pingHousehold(row.contact_phone, row.scheduled_for, [row.address, row.window_text].filter(Boolean).join(" · "), hh ? hh.reach_ok : true);
+          await pingHousehold(row.contact_phone, row.scheduled_for, [row.address, row.window_text].filter(Boolean).join(" · "), hh ? hh.reach_ok : true, zone.timeZone);
         }
         return ok({
           message: `Pickup updated. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."} The household was texted if we have a phone.`
@@ -150,19 +164,34 @@ export async function POST(request: Request) {
       ? (steward.error ? mine?.id : str(body.householdId) || mine?.id) || null
       : null;
   try {
-    const scheduledFor = easternWhen(body.scheduledFor);
-    if (scheduledFor === undefined) return fail("Enter the pickup time in Eastern time.");
     const pantryDest = kind === "household_delivery" ? { destLocationId: null, destNote: address } : str(body.destNote)
       ? { destLocationId: str(body.destLocationId) || null, destNote: str(body.destNote) }
       : await defaultPantryDestination(pantry);
+    const zone = await deskZone(pantry, pantryDest.destLocationId);
+    const scheduledFor = zonedWhen(body.scheduledFor, zone.timeZone);
+    if (scheduledFor === undefined) return fail(`Enter the pickup time in ${zone.timeZone}.`);
+    let contactName = str(body.contactName);
+    let contactPhone = [str(body.contactPhone), str(body.contactEmail)].filter(Boolean).join(" · ");
+    if (kind === "donation_pickup") {
+      const contact = donorPickupContact({
+        name: str(body.contactName),
+        phone: str(body.contactPhone),
+        email: str(body.contactEmail)
+      });
+      if (!contact.ok) return fail(contact.message);
+      contactName = contact.contactName;
+      contactPhone = contact.contactPhone;
+    } else if (!contactName) {
+      contactName = user.name;
+    }
     const pounds = str(body.pounds) ? Number(str(body.pounds)) : null;
     const pickup = await addPickup({
       pantryId: pantry.id,
       kind,
       scheduledFor,
       address,
-      contactName: str(body.contactName) || user.name,
-      contactPhone: [str(body.contactPhone), str(body.contactEmail)].filter(Boolean).join(" · "),
+      contactName,
+      contactPhone,
       notes: str(body.deskNote) || str(body.notes),
       createdBy: user.id,
       householdId,
@@ -183,7 +212,8 @@ export async function POST(request: Request) {
       whenIso: pickup.scheduled_for,
       windowText: pickup.window_text,
       what: [pickup.items_text || pickup.notes, pickup.pounds ? `${pickup.pounds} lb` : "", pickup.dest_note ? `Take it to ${pickup.dest_note}` : ""].filter(Boolean).join(" · ") || pickup.kind.replace(/_/g, " "),
-      reviewUrl: ownerDeskUrl("/run/pickups")
+      reviewUrl: ownerDeskUrl("/run/pickups"),
+      timeZone: zone.timeZone
     });
     await deliverPickupNotice({
       notice: "new",

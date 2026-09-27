@@ -3,6 +3,7 @@ import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import {
   listDistributions,
+  listLocations,
   listPickups,
   listPromoSends,
   listRecurring,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/db/queries";
 import { twilioConfigured } from "@/lib/notify";
 import { resendConfigured } from "@/lib/promote/email";
-import { WEEKDAYS, easternLocalInput, parseMonthWeeks, monthWeeksLabel } from "@/lib/schedule";
+import { WEEKDAYS, monthWeeksLabel, parseMonthWeeks, pickupTimeLabel, resolvePickupTimeZone, zonedLocalInput } from "@/lib/schedule";
 import { formatEasternWhen, groupPickups, pickupIsOverdue, pickupNeedsScheduling } from "@/lib/pickup-watch";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
@@ -21,14 +22,19 @@ export const dynamic = "force-dynamic";
 export default async function CalendarPage() {
   const { pantry } = await requirePantryDesk("/run/calendar");
   if (!pantry) redirect("/run");
-  const [shifts, pickups, days, jobs, stores, sends] = await Promise.all([
+  const [shifts, pickups, days, jobs, stores, sends, locations] = await Promise.all([
     listShifts(pantry.id),
     listPickups(pantry.id),
     listDistributions(pantry.id),
     listRecurring(pantry.id),
     listStorePartners(pantry.id),
-    listPromoSends(pantry.id).catch(() => [])
+    listPromoSends(pantry.id).catch(() => []),
+    listLocations(pantry.id).catch(() => [])
   ]);
+  const zoneFor = (destLocationId: string | null) => {
+    const location = destLocationId ? locations.find((place) => place.id === destLocationId) : null;
+    return resolvePickupTimeZone({ pantry, location });
+  };
   const now = new Date();
   const pickupGroups = groupPickups(pickups, now);
   const openDays = days.filter((d) => d.status !== "done" && d.status !== "cancelled");
@@ -173,12 +179,12 @@ export default async function CalendarPage() {
                       <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
                       {pickupNeedsScheduling(p) ? <p className="note">Needs scheduling — no confirmed date yet.</p> : null}
                       <strong>{p.address}</strong>
-                      <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                      <p>{formatEasternWhen(p.scheduled_for, p.window_text, zoneFor(p.dest_location_id))}</p>
                       <PostForm action="/api/pickups" submitLabel="Move this pickup">
                         <input type="hidden" name="id" value={p.id} />
                         {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                         <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                        <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
+                        <label className="field"><span>{pickupTimeLabel(zoneFor(p.dest_location_id))}</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={zonedLocalInput(p.scheduled_for, zoneFor(p.dest_location_id))} /></label>
                         <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
                       </PostForm>
                     </article>
@@ -194,12 +200,12 @@ export default async function CalendarPage() {
                     <article className="card" key={p.id}>
                       <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
                       <strong>{p.address}</strong>
-                      <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                      <p>{formatEasternWhen(p.scheduled_for, p.window_text, zoneFor(p.dest_location_id))}</p>
                       <PostForm action="/api/pickups" submitLabel="Move this pickup">
                         <input type="hidden" name="id" value={p.id} />
                         {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                         <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                        <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
+                        <label className="field"><span>{pickupTimeLabel(zoneFor(p.dest_location_id))}</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={zonedLocalInput(p.scheduled_for, zoneFor(p.dest_location_id))} /></label>
                         <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
                       </PostForm>
                     </article>
@@ -216,12 +222,12 @@ export default async function CalendarPage() {
                       <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
                       {pickupIsOverdue(p, now) ? <p className="note error">Overdue — the time passed and this is still open.</p> : null}
                       <strong>{p.address}</strong>
-                      <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                      <p>{formatEasternWhen(p.scheduled_for, p.window_text, zoneFor(p.dest_location_id))}</p>
                       <PostForm action="/api/pickups" submitLabel="Move this pickup">
                         <input type="hidden" name="id" value={p.id} />
                         {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                         <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                        <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
+                        <label className="field"><span>{pickupTimeLabel(zoneFor(p.dest_location_id))}</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={zonedLocalInput(p.scheduled_for, zoneFor(p.dest_location_id))} /></label>
                         <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
                       </PostForm>
                     </article>

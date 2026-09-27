@@ -1,7 +1,7 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
 import { alliesForOperator, updateFoodLoad } from "@/lib/db/food-loads";
 import { getDefaultPantry } from "@/lib/db/queries";
-import { parseEasternDateTime } from "@/lib/schedule";
+import { parseZonedDateTime, resolvePickupTimeZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +25,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (destAllyId && operated.length && !operated.some((a) => a.id === destAllyId) && !asSteward) {
     return fail("You can only claim food for your pantry.");
   }
+  const timeZone = resolvePickupTimeZone({ pantry });
   const pickupRaw = str(body.pickupAt);
-  const pickupAt = pickupRaw ? parseEasternDateTime(pickupRaw) : undefined;
-  if (pickupRaw && !pickupAt) return fail("Enter the pickup time in Eastern time.");
+  const pickupAt = pickupRaw ? parseZonedDateTime(pickupRaw, timeZone) : undefined;
+  if (pickupRaw && !pickupAt) return fail(`Enter the pickup time in ${timeZone}.`);
   try {
     const row = await updateFoodLoad(id, pantry.id, {
       status: status || undefined,

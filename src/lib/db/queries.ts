@@ -6,6 +6,7 @@ import { schemaGap } from "@/lib/db/schema-gap";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 import { newHouseholdPass, normalizePass } from "@/lib/pass";
 import { withUseBy } from "@/lib/use-by";
+import { validTimeZone } from "@/lib/schedule";
 
 export type Pantry = {
   id: string;
@@ -29,6 +30,7 @@ export type Pantry = {
   id_required: boolean;
   frequency_rules: string;
   giving_mode: string;
+  timezone?: string;
 };
 
 export type Household = {
@@ -231,6 +233,30 @@ export async function getDefaultPantrySafe() {
 }
 
 const PANTRY_COLS = "id, slug, name, city, state, zip, address, hours_text, about, phone, email, visit_style, status, source, receive_rules, donation_policy, donation_note, residency_rules, id_required, frequency_rules, giving_mode";
+const LOCATION_COLS = "id, pantry_id, name, address, hours_text, notes";
+const zoneColumnCache = new Map<string, "timezone" | "time_zone" | "">();
+
+async function colsWithZone(table: "plenty_pantries" | "plenty_locations", base: string): Promise<string> {
+  const cached = zoneColumnCache.get(table);
+  if (cached !== undefined) return cached ? `${base}, ${cached}` : base;
+  const client = await sb();
+  for (const column of ["timezone", "time_zone"] as const) {
+    const { error } = await client.from(table).select(column).limit(1);
+    if (!error) {
+      zoneColumnCache.set(table, column);
+      return `${base}, ${column}`;
+    }
+    if (!(schemaGap(error) || missingColumn(error, table, column))) break;
+  }
+  zoneColumnCache.set(table, "");
+  return base;
+}
+
+function withTimeZone<T extends { timezone?: string }>(row: T): T {
+  const raw = row as T & { time_zone?: string | null };
+  const zone = validTimeZone(raw.timezone || raw.time_zone);
+  return zone ? { ...row, timezone: zone } : row;
+}
 const HOUSEHOLD_COLS = "id, pantry_id, user_id, display_name, household_size, dietary_notes, phone, preferred_contact, notes, email, address, city, state, zip, adults_count, children_count, family_notes, delivery_ok, porch_leave_ok, porch_notes, food_waiver_signed_at, food_waiver_version, pass_code, reach_ok";
 const INV_COLS = "id, pantry_id, name, category, quantity, unit, available_this_week, we_need, low_at, notes, image_url";
 const DONATION_COLS = "id, pantry_id, user_id, kind, title, description, quantity, amount_cents, available_when, contact_name, contact_phone, contact_email, status, steward_notes, created_at, received_at, receipt_sent, tenure, asset_kind";
@@ -285,25 +311,25 @@ export async function ensureOwnerMembership(user: { id: string; email: string })
 
 export async function getPantryBySlug(slug: string): Promise<Pantry | null> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).eq("slug", slug).maybeSingle();
+  const { data, error } = await client.from("plenty_pantries").select(await colsWithZone("plenty_pantries", PANTRY_COLS)).eq("slug", slug).maybeSingle();
   fail(error);
-  return (data as Pantry | null) ?? null;
+  return data ? withTimeZone(data as unknown as Pantry) : null;
 }
 
 export async function getDefaultPantry(): Promise<Pantry | null> {
   const bySlug = await getPantryBySlug(DEFAULT_PANTRY_SLUG);
   if (bySlug) return bySlug;
   const client = await sb();
-  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).order("created_at", { ascending: true }).limit(1);
+  const { data, error } = await client.from("plenty_pantries").select(await colsWithZone("plenty_pantries", PANTRY_COLS)).order("created_at", { ascending: true }).limit(1);
   fail(error);
-  return (data?.[0] as Pantry | undefined) ?? null;
+  return data?.[0] ? withTimeZone(data[0] as unknown as Pantry) : null;
 }
 
 export async function listPantries(): Promise<Pantry[]> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).order("created_at", { ascending: true });
+  const { data, error } = await client.from("plenty_pantries").select(await colsWithZone("plenty_pantries", PANTRY_COLS)).order("created_at", { ascending: true });
   fail(error);
-  return (data as Pantry[]) || [];
+  return ((data as unknown as Pantry[]) || []).map((row) => withTimeZone(row));
 }
 
 export async function upsertPantry(
@@ -335,14 +361,14 @@ export async function upsertPantry(
   };
   const clean = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
   if (id) {
-    const { data, error } = await client.from("plenty_pantries").update(clean).eq("id", id).select(PANTRY_COLS).single();
+    const { data, error } = await client.from("plenty_pantries").update(clean).eq("id", id).select(await colsWithZone("plenty_pantries", PANTRY_COLS)).single();
     fail(error);
     if (!data) throw new Error("Pantry not found.");
-    return data as Pantry;
+    return withTimeZone(data as unknown as Pantry);
   }
-  const { data, error } = await client.from("plenty_pantries").insert({ ...clean, giving_mode: fields.giving_mode === "own" ? "own" : "uug", created_by: fields.created_by ?? null }).select(PANTRY_COLS).single();
+  const { data, error } = await client.from("plenty_pantries").insert({ ...clean, giving_mode: fields.giving_mode === "own" ? "own" : "uug", created_by: fields.created_by ?? null }).select(await colsWithZone("plenty_pantries", PANTRY_COLS)).single();
   fail(error);
-  return data as Pantry;
+  return withTimeZone(data as unknown as Pantry);
 }
 
 export async function addMembership(pantryId: string, userId: string, role: string) {
@@ -388,9 +414,9 @@ export async function listStewardPantries(userId: string, email?: string | null)
 
 export async function getPantryById(id: string): Promise<Pantry | null> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pantries").select(PANTRY_COLS).eq("id", id).maybeSingle();
+  const { data, error } = await client.from("plenty_pantries").select(await colsWithZone("plenty_pantries", PANTRY_COLS)).eq("id", id).maybeSingle();
   fail(error);
-  return (data as Pantry | null) ?? null;
+  return data ? withTimeZone(data as unknown as Pantry) : null;
 }
 
 export async function getSetting(key: string): Promise<string> {
@@ -1085,6 +1111,7 @@ export type LocationRow = {
   address: string;
   hours_text: string;
   notes: string;
+  timezone?: string;
 };
 
 export type Pickup = {
@@ -1235,16 +1262,16 @@ export async function addLocation(input: { pantryId: string; name: string; addre
     address: input.address,
     hours_text: input.hoursText,
     notes: input.notes
-  }).select("id, pantry_id, name, address, hours_text, notes").single();
+  }).select(await colsWithZone("plenty_locations", LOCATION_COLS)).single();
   fail(error);
-  return data as LocationRow;
+  return withTimeZone(data as unknown as LocationRow);
 }
 
 export async function listLocations(pantryId: string): Promise<LocationRow[]> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_locations").select("id, pantry_id, name, address, hours_text, notes").eq("pantry_id", pantryId).order("name");
+  const { data, error } = await client.from("plenty_locations").select(await colsWithZone("plenty_locations", LOCATION_COLS)).eq("pantry_id", pantryId).order("name");
   fail(error);
-  return (data as LocationRow[]) || [];
+  return ((data as unknown as LocationRow[]) || []).map((row) => withTimeZone(row));
 }
 
 const PICKUP_COLS = "id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at, household_id, will_be_home, porch_leave_ok, assigned_user_id, window_text";
@@ -1330,6 +1357,7 @@ export async function listPickups(pantryId: string): Promise<Pickup[]> {
 
 const REMINDER_COLS =
   "id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, window_text, assigned_user_id, reminder_24h_at, reminder_morning_at, overdue_alert_at";
+const REMINDER_WITH_DEST = `${REMINDER_COLS}, dest_location_id`;
 
 export type PickupReminderRow = {
   id: string;
@@ -1346,17 +1374,25 @@ export type PickupReminderRow = {
   reminder_24h_at: string | null;
   reminder_morning_at: string | null;
   overdue_alert_at: string | null;
+  dest_location_id?: string | null;
 };
 
 export async function listPickupReminders(): Promise<PickupReminderRow[]> {
   const client = await sb();
-  const { data, error } = await client
+  const full = await client
+    .from("plenty_pickups")
+    .select(REMINDER_WITH_DEST)
+    .in("status", ["requested", "scheduled", "offered"])
+    .not("scheduled_for", "is", null);
+  if (!full.error) return (full.data as PickupReminderRow[]) || [];
+  if (!schemaGap(full.error)) fail(full.error);
+  const plain = await client
     .from("plenty_pickups")
     .select(REMINDER_COLS)
     .in("status", ["requested", "scheduled", "offered"])
     .not("scheduled_for", "is", null);
-  fail(error);
-  return (data as PickupReminderRow[]) || [];
+  fail(plain.error);
+  return (plain.data as PickupReminderRow[]) || [];
 }
 
 export async function markPickupReminder(id: string, kind: "24h" | "morning" | "overdue"): Promise<void> {

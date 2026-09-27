@@ -14,7 +14,7 @@ import {
   planNoticeRecipients
 } from "@/lib/pickup-routes";
 import { formatEasternWhen, groupPickups, pickupIsOverdue } from "@/lib/pickup-watch";
-import { easternLocalInput } from "@/lib/schedule";
+import { pickupTimeLabel, resolvePickupTimeZone, zonedLocalInput } from "@/lib/schedule";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +51,11 @@ export default async function PickupsPage() {
   }
   const pantryLabel = [desk.name, desk.address].filter(Boolean).join(" · ");
 
+  function zoneFor(destLocationId: string | null) {
+    const location = destLocationId ? locations.find((place) => place.id === destLocationId) : null;
+    return resolvePickupTimeZone({ pantry: desk, location });
+  }
+
   function cards(rows: Pickup[], flagOverdue: boolean) {
     return (
       <div className="grid">
@@ -64,6 +69,7 @@ export default async function PickupsPage() {
             return label ? `${label} · ${email}` : email;
           });
           const recipients = sentTo.length ? sentTo : planned;
+          const zone = zoneFor(p.dest_location_id);
           const deliverTo = pickupDeliverLine(p, {
             ally: p.dest_ally_id ? allyName.get(p.dest_ally_id) : "",
             location: p.dest_location_id ? locationName.get(p.dest_location_id) : "",
@@ -76,7 +82,7 @@ export default async function PickupsPage() {
               <dl className="pickup-facts">
                 <div><dt>From</dt><dd>{pickupFromLine(p, desk)}</dd></div>
                 <div><dt>Deliver to</dt><dd>{deliverTo}</dd></div>
-                <div><dt>When</dt><dd>{formatEasternWhen(p.scheduled_for, p.window_text)}</dd></div>
+                <div><dt>When</dt><dd>{formatEasternWhen(p.scheduled_for, p.window_text, zone)}</dd></div>
                 <div><dt>Items</dt><dd>{p.items_text || p.notes || "Not listed"}{p.pounds ? ` · ${p.pounds} lb` : ""}</dd></div>
                 <div><dt>Donor contact</dt><dd>{[p.contact_name, p.contact_phone].filter(Boolean).join(" · ") || "Not listed"}</dd></div>
                 {p.notes && p.notes !== p.items_text ? <div><dt>Notes</dt><dd>{p.notes}</dd></div> : null}
@@ -103,7 +109,7 @@ export default async function PickupsPage() {
                 <input type="hidden" name="id" value={p.id} />
                 {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                 <label className="field"><span>{p.kind === "household_delivery" ? "Household address" : "From address"}</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
+                <label className="field"><span>{pickupTimeLabel(zone)}</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={zonedLocalInput(p.scheduled_for, zone)} /></label>
                 {p.kind === "household_delivery" ? null : (
                   <>
                     <label className="field">
@@ -131,7 +137,7 @@ export default async function PickupsPage() {
                 <PostForm action="/api/pickups" submitLabel="Schedule this">
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="status" value="scheduled" />
-                  <label className="field"><span>Time (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
+                  <label className="field"><span>{pickupTimeLabel(zone, "Time")}</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
                   {drivers.length ? (
                     <label className="field">
                       <span>Assign a driver</span>
@@ -191,7 +197,7 @@ export default async function PickupsPage() {
               <article className="card" key={p.id}>
                 <span>{p.status} · {p.assigned_user_id ? driverName.get(p.assigned_user_id) || "Assigned" : "Unassigned"}</span>
                 <strong>{p.address}</strong>
-                <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+                <p>{formatEasternWhen(p.scheduled_for, p.window_text, zoneFor(p.dest_location_id))}</p>
               </article>
             ))}
           </div>

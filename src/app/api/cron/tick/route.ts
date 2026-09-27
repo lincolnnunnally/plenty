@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listPickupReminders, listStorePartners, listVolunteers, markPickupReminder, markRecurringRun } from "@/lib/db/queries";
+import { addDistribution, addShift, getDefaultPantry, getPantryById, listActiveRecurring, listLocations, listPickupReminders, listStorePartners, listVolunteers, markPickupReminder, markRecurringRun, type LocationRow, type Pantry } from "@/lib/db/queries";
 import { listFoodLoads, offerFoodLoad, updateFoodLoad } from "@/lib/db/food-loads";
 import { notifyCrew, notifyDesk } from "@/lib/notify";
 import { ownerDeskUrl } from "@/lib/owner-signup-notice";
 import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { runPickupWatch } from "@/lib/pickup-watch";
-import { nextEasternOccurrence, shouldRunThisWeek } from "@/lib/schedule";
+import { nextEasternOccurrence, resolvePickupTimeZone, shouldRunThisWeek } from "@/lib/schedule";
 import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
 
 export const dynamic = "force-dynamic";
@@ -104,8 +104,26 @@ export async function GET(request: Request) {
 
 async function watchPickups() {
   const rows = await listPickupReminders();
+  const pantryCache = new Map<string, Pantry | null>();
+  const locationCache = new Map<string, LocationRow[]>();
+  const zoned = [];
+  for (const row of rows) {
+    const pantryId = row.pantry_id || "";
+    let pantry = pantryCache.get(pantryId);
+    if (pantry === undefined) {
+      pantry = pantryId ? await getPantryById(pantryId).catch(() => null) : null;
+      pantryCache.set(pantryId, pantry);
+    }
+    let locations = locationCache.get(pantryId);
+    if (!locations) {
+      locations = pantryId ? await listLocations(pantryId).catch(() => [] as LocationRow[]) : [];
+      locationCache.set(pantryId, locations);
+    }
+    const location = row.dest_location_id ? locations.find((place) => place.id === row.dest_location_id) : null;
+    zoned.push({ ...row, time_zone: resolvePickupTimeZone({ pantry, location }) });
+  }
   const watch = await runPickupWatch({
-    rows,
+    rows: zoned,
     now: new Date(),
     reviewUrl: ownerDeskUrl("/run/pickups"),
     deliver: (notice, row, kind) =>

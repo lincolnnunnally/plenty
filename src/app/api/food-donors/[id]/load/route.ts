@@ -2,7 +2,7 @@ import { fail, ok, readJson, requireStewardFor, str, requireDeskPantry } from "@
 import { offerFoodLoad } from "@/lib/db/food-loads";
 import { listStorePartners, updateStorePartner } from "@/lib/db/queries";
 import { withPoundsNote } from "@/lib/pounds";
-import { parseEasternDateTime } from "@/lib/schedule";
+import { parseZonedDateTime, resolvePickupTimeZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!partner) return fail("Donor not found.", 404);
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
-  const pickupAt = str(body.pickupAt) ? parseEasternDateTime(str(body.pickupAt)) : null;
-  if (str(body.pickupAt) && !pickupAt) return fail("Enter the pickup time in Eastern time.");
+  const timeZone = resolvePickupTimeZone({ pantry });
+  const pickupAt = str(body.pickupAt) ? parseZonedDateTime(str(body.pickupAt), timeZone) : null;
+  if (str(body.pickupAt) && !pickupAt) return fail(`Enter the pickup time in ${timeZone}.`);
   if (!pickupAt) return fail("When should volunteers pick this up?");
   const items: { category: string; title: string; quantity: string; mustUseBy: string | null }[] = [];
   for (const cat of ["dry", "refrigerated", "frozen", "produce"]) {

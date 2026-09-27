@@ -3,6 +3,7 @@ import { listFoodLoads } from "@/lib/db/food-loads";
 import { getDefaultPantrySafe, listStorePartners } from "@/lib/db/queries";
 import { storeDeskPartnerId } from "@/lib/store-card/store-session";
 import { formatEasternWhen } from "@/lib/pickup-watch";
+import { resolvePickupTimeZone } from "@/lib/schedule";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -105,7 +106,7 @@ export default async function StoreManagePage() {
                   <tbody>
                     {loads.map((l) => (
                       <tr key={l.id}>
-                        <td>{l.pickup_at ? formatEasternWhen(l.pickup_at) : "—"}</td>
+                        <td>{l.pickup_at ? formatEasternWhen(l.pickup_at, "", resolvePickupTimeZone({ pantry })) : "—"}</td>
                         <td>{(l.items || []).map((i) => i.category).join(", ") || "—"}{l.leftover ? " · leftover" : ""}</td>
                         <td>{l.dest_name}{l.route_reason ? ` · ${l.route_reason}` : ""}</td>
                         <td>{l.status}</td>
