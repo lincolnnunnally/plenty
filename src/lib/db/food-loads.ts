@@ -1,7 +1,9 @@
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 import { addInventory, addPickup, addShift, getPantryById, listAllies, listDistributions, listInventory, listStorePartners, listVolunteers, patchPickup, patchShift, recordStockMove, updateInventory, type Ally } from "@/lib/db/queries";
-import { notifyCrew, notifyDesk } from "@/lib/notify";
+import { notifyCrew, notifyDesk, sendPlainEmail } from "@/lib/notify";
+import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { composePickupAttention } from "@/lib/pickup-watch";
 
 async function sb() {
   const ensured = await ensurePlentySchema();
@@ -308,6 +310,19 @@ export async function fulfillLoad(
     subject: `Plenty load incoming: ${store.partnerName}`,
     text: `A pickup posted.\nStore: ${store.partnerName}\nWhen: ${whenLabel}\nRoute to: ${dest}\nFood: ${cats || "see store"}\n${load.route_reason}\nDesk: https://plenty.unitedundergod.org/run/food`
   }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
+  await deliverOwnerAttention(
+    composePickupAttention({
+      org: store.partnerName,
+      contactName: store.partnerName,
+      contactPhone: store.partnerPhone,
+      address: store.partnerAddress || store.partnerName,
+      whenIso: when,
+      windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}` : "",
+      what: [cats || load.notes, load.route_reason, dest ? `Take it to ${dest}` : ""].filter(Boolean).join(" · "),
+      reviewUrl: ownerDeskUrl("/run/pickups")
+    }),
+    sendPlainEmail
+  );
   return updated;
 }
 

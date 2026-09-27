@@ -12,6 +12,7 @@ import {
 import { twilioConfigured } from "@/lib/notify";
 import { resendConfigured } from "@/lib/promote/email";
 import { WEEKDAYS, parseMonthWeeks, monthWeeksLabel } from "@/lib/schedule";
+import { formatEasternWhen, pickupIsOverdue, sortUpcoming } from "@/lib/pickup-watch";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
 
@@ -28,7 +29,8 @@ export default async function CalendarPage() {
     listStorePartners(pantry.id),
     listPromoSends(pantry.id).catch(() => [])
   ]);
-  const openPickups = pickups.filter((p) => p.status !== "done" && p.status !== "cancelled");
+  const now = new Date();
+  const openPickups = sortUpcoming(pickups.filter((p) => p.status !== "done" && p.status !== "cancelled" && p.status !== "completed" && p.status !== "canceled"));
   const openDays = days.filter((d) => d.status !== "done" && d.status !== "cancelled");
 
   return (
@@ -164,9 +166,10 @@ export default async function CalendarPage() {
           <div className="grid">
             {openPickups.map((p) => (
               <article className="card" key={p.id}>
-                <span>{p.kind.replace("_", " ")} · {p.status}</span>
+                <span>{p.kind.replace("_", " ")} · {p.status} · {p.assigned_user_id ? "Assigned" : "Unassigned"}</span>
+                {pickupIsOverdue(p, now) ? <p className="note error">Overdue — the time passed and this is still open.</p> : null}
                 <strong>{p.address}</strong>
-                {p.scheduled_for ? <p>{new Date(p.scheduled_for).toLocaleString()}</p> : <p className="note">No time set</p>}
+                <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
                 <PostForm action="/api/pickups" submitLabel="Move this pickup">
                   <input type="hidden" name="id" value={p.id} />
                   {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}

@@ -1,6 +1,8 @@
 import { fail, ok, readJson, requireDeskPantry, requireStewardFor, requireUser, str } from "@/lib/api";
 import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
-import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
+import { notifyCrew, notifyPeople, sendPlainEmail, sendSms } from "@/lib/notify";
+import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { composePickupAttention } from "@/lib/pickup-watch";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
       ? (steward.error ? mine?.id : str(body.householdId) || mine?.id) || null
       : null;
   try {
-    await addPickup({
+    const pickup = await addPickup({
       pantryId: pantry.id,
       kind,
       scheduledFor: str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null,
@@ -119,6 +121,19 @@ export async function POST(request: Request) {
       porchLeaveOk: on(body.porchLeaveOk),
       windowText: str(body.windowText)
     });
+    await deliverOwnerAttention(
+      composePickupAttention({
+        org: pickup.contact_name,
+        contactName: pickup.contact_name,
+        contactPhone: pickup.contact_phone,
+        address: pickup.address,
+        whenIso: pickup.scheduled_for,
+        windowText: pickup.window_text,
+        what: pickup.notes || pickup.kind.replace(/_/g, " "),
+        reviewUrl: ownerDeskUrl("/run/pickups")
+      }),
+      sendPlainEmail
+    );
     if (kind === "household_delivery") {
       const crew = await listVolunteers(pantry.id);
       await notifyCrew({

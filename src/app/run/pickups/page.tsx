@@ -3,6 +3,7 @@ import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { listPickups, listVolunteers } from "@/lib/db/queries";
 import { hasCooler } from "@/lib/cooler";
+import { formatEasternWhen, pickupIsClosed, pickupIsOverdue, sortUpcoming } from "@/lib/pickup-watch";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function PickupsPage() {
   const { pantry } = await requirePantryDesk("/run/pickups");
   if (!pantry) redirect("/run");
-  const pickups = await listPickups(pantry.id);
+  const pickups = sortUpcoming(await listPickups(pantry.id));
+  const upcoming = pickups.filter((p) => !pickupIsClosed(p.status));
+  const finished = pickups.filter((p) => pickupIsClosed(p.status));
   const volunteers = await listVolunteers(pantry.id);
   const drivers = volunteers.filter((v) => v.roles.includes("delivery") || v.has_vehicle);
   const coldDrivers = drivers.filter((v) => hasCooler(v.notes));
+  const driverName = new Map(volunteers.map((v) => [v.user_id, v.name || v.email || "Assigned"]));
+  const now = new Date();
 
   return (
     <main className="shell">
@@ -21,15 +26,21 @@ export default async function PickupsPage() {
       <h1>Pickups and home deliveries</h1>
       <p className="lede">Confirm a time, know if someone will be home, and whether we may leave food on the porch.{coldDrivers.length ? ` ${coldDrivers.length} volunteer${coldDrivers.length === 1 ? " has" : "s have"} a cooler.` : " Nobody has checked that they can keep food cold yet."}</p>
       <RunNav />
-      {pickups.length ? (
-        <div className="grid">
-          {pickups.map((p) => (
-            <article className="card" key={p.id}>
-              <span>{p.kind === "household_delivery" ? "Deliver to a household" : p.kind === "store_collect" ? "Collect leftover from a store" : "Pick up a donation"} · {p.status}</span>
-              <strong>{p.address}</strong>
-              <p>{p.contact_name} {p.contact_phone}</p>
-              {p.scheduled_for ? <p>{new Date(p.scheduled_for).toLocaleString()}</p> : <p className="note">No time set yet</p>}
-              {p.window_text ? <p className="note">Window: {p.window_text}</p> : null}
+      <section className="panel">
+        <h2>Upcoming pickups</h2>
+        <p className="note">Soonest first. Overdue means the time has passed and nobody has marked it done or cancelled.</p>
+        {upcoming.length ? (
+          <div className="grid">
+            {upcoming.map((p) => {
+              const overdue = pickupIsOverdue(p, now);
+              const assignee = p.assigned_user_id ? driverName.get(p.assigned_user_id) || "Assigned" : "Unassigned";
+              return (
+                <article className="card" key={p.id}>
+                  <span>{p.kind === "household_delivery" ? "Deliver to a household" : p.kind === "store_collect" ? "Collect leftover from a store" : "Pick up a donation"} · {p.status} · {assignee}</span>
+                  {overdue ? <p className="note error">Overdue — the time passed and this is still open.</p> : null}
+                  <strong>{p.address}</strong>
+                  <p>{p.contact_name} {p.contact_phone}</p>
+                  <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
               {p.kind === "household_delivery" ? (
                 <p className="note">
                   {p.will_be_home === true ? "Someone will be home." : p.will_be_home === false ? "May not be home." : "Home status not set."}
@@ -66,12 +77,28 @@ export default async function PickupsPage() {
                   <input type="hidden" name="status" value="done" />
                 </PostForm>
               ) : null}
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="empty">No pickup or delivery requests yet.</p>
-      )}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="empty">No open pickups. A store, donor, or household request will show here.</p>
+        )}
+      </section>
+      {finished.length ? (
+        <section className="panel">
+          <h2>Finished</h2>
+          <div className="grid">
+            {finished.map((p) => (
+              <article className="card" key={p.id}>
+                <span>{p.status} · {p.assigned_user_id ? driverName.get(p.assigned_user_id) || "Assigned" : "Unassigned"}</span>
+                <strong>{p.address}</strong>
+                <p>{formatEasternWhen(p.scheduled_for, p.window_text)}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

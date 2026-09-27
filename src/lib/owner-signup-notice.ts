@@ -13,11 +13,33 @@ export function ownerAttentionEmail() {
   return OWNER_ATTENTION_FALLBACK;
 }
 
-/** Admin desk link. APP_PUBLIC_URL on production; the live host when a preview has no public URL. */
-export function ownerReviewUrl() {
+/** Admin link. APP_PUBLIC_URL on production; the live host when a preview has no public URL. */
+export function ownerDeskUrl(path = "/run") {
   const fromEnv = (process.env.APP_PUBLIC_URL || "").trim().replace(/\/$/, "");
   const origin = fromEnv.startsWith("http") ? fromEnv : PRODUCTION_ORIGIN;
-  return `${origin}/run`;
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  return `${origin}${clean}`;
+}
+
+export function ownerReviewUrl() {
+  return ownerDeskUrl("/run");
+}
+
+export async function deliverOwnerAttention(
+  input: { subject: string; text: string },
+  send: MailSender
+): Promise<{ ok: boolean }> {
+  try {
+    const result = await send(ownerAttentionEmail(), input.subject, input.text);
+    if (!result.ok) {
+      console.error("[plenty] owner attention email failed:", ownerNoticeFailureReason(result.error));
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error("[plenty] owner attention email failed:", ownerNoticeFailureReason(err));
+    return { ok: false };
+  }
 }
 
 export type MailSender = (to: string, subject: string, text: string) => Promise<{ ok: boolean; error: string }>;

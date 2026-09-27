@@ -1,0 +1,155 @@
+export const PICKUP_CLOSED = new Set(["done", "completed", "cancelled", "canceled"]);
+
+export type PickupTiming = {
+  status: string;
+  scheduled_for: string | null;
+  assigned_user_id?: string | null;
+};
+
+export type ReminderKind = "24h" | "2h" | "overdue";
+
+export type ReminderRow = PickupTiming & {
+  id: string;
+  kind: string;
+  address: string;
+  contact_name: string;
+  contact_phone: string;
+  notes: string;
+  window_text: string;
+  reminder_24h_at: string | null;
+  reminder_2h_at: string | null;
+  overdue_alert_at: string | null;
+};
+
+export function pickupIsClosed(status: string) {
+  return PICKUP_CLOSED.has(status.trim().toLowerCase());
+}
+
+export function pickupIsOverdue(row: PickupTiming, now: Date) {
+  if (pickupIsClosed(row.status) || !row.scheduled_for) return false;
+  const at = new Date(row.scheduled_for).getTime();
+  return Number.isFinite(at) && at < now.getTime();
+}
+
+export function sortUpcoming<T extends PickupTiming>(rows: T[], now = new Date()): T[] {
+  return [...rows].sort((a, b) => {
+    const rank = (row: T) => {
+      if (pickupIsOverdue(row, now)) return 0;
+      if (!pickupIsClosed(row.status) && row.scheduled_for) return 1;
+      if (!pickupIsClosed(row.status)) return 2;
+      return 3;
+    };
+    const byRank = rank(a) - rank(b);
+    if (byRank !== 0) return byRank;
+    const at = a.scheduled_for ? new Date(a.scheduled_for).getTime() : Number.POSITIVE_INFINITY;
+    const bt = b.scheduled_for ? new Date(b.scheduled_for).getTime() : Number.POSITIVE_INFINITY;
+    return at - bt;
+  });
+}
+
+export function formatEasternWhen(iso: string | null, windowText = "") {
+  const window = windowText.replace(/[\r\n]+/g, " ").trim();
+  if (!iso) return window || "time not set";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return window || "time not set";
+  const stamp = at.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short"
+  });
+  return window ? `${stamp} · window ${window}` : stamp;
+}
+
+function oneLine(value: string, fallback: string) {
+  const clean = value.replace(/[\r\n]+/g, " ").trim();
+  return clean || fallback;
+}
+
+export function composePickupAttention(input: {
+  org: string;
+  contactName: string;
+  contactPhone: string;
+  address: string;
+  whenIso: string | null;
+  windowText?: string;
+  what: string;
+  reviewUrl: string;
+  headline?: string;
+}) {
+  const who = oneLine(input.org || input.contactName, "someone");
+  const subject = input.headline || `Pickup needs someone to show up: ${who}`;
+  const text = [
+    `When: ${formatEasternWhen(input.whenIso, input.windowText || "")}`,
+    `Where: ${oneLine(input.address, "not given")}`,
+    `What: ${oneLine(input.what, "not given")}`,
+    `Org: ${oneLine(input.org, "not given")}`,
+    `Contact: ${oneLine(input.contactName, "not given")} ${oneLine(input.contactPhone, "")}`.trim(),
+    `Review: ${input.reviewUrl}`
+  ].join("\n");
+  return { subject, text };
+}
+
+export function dueReminders(row: ReminderRow, now: Date): ReminderKind[] {
+  if (pickupIsClosed(row.status) || !row.scheduled_for) return [];
+  const at = new Date(row.scheduled_for).getTime();
+  if (!Number.isFinite(at)) return [];
+  const ms = at - now.getTime();
+  if (ms <= 0) return row.overdue_alert_at ? [] : ["overdue"];
+  const due: ReminderKind[] = [];
+  if (ms <= 24 * 3600000 && !row.reminder_24h_at) due.push("24h");
+  if (ms <= 2 * 3600000 && !row.assigned_user_id && !row.reminder_2h_at) due.push("2h");
+  return due;
+}
+
+export function composeReminder(row: ReminderRow, kind: ReminderKind, reviewUrl: string) {
+  const org = row.contact_name || row.address || "a pickup";
+  const headline =
+    kind === "overdue"
+      ? `Pickup time passed and it is not finished: ${oneLine(org, "a pickup")}`
+      : kind === "2h"
+        ? `Pickup in about 2 hours and nobody is assigned: ${oneLine(org, "a pickup")}`
+        : `Pickup in about 24 hours: ${oneLine(org, "a pickup")}`;
+  return composePickupAttention({
+    org: row.contact_name,
+    contactName: row.contact_name,
+    contactPhone: row.contact_phone,
+    address: row.address,
+    whenIso: row.scheduled_for,
+    windowText: row.window_text,
+    what: row.notes || row.kind,
+    reviewUrl,
+    headline
+  });
+}
+
+export async function runPickupWatch(input: {
+  rows: ReminderRow[];
+  now: Date;
+  reviewUrl: string;
+  deliver: (notice: { subject: string; text: string }) => Promise<{ ok: boolean }>;
+  mark: (id: string, kind: ReminderKind) => Promise<void>;
+}): Promise<{ sent: ReminderKind[]; failed: number }> {
+  const sent: ReminderKind[] = [];
+  let failed = 0;
+  for (const row of input.rows) {
+    for (const kind of dueReminders(row, input.now)) {
+      try {
+        const result = await input.deliver(composeReminder(row, kind, input.reviewUrl));
+        if (!result.ok) {
+          failed += 1;
+          continue;
+        }
+        await input.mark(row.id, kind);
+        sent.push(kind);
+      } catch {
+        failed += 1;
+      }
+    }
+  }
+  return { sent, failed };
+}
