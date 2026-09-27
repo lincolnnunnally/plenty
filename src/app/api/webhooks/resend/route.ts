@@ -26,7 +26,8 @@ export async function POST(request: Request) {
   const updated = await updatePickupEmailsByProvider({
     providerId: event.emailId,
     status,
-    recipients: event.to
+    recipients: event.to,
+    reason: event.reason
   });
   return NextResponse.json({ ok: true, updated });
 }

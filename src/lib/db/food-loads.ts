@@ -5,7 +5,8 @@ import { notifyCrew, notifyDesk } from "@/lib/notify";
 import { defaultPantryDestination } from "@/lib/db/pickup-desk";
 import { ownerDeskUrl } from "@/lib/owner-signup-notice";
 import { deliverPickupNotice } from "@/lib/pickup-mail";
-import { composePickupAttention } from "@/lib/pickup-watch";
+import { composePickupAttention, formatEasternWhen } from "@/lib/pickup-watch";
+import { resolvePickupTimeZone } from "@/lib/schedule";
 import { poundsFrom } from "@/lib/pounds";
 
 async function sb() {
@@ -258,6 +259,8 @@ export async function fulfillLoad(
   if (!load || load.pantry_id !== pantryId) throw new Error("Load not found.");
   const when = load.pickup_at || load.hold_until || new Date(Date.now() + 2 * 3600000).toISOString();
   const pantryForDest = await getPantryById(pantryId).catch(() => null);
+  const timeZone = resolvePickupTimeZone({ pantry: pantryForDest });
+  const holdLabel = load.hold_until ? formatEasternWhen(load.hold_until, "", timeZone) : "";
   const fallbackDest = pantryForDest
     ? await defaultPantryDestination(pantryForDest)
     : { destLocationId: null, destNote: "" };
@@ -275,7 +278,7 @@ export async function fulfillLoad(
     contactPhone: store.partnerPhone,
     notes: `${load.leftover ? "Leftover collect" : "Store pickup"} · ${load.dest_note || fallbackDest.destNote || "the pantry"} · ${load.route_reason}`,
     createdBy: null,
-    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString()}` : "",
+    windowText: holdLabel ? `Hold until ${holdLabel}` : "",
     destAllyId: load.dest_ally_id,
     destLocationId: load.dest_ally_id ? null : fallbackDest.destLocationId,
     destNote: load.dest_note || fallbackDest.destNote,
@@ -309,7 +312,7 @@ export async function fulfillLoad(
   fail(error);
   const updated = { ...(data as FoodLoad), items: load.items };
   const dest = load.dest_note || fallbackDest.destNote || "Plenty";
-  const whenLabel = new Date(when).toLocaleString();
+  const whenLabel = formatEasternWhen(when, "", timeZone);
   const crew = await listVolunteers(pantryId);
   const cats = (load.items || []).map((i) => i.category).filter(Boolean).join(", ");
   await notifyCrew({
@@ -333,9 +336,10 @@ export async function fulfillLoad(
     contactPhone: store.partnerPhone,
     address: store.partnerAddress || store.partnerName,
     whenIso: when,
-    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}` : "",
+    windowText: holdLabel ? `Hold until ${holdLabel}` : "",
     what: [itemLine || cats || load.notes, pounds > 0 ? `${pounds} lb` : "", load.route_reason, dest ? `Take it to ${dest}` : ""].filter(Boolean).join(" · "),
-    reviewUrl: ownerDeskUrl("/run/pickups")
+    reviewUrl: ownerDeskUrl("/run/pickups"),
+    timeZone
   });
   await deliverPickupNotice({
     notice: "new",
@@ -408,13 +412,15 @@ export async function updateFoodLoad(
         startsAt: when || undefined,
         title: `Pick up at ${store?.name || "store"} → ${destLine}`
       });
+      const pantry = await getPantryById(pantryId).catch(() => null);
+      const timeZone = resolvePickupTimeZone({ pantry });
       const crew = await listVolunteers(pantryId);
       await notifyCrew({
         pantryId,
         crew,
         roles: ["pickup", "delivery", "store_meet"],
         subject: "Plenty pickup changed",
-        text: `A pickup changed.\nPick up at: ${pickupPlace}\nTake it to: ${destLine}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${updated.route_reason}\nhttps://plenty.unitedundergod.org/volunteer`
+        text: `A pickup changed.\nPick up at: ${pickupPlace}\nTake it to: ${destLine}\nWhen: ${when ? formatEasternWhen(when, "", timeZone) : "see the board"}\n${updated.route_reason}\nhttps://plenty.unitedundergod.org/volunteer`
       }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
     }
   }

@@ -3,7 +3,8 @@ import { requireCustomerAccess } from "@/lib/auth/session";
 import { alliesForOperator, listFoodLoads } from "@/lib/db/food-loads";
 import { getDefaultPantrySafe } from "@/lib/db/queries";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
-import { WEEKDAYS } from "@/lib/schedule";
+import { formatEasternWhen } from "@/lib/pickup-watch";
+import { resolvePickupTimeZone, WEEKDAYS } from "@/lib/schedule";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +100,7 @@ export default async function ServePage() {
             {visible.map((l) => (
               <article className="card" key={l.id}>
                 <span>{l.partner_name} · {l.status}</span>
-                <strong>{l.pickup_at ? new Date(l.pickup_at).toLocaleString() : "Time soon"}</strong>
+                <strong>{l.pickup_at ? formatEasternWhen(l.pickup_at, "", resolvePickupTimeZone({ pantry })) : "Time soon"}</strong>
                 <p>{(l.items || []).map((i) => `${i.category} ${i.quantity}`).join(" · ")}</p>
                 <p className="note">{l.route_reason}</p>
                 <PostForm action={`/api/food-loads/${l.id}`} submitLabel="We received this">

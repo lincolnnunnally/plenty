@@ -2,7 +2,7 @@ import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 import { schemaGap } from "@/lib/db/schema-gap";
 import { listLocations } from "@/lib/db/queries";
-import { shouldApplyEmailStatus } from "@/lib/resend-webhook";
+import { rowsForEmailEvent } from "@/lib/resend-webhook";
 
 async function sb() {
   const ensured = await ensurePlentySchema();
@@ -125,6 +125,7 @@ export async function updatePickupEmailsByProvider(input: {
   providerId: string;
   status: "delivered" | "bounced" | "failed" | "delayed";
   recipients: string[];
+  reason?: string;
 }): Promise<number> {
   if (!input.providerId) return 0;
   try {
@@ -134,15 +135,11 @@ export async function updatePickupEmailsByProvider(input: {
       .select("id, to_email, status")
       .eq("provider_id", input.providerId);
     if (schemaGap(error) || error) return 0;
-    const wanted = new Set(input.recipients.map((email) => email.trim().toLowerCase()));
-    const rows = ((data || []) as { id: string; to_email: string; status: string }[]).filter((row) => {
-      if (!shouldApplyEmailStatus(row.status, input.status)) return false;
-      if (!wanted.size) return true;
-      return wanted.has(row.to_email.trim().toLowerCase());
-    });
+    const rows = rowsForEmailEvent((data || []) as { id: string; to_email: string; status: string }[], input.status, input.recipients);
+    const reason = input.status === "bounced" || input.status === "failed" ? (input.reason || input.status).slice(0, 400) : "";
     let updated = 0;
     for (const row of rows) {
-      const { error: writeError } = await client.from("plenty_pickup_emails").update({ status: input.status, error: "" }).eq("id", row.id);
+      const { error: writeError } = await client.from("plenty_pickup_emails").update({ status: input.status, error: reason }).eq("id", row.id);
       if (!writeError) updated += 1;
     }
     return updated;

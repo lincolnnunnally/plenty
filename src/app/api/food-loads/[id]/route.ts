@@ -1,6 +1,7 @@
 import { fail, ok, readJson, requireStewardFor, requireUser, str } from "@/lib/api";
 import { alliesForOperator, updateFoodLoad } from "@/lib/db/food-loads";
 import { getDefaultPantry } from "@/lib/db/queries";
+import { parseZonedDateTime, resolvePickupTimeZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (destAllyId && operated.length && !operated.some((a) => a.id === destAllyId) && !asSteward) {
     return fail("You can only claim food for your pantry.");
   }
+  const timeZone = resolvePickupTimeZone({ pantry });
+  const pickupRaw = str(body.pickupAt);
+  const pickupAt = pickupRaw ? parseZonedDateTime(pickupRaw, timeZone) : undefined;
+  if (pickupRaw && !pickupAt) return fail(`Enter the pickup time in ${timeZone}.`);
   try {
     const row = await updateFoodLoad(id, pantry.id, {
       status: status || undefined,
       destAllyId: destAllyId || (body.destAllyId === "" ? null : undefined),
       destNote: body.destNote != null ? str(body.destNote) : undefined,
-      pickupAt: str(body.pickupAt) ? new Date(str(body.pickupAt)).toISOString() : undefined,
+      pickupAt,
       notes: body.notes != null ? str(body.notes) : undefined
     });
     if (!row) return fail("Load not found.", 404);

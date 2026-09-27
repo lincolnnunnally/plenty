@@ -6,6 +6,7 @@ export type ResendEmailEvent = {
   type: string;
   emailId: string;
   to: string[];
+  reason: string;
 };
 
 export function verifyResendWebhook(input: {
@@ -41,14 +42,49 @@ export function verifyResendWebhook(input: {
   return match ? { ok: true } : { ok: false, reason: "signature" };
 }
 
+function emailsFrom(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(emailsFrom);
+  if (value && typeof value === "object" && "email" in value) return emailsFrom((value as { email?: unknown }).email);
+  if (typeof value !== "string") return [];
+  return value.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) || [];
+}
+
+/** Bounce and failure text from a Resend webhook. Empty when the event has no reason. */
+export function emailReasonFromEvent(data: { bounce?: unknown; reason?: unknown; message?: unknown } | null | undefined): string {
+  const parts: string[] = [];
+  const bounce = data?.bounce;
+  if (bounce && typeof bounce === "object") {
+    const row = bounce as { type?: unknown; subType?: unknown; message?: unknown };
+    for (const bit of [row.type, row.subType, row.message]) {
+      const text = String(bit ?? "").trim();
+      if (text) parts.push(text);
+    }
+  } else if (typeof bounce === "string" && bounce.trim()) {
+    parts.push(bounce.trim());
+  }
+  for (const bit of [data?.reason, data?.message]) {
+    const text = String(bit ?? "").trim();
+    if (text && !parts.includes(text)) parts.push(text);
+  }
+  return parts.join(" · ").slice(0, 400);
+}
+
 export function readResendEmailEvent(payload: string): ResendEmailEvent | null {
   try {
-    const body = JSON.parse(payload) as { type?: unknown; data?: { email_id?: unknown; to?: unknown } };
+    const body = JSON.parse(payload) as {
+      type?: unknown;
+      data?: { email_id?: unknown; to?: unknown; cc?: unknown; email?: unknown; recipient?: unknown; bounce?: unknown; reason?: unknown; message?: unknown };
+    };
     const type = String(body.type || "");
     const emailId = String(body.data?.email_id || "").trim();
-    const to = Array.isArray(body.data?.to) ? body.data.to.map((item) => String(item).trim().toLowerCase()).filter(Boolean) : [];
+    const to = [...new Set([
+      ...emailsFrom(body.data?.to),
+      ...emailsFrom(body.data?.cc),
+      ...emailsFrom(body.data?.email),
+      ...emailsFrom(body.data?.recipient)
+    ])];
     if (!type || !emailId) return null;
-    return { type, emailId, to };
+    return { type, emailId, to, reason: emailReasonFromEvent(body.data) };
   } catch {
     return null;
   }
@@ -60,6 +96,13 @@ export function emailStatusFromEvent(type: string): "delivered" | "bounced" | "f
   if (type === "email.failed") return "failed";
   if (type === "email.delivery_delayed") return "delayed";
   return null;
+}
+
+/** Only rows whose address is named in the event. A shared provider id must not update the other recipient. */
+export function rowsForEmailEvent<T extends { to_email: string; status: string }>(rows: T[], next: string, recipients: string[]): T[] {
+  const wanted = new Set(recipients.map((email) => email.trim().toLowerCase()).filter(Boolean));
+  if (!wanted.size) return [];
+  return rows.filter((row) => shouldApplyEmailStatus(row.status, next) && wanted.has(row.to_email.trim().toLowerCase()));
 }
 
 /** A later delivery can replace accepted or delayed. A bounce or failure replaces anything still open. */

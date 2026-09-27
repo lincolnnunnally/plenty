@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listPickupReminders, listStorePartners, listVolunteers, markPickupReminder, markRecurringRun } from "@/lib/db/queries";
+import { addDistribution, addShift, getDefaultPantry, getPantryById, listActiveRecurring, listLocations, listPickupReminders, listStorePartners, listVolunteers, markPickupReminder, markRecurringRun, type LocationRow, type Pantry } from "@/lib/db/queries";
 import { listFoodLoads, offerFoodLoad, updateFoodLoad } from "@/lib/db/food-loads";
 import { notifyCrew, notifyDesk } from "@/lib/notify";
 import { ownerDeskUrl } from "@/lib/owner-signup-notice";
 import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { runPickupWatch } from "@/lib/pickup-watch";
-import { nextEasternOccurrence, shouldRunThisWeek } from "@/lib/schedule";
+import { nextEasternOccurrence, resolvePickupTimeZone, shouldRunThisWeek } from "@/lib/schedule";
 import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
 
 export const dynamic = "force-dynamic";
@@ -104,8 +104,26 @@ export async function GET(request: Request) {
 
 async function watchPickups() {
   const rows = await listPickupReminders();
+  const pantryCache = new Map<string, Pantry | null>();
+  const locationCache = new Map<string, LocationRow[]>();
+  const zoned = [];
+  for (const row of rows) {
+    const pantryId = row.pantry_id || "";
+    let pantry = pantryCache.get(pantryId);
+    if (pantry === undefined) {
+      pantry = pantryId ? await getPantryById(pantryId).catch(() => null) : null;
+      pantryCache.set(pantryId, pantry);
+    }
+    let locations = locationCache.get(pantryId);
+    if (!locations) {
+      locations = pantryId ? await listLocations(pantryId).catch(() => [] as LocationRow[]) : [];
+      locationCache.set(pantryId, locations);
+    }
+    const location = row.dest_location_id ? locations.find((place) => place.id === row.dest_location_id) : null;
+    zoned.push({ ...row, time_zone: resolvePickupTimeZone({ pantry, location }) });
+  }
   const watch = await runPickupWatch({
-    rows,
+    rows: zoned,
     now: new Date(),
     reviewUrl: ownerDeskUrl("/run/pickups"),
     deliver: (notice, row, kind) =>
@@ -138,7 +156,7 @@ async function escalateHolds() {
       pantryEmail: pantry.email,
       pantryPhone: pantry.phone,
       subject: `Hold time passed: ${load.partner_name || "a load"}`,
-      text: `${load.partner_name} still needs a destination or pickup.\nHold was ${new Date(load.hold_until).toLocaleString()}.\n${load.route_reason}\nhttps://plenty.unitedundergod.org/run/food`
+      text: `${load.partner_name} still needs a destination or pickup.\nHold was ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}.\n${load.route_reason}\nhttps://plenty.unitedundergod.org/run/food`
     }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
     await updateFoodLoad(load.id, pantry.id, { notes: `${load.notes || ""}\n[hold-alerted]`.trim() });
     pinged.push(load.id);
