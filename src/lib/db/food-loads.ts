@@ -1,9 +1,12 @@
 import { getSupabase } from "@/lib/db/client";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 import { addInventory, addPickup, addShift, getPantryById, listAllies, listDistributions, listInventory, listStorePartners, listVolunteers, patchPickup, patchShift, recordStockMove, updateInventory, type Ally } from "@/lib/db/queries";
-import { notifyCrew, notifyDesk, sendPlainEmail } from "@/lib/notify";
-import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { notifyCrew, notifyDesk } from "@/lib/notify";
+import { defaultPantryDestination } from "@/lib/db/pickup-desk";
+import { ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { composePickupAttention } from "@/lib/pickup-watch";
+import { poundsFrom } from "@/lib/pounds";
 
 async function sb() {
   const ensured = await ensurePlentySchema();
@@ -254,6 +257,15 @@ export async function fulfillLoad(
   const load = await getFoodLoad(loadId);
   if (!load || load.pantry_id !== pantryId) throw new Error("Load not found.");
   const when = load.pickup_at || load.hold_until || new Date(Date.now() + 2 * 3600000).toISOString();
+  const pantryForDest = await getPantryById(pantryId).catch(() => null);
+  const fallbackDest = pantryForDest
+    ? await defaultPantryDestination(pantryForDest)
+    : { destLocationId: null, destNote: "" };
+  const itemLine = (load.items || [])
+    .map((item) => [item.title || item.category, item.quantity].filter(Boolean).join(" "))
+    .filter(Boolean)
+    .join(", ");
+  const pounds = poundsFrom({ note: load.notes });
   const pickup = await addPickup({
     pantryId,
     kind: load.leftover ? "store_collect" : "donation_pickup",
@@ -261,9 +273,14 @@ export async function fulfillLoad(
     address: store.partnerAddress || store.partnerName,
     contactName: store.partnerName,
     contactPhone: store.partnerPhone,
-    notes: `${load.leftover ? "Leftover collect" : "Store pickup"} · ${load.dest_note || "assign a destination"} · ${load.route_reason}`,
+    notes: `${load.leftover ? "Leftover collect" : "Store pickup"} · ${load.dest_note || fallbackDest.destNote || "the pantry"} · ${load.route_reason}`,
     createdBy: null,
-    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString()}` : ""
+    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString()}` : "",
+    destAllyId: load.dest_ally_id,
+    destLocationId: load.dest_ally_id ? null : fallbackDest.destLocationId,
+    destNote: load.dest_note || fallbackDest.destNote,
+    itemsText: itemLine,
+    pounds: pounds > 0 ? pounds : null
   });
   const shift = await addShift({
     pantryId,
@@ -291,7 +308,7 @@ export async function fulfillLoad(
     .single();
   fail(error);
   const updated = { ...(data as FoodLoad), items: load.items };
-  const dest = load.dest_note || "Plenty";
+  const dest = load.dest_note || fallbackDest.destNote || "Plenty";
   const whenLabel = new Date(when).toLocaleString();
   const crew = await listVolunteers(pantryId);
   const cats = (load.items || []).map((i) => i.category).filter(Boolean).join(", ");
@@ -302,7 +319,7 @@ export async function fulfillLoad(
     subject: `Plenty pickup: ${store.partnerName}`,
     text: `A food pickup is on the board.\nWhere: ${store.partnerAddress || store.partnerName}\nWhen: ${whenLabel}\nTake it to: ${dest}\nFood: ${cats || "see store"}\n${load.route_reason}\nSign up: https://plenty.unitedundergod.org/volunteer`
   }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
-  const pantry = await getPantryById(pantryId).catch(() => null);
+  const pantry = pantryForDest;
   await notifyDesk({
     pantryId,
     pantryEmail: pantry?.email,
@@ -310,19 +327,25 @@ export async function fulfillLoad(
     subject: `Plenty load incoming: ${store.partnerName}`,
     text: `A pickup posted.\nStore: ${store.partnerName}\nWhen: ${whenLabel}\nRoute to: ${dest}\nFood: ${cats || "see store"}\n${load.route_reason}\nDesk: https://plenty.unitedundergod.org/run/food`
   }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
-  await deliverOwnerAttention(
-    composePickupAttention({
-      org: store.partnerName,
-      contactName: store.partnerName,
-      contactPhone: store.partnerPhone,
-      address: store.partnerAddress || store.partnerName,
-      whenIso: when,
-      windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}` : "",
-      what: [cats || load.notes, load.route_reason, dest ? `Take it to ${dest}` : ""].filter(Boolean).join(" · "),
-      reviewUrl: ownerDeskUrl("/run/pickups")
-    }),
-    sendPlainEmail
-  );
+  const notice = composePickupAttention({
+    org: store.partnerName,
+    contactName: store.partnerName,
+    contactPhone: store.partnerPhone,
+    address: store.partnerAddress || store.partnerName,
+    whenIso: when,
+    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}` : "",
+    what: [itemLine || cats || load.notes, pounds > 0 ? `${pounds} lb` : "", load.route_reason, dest ? `Take it to ${dest}` : ""].filter(Boolean).join(" · "),
+    reviewUrl: ownerDeskUrl("/run/pickups")
+  });
+  await deliverPickupNotice({
+    notice: "new",
+    pickupKind: pickup.kind,
+    scheduledFor: when,
+    pantryId,
+    pickupId: pickup.id,
+    subject: notice.subject,
+    text: notice.text
+  }).catch(() => ({ ok: false }));
   return updated;
 }
 
@@ -355,8 +378,9 @@ export async function updateFoodLoad(
   if (updated && patch.status === "received" && prior?.status !== "received") {
     await putLoadOnShelves(updated).catch(() => null);
   }
-  const destChanged = patch.destAllyId !== undefined || patch.destNote != null || patch.pickupAt !== undefined;
-  if (updated && destChanged) {
+  const destinationChanged = patch.destAllyId !== undefined || patch.destNote != null;
+  const scheduleChanged = destinationChanged || patch.pickupAt !== undefined;
+  if (updated && scheduleChanged) {
     const allies = await listAllies(pantryId);
     const destName = updated.dest_ally_id ? allies.find((a) => a.id === updated.dest_ally_id)?.name : updated.dest_note;
     const destLine = destName || updated.dest_note || "Plenty";
@@ -367,7 +391,14 @@ export async function updateFoodLoad(
     if (updated.pickup_id) {
       await patchPickup(updated.pickup_id, {
         notes: `Pick up at ${pickupPlace}. Take it to ${destLine}. ${updated.route_reason}`,
-        scheduledFor: when
+        scheduledFor: when,
+        ...(destinationChanged
+          ? {
+              destAllyId: updated.dest_ally_id,
+              destLocationId: null,
+              destNote: updated.dest_note || destLine
+            }
+          : {})
       });
     }
     if (updated.shift_id) {

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { addDistribution, addShift, getDefaultPantry, listActiveRecurring, listPickupReminders, listStorePartners, listVolunteers, markPickupReminder, markRecurringRun } from "@/lib/db/queries";
 import { listFoodLoads, offerFoodLoad, updateFoodLoad } from "@/lib/db/food-loads";
-import { notifyCrew, notifyDesk, sendPlainEmail } from "@/lib/notify";
-import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { notifyCrew, notifyDesk } from "@/lib/notify";
+import { ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { runPickupWatch } from "@/lib/pickup-watch";
 import { nextEasternOccurrence, shouldRunThisWeek } from "@/lib/schedule";
 import { itemsForRecurringPickup, parseFoodNote } from "@/lib/store-pitch";
@@ -107,7 +108,16 @@ async function watchPickups() {
     rows,
     now: new Date(),
     reviewUrl: ownerDeskUrl("/run/pickups"),
-    deliver: (notice) => deliverOwnerAttention(notice, sendPlainEmail),
+    deliver: (notice, row, kind) =>
+      deliverPickupNotice({
+        notice: kind,
+        pickupKind: row.kind,
+        scheduledFor: row.scheduled_for,
+        pantryId: row.pantry_id || "",
+        pickupId: row.id,
+        subject: notice.subject,
+        text: notice.text
+      }),
     mark: markPickupReminder
   });
   return { sent: watch.sent.length, failed: watch.failed };

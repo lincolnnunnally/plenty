@@ -90,21 +90,25 @@ test("unscheduled requests sit above upcoming pickups, then overdue", () => {
     row({ id: "later", scheduled_for: "2026-09-29T16:00:00.000Z" }),
     row({ id: "none", scheduled_for: null, window_text: "" }),
     row({ id: "window", scheduled_for: null, window_text: "sometime Tuesday" }),
+    row({ id: "marked", status: "needs_scheduling", scheduled_for: "2026-09-29T18:00:00.000Z" }),
     row({ id: "done", status: "done", scheduled_for: "2026-09-27T16:00:00.000Z" }),
     row({ id: "overdue", scheduled_for: "2026-09-28T15:00:00.000Z" }),
+    row({ id: "stale-unscheduled", status: "needs_scheduling", scheduled_for: "2026-09-28T12:00:00.000Z" }),
     row({ id: "cancelled", status: "cancelled", scheduled_for: "2026-09-28T14:00:00.000Z" })
   ];
-  assert.deepEqual(sortUpcoming(rows, now).map((item) => item.id), ["none", "window", "later", "overdue", "done", "cancelled"]);
+  assert.deepEqual(sortUpcoming(rows, now).map((item) => item.id), ["none", "window", "marked", "stale-unscheduled", "later", "overdue", "done", "cancelled"]);
   const groups = groupPickups(rows, now);
-  assert.deepEqual(groups.needsScheduling.map((item) => item.id), ["none", "window"]);
+  assert.deepEqual(groups.needsScheduling.map((item) => item.id), ["none", "window", "marked", "stale-unscheduled"]);
   assert.deepEqual(groups.upcoming.map((item) => item.id), ["later"]);
   assert.deepEqual(groups.overdue.map((item) => item.id), ["overdue"]);
-  assert.equal(pickupNeedsScheduling(rows[1]), true);
-  assert.equal(pickupNeedsScheduling(rows[2]), true);
-  assert.equal(pickupNeedsScheduling(rows[0]), false);
-  assert.equal(pickupIsOverdue(rows[4], now), true);
-  assert.equal(pickupIsOverdue(rows[3], now), false);
-  assert.equal(pickupIsOverdue(rows[5], now), false);
+  const byId = (id: string) => rows.find((item) => item.id === id)!;
+  assert.equal(pickupNeedsScheduling(byId("none")), true);
+  assert.equal(pickupNeedsScheduling(byId("window")), true);
+  assert.equal(pickupNeedsScheduling(byId("marked")), true);
+  assert.equal(pickupNeedsScheduling(byId("later")), false);
+  assert.equal(pickupIsOverdue(byId("overdue"), now), true);
+  assert.equal(pickupIsOverdue(byId("done"), now), false);
+  assert.equal(pickupIsOverdue(byId("cancelled"), now), false);
 });
 
 test("reminders send once about 24h before, once at 7 AM Eastern on the pickup day, and once when overdue", async () => {

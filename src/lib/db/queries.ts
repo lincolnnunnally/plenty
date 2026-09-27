@@ -2,6 +2,7 @@ import { DEFAULT_PANTRY_SLUG } from "@/lib/app-brand";
 import { joinDonorNotes, newPersonId, splitDonorNotes } from "@/lib/store-people";
 import { isSuperAdminEmail } from "@/lib/auth/roles";
 import { getSupabase } from "@/lib/db/client";
+import { schemaGap } from "@/lib/db/schema-gap";
 import { ensurePlentySchema } from "@/lib/db/ensure-schema";
 import { newHouseholdPass, normalizePass } from "@/lib/pass";
 import { withUseBy } from "@/lib/use-by";
@@ -1086,6 +1087,12 @@ export type Pickup = {
   porch_leave_ok: boolean;
   assigned_user_id: string | null;
   window_text: string;
+  dest_ally_id: string | null;
+  dest_location_id: string | null;
+  dest_note: string;
+  items_text: string;
+  pounds: number | null;
+  source_inquiry_id: string;
 };
 
 export type TaxProfile = {
@@ -1142,9 +1149,12 @@ export async function getDonation(id: string, pantryId: string): Promise<Donatio
 
 export async function getPickup(id: string, pantryId: string): Promise<Pickup | null> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pickups").select(PICKUP_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
-  fail(error);
-  return (data as Pickup | null) ?? null;
+  const full = await client.from("plenty_pickups").select(PICKUP_FULL).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
+  if (!full.error) return asPickup(full.data as Record<string, unknown> | null);
+  if (!schemaGap(full.error)) fail(full.error);
+  const plain = await client.from("plenty_pickups").select(PICKUP_COLS).eq("id", id).eq("pantry_id", pantryId).maybeSingle();
+  fail(plain.error);
+  return asPickup(plain.data as Record<string, unknown> | null);
 }
 
 export async function visitsTodayCount(pantryId: string): Promise<number> {
@@ -1222,6 +1232,21 @@ export async function listLocations(pantryId: string): Promise<LocationRow[]> {
 }
 
 const PICKUP_COLS = "id, pantry_id, kind, scheduled_for, address, contact_name, contact_phone, notes, status, created_at, household_id, will_be_home, porch_leave_ok, assigned_user_id, window_text";
+const PICKUP_FULL = `${PICKUP_COLS}, dest_ally_id, dest_location_id, dest_note, items_text, pounds, source_inquiry_id`;
+
+function asPickup(row: Record<string, unknown> | null): Pickup | null {
+  if (!row) return null;
+  const pounds = row.pounds == null || row.pounds === "" ? null : Number(row.pounds);
+  return {
+    ...(row as unknown as Pickup),
+    dest_ally_id: (row.dest_ally_id as string | null) ?? null,
+    dest_location_id: (row.dest_location_id as string | null) ?? null,
+    dest_note: String(row.dest_note ?? ""),
+    items_text: String(row.items_text ?? ""),
+    pounds: pounds != null && Number.isFinite(pounds) ? pounds : null,
+    source_inquiry_id: String(row.source_inquiry_id ?? "")
+  };
+}
 
 export async function addPickup(input: {
   pantryId: string;
@@ -1236,9 +1261,16 @@ export async function addPickup(input: {
   willBeHome?: boolean | null;
   porchLeaveOk?: boolean;
   windowText?: string;
+  destAllyId?: string | null;
+  destLocationId?: string | null;
+  destNote?: string;
+  itemsText?: string;
+  pounds?: number | null;
+  sourceInquiryId?: string;
+  status?: string;
 }): Promise<Pickup> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pickups").insert({
+  const base = {
     pantry_id: input.pantryId,
     kind: input.kind,
     scheduled_for: input.scheduledFor,
@@ -1246,21 +1278,38 @@ export async function addPickup(input: {
     contact_name: input.contactName,
     contact_phone: input.contactPhone,
     notes: input.notes,
+    status: input.status || (input.scheduledFor ? "requested" : "needs_scheduling"),
     created_by: input.createdBy,
     household_id: input.householdId ?? null,
     will_be_home: input.willBeHome ?? null,
     porch_leave_ok: Boolean(input.porchLeaveOk),
     window_text: input.windowText ?? ""
-  }).select(PICKUP_COLS).single();
-  fail(error);
-  return data as Pickup;
+  };
+  const extra = {
+    ...base,
+    dest_ally_id: input.destAllyId || null,
+    dest_location_id: input.destLocationId || null,
+    dest_note: input.destNote ?? "",
+    items_text: input.itemsText ?? "",
+    pounds: input.pounds != null && input.pounds > 0 ? input.pounds : null,
+    source_inquiry_id: input.sourceInquiryId ?? ""
+  };
+  const full = await client.from("plenty_pickups").insert(extra).select(PICKUP_FULL).single();
+  if (!full.error) return asPickup(full.data as Record<string, unknown>) as Pickup;
+  if (!schemaGap(full.error)) fail(full.error);
+  const plain = await client.from("plenty_pickups").insert(base).select(PICKUP_COLS).single();
+  fail(plain.error);
+  return asPickup(plain.data as Record<string, unknown>) as Pickup;
 }
 
 export async function listPickups(pantryId: string): Promise<Pickup[]> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_pickups").select(PICKUP_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
-  fail(error);
-  return (data as Pickup[]) || [];
+  const full = await client.from("plenty_pickups").select(PICKUP_FULL).eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  if (!full.error) return ((full.data || []) as Record<string, unknown>[]).map((row) => asPickup(row) as Pickup);
+  if (!schemaGap(full.error)) fail(full.error);
+  const plain = await client.from("plenty_pickups").select(PICKUP_COLS).eq("pantry_id", pantryId).order("created_at", { ascending: false });
+  fail(plain.error);
+  return ((plain.data || []) as Record<string, unknown>[]).map((row) => asPickup(row) as Pickup);
 }
 
 const REMINDER_COLS =
@@ -1306,14 +1355,27 @@ export async function setPickupStatus(id: string, status: string, extra?: { assi
   const payload: Record<string, unknown> = { status };
   if (extra?.assignedUserId) payload.assigned_user_id = extra.assignedUserId;
   if (extra?.scheduledFor !== undefined) payload.scheduled_for = extra.scheduledFor;
-  const { data, error } = await client.from("plenty_pickups").update(payload).eq("id", id).select(PICKUP_COLS).maybeSingle();
-  fail(error);
-  return (data as Pickup | null) ?? null;
+  const full = await client.from("plenty_pickups").update(payload).eq("id", id).select(PICKUP_FULL).maybeSingle();
+  if (!full.error) return asPickup(full.data as Record<string, unknown> | null);
+  if (!schemaGap(full.error)) fail(full.error);
+  const plain = await client.from("plenty_pickups").update(payload).eq("id", id).select(PICKUP_COLS).maybeSingle();
+  fail(plain.error);
+  return asPickup(plain.data as Record<string, unknown> | null);
 }
 
 export async function patchPickup(
   id: string,
-  patch: { address?: string; notes?: string; scheduledFor?: string | null; windowText?: string }
+  patch: {
+    address?: string;
+    notes?: string;
+    scheduledFor?: string | null;
+    windowText?: string;
+    destAllyId?: string | null;
+    destLocationId?: string | null;
+    destNote?: string;
+    itemsText?: string;
+    pounds?: number | null;
+  }
 ): Promise<void> {
   const client = await sb();
   const payload: Record<string, unknown> = {};
@@ -1321,9 +1383,19 @@ export async function patchPickup(
   if (patch.notes != null) payload.notes = patch.notes;
   if (patch.scheduledFor !== undefined) payload.scheduled_for = patch.scheduledFor;
   if (patch.windowText != null) payload.window_text = patch.windowText;
-  if (!Object.keys(payload).length) return;
-  const { error } = await client.from("plenty_pickups").update(payload).eq("id", id);
-  fail(error);
+  if (Object.keys(payload).length) {
+    const { error } = await client.from("plenty_pickups").update(payload).eq("id", id);
+    fail(error);
+  }
+  const extra: Record<string, unknown> = {};
+  if (patch.destAllyId !== undefined) extra.dest_ally_id = patch.destAllyId || null;
+  if (patch.destLocationId !== undefined) extra.dest_location_id = patch.destLocationId || null;
+  if (patch.destNote != null) extra.dest_note = patch.destNote;
+  if (patch.itemsText != null) extra.items_text = patch.itemsText;
+  if (patch.pounds !== undefined) extra.pounds = patch.pounds != null && patch.pounds > 0 ? patch.pounds : null;
+  if (!Object.keys(extra).length) return;
+  const { error } = await client.from("plenty_pickups").update(extra).eq("id", id);
+  if (error && !schemaGap(error)) fail(error);
 }
 
 export async function patchShift(

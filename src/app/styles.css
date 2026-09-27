@@ -121,6 +121,29 @@ textarea.input { min-height: 96px; resize: vertical; }
 .error, .note.error { color: #9b2c2c; }
 .panel { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: var(--panel); margin-top: 18px; }
 .lede { margin: 8px 0 0; font-size: 1.15rem; line-height: 1.4; font-weight: 500; }
+.pickup-desk .card,
+.pickup-desk .card p,
+.pickup-desk .card li,
+.pickup-desk .card span,
+.pickup-desk .card dd {
+  overflow-wrap: anywhere;
+}
+.pickup-facts { display: grid; gap: 8px; margin: 10px 0 0; }
+.pickup-facts div { min-width: 0; }
+.pickup-facts dt {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mail-log { list-style: none; padding: 0; margin: 6px 0 0; }
+.mail-log li { margin: 0; font-size: .95rem; }
+@media (max-width: 420px) {
+  .pickup-desk.shell { padding-left: 12px; padding-right: 12px; }
+  .pickup-desk .panel, .pickup-desk .card { padding: 14px; }
+}
 .field { display: grid; gap: 6px; }
 .field > span {
   color: var(--muted);

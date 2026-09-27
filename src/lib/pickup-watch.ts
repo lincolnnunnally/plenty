@@ -10,6 +10,7 @@ export type ReminderKind = "24h" | "morning" | "overdue";
 
 export type ReminderRow = PickupTiming & {
   id: string;
+  pantry_id?: string;
   kind: string;
   address: string;
   contact_name: string;
@@ -31,17 +32,19 @@ export function pickupIsOverdue(row: PickupTiming, now: Date) {
   return Number.isFinite(at) && at < now.getTime();
 }
 
-/** No confirmed clock time. A window phrase alone still needs a date. */
+/** No confirmed clock time, or the row is still marked needs_scheduling. A window phrase alone still needs a date. */
 export function pickupNeedsScheduling(row: PickupTiming) {
-  return !pickupIsClosed(row.status) && !row.scheduled_for;
+  if (pickupIsClosed(row.status)) return false;
+  if (row.status.trim().toLowerCase() === "needs_scheduling") return true;
+  return !row.scheduled_for;
 }
 
 export function groupPickups<T extends PickupTiming>(rows: T[], now = new Date()) {
   const byTime = (a: T, b: T) => new Date(a.scheduled_for || 0).getTime() - new Date(b.scheduled_for || 0).getTime();
   return {
     needsScheduling: rows.filter((row) => pickupNeedsScheduling(row)),
-    upcoming: rows.filter((row) => !pickupIsClosed(row.status) && row.scheduled_for && !pickupIsOverdue(row, now)).sort(byTime),
-    overdue: rows.filter((row) => pickupIsOverdue(row, now)).sort(byTime),
+    upcoming: rows.filter((row) => !pickupIsClosed(row.status) && !pickupNeedsScheduling(row) && row.scheduled_for && !pickupIsOverdue(row, now)).sort(byTime),
+    overdue: rows.filter((row) => pickupIsOverdue(row, now) && !pickupNeedsScheduling(row)).sort(byTime),
     finished: rows.filter((row) => pickupIsClosed(row.status))
   };
 }
@@ -158,7 +161,7 @@ export async function runPickupWatch(input: {
   rows: ReminderRow[];
   now: Date;
   reviewUrl: string;
-  deliver: (notice: { subject: string; text: string }) => Promise<{ ok: boolean }>;
+  deliver: (notice: { subject: string; text: string }, row: ReminderRow, kind: ReminderKind) => Promise<{ ok: boolean }>;
   mark: (id: string, kind: ReminderKind) => Promise<void>;
 }): Promise<{ sent: ReminderKind[]; failed: number }> {
   const sent: ReminderKind[] = [];
@@ -166,7 +169,7 @@ export async function runPickupWatch(input: {
   for (const row of input.rows) {
     for (const kind of dueReminders(row, input.now)) {
       try {
-        const result = await input.deliver(composeReminder(row, kind, input.reviewUrl));
+        const result = await input.deliver(composeReminder(row, kind, input.reviewUrl), row, kind);
         if (!result.ok) {
           failed += 1;
           continue;

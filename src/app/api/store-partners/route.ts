@@ -1,7 +1,8 @@
 import { fail, ok, readJson, requireStewardFor, str } from "@/lib/api";
 import { addRecurring, addStorePartner, getDefaultPantry, listRecurring } from "@/lib/db/queries";
-import { notifyDesk, sendPlainEmail } from "@/lib/notify";
-import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { notifyDesk } from "@/lib/notify";
+import { ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { composePickupAttention } from "@/lib/pickup-watch";
 import { validStaffPin } from "@/lib/store-card/code";
 import { encodeConcerns, encodeFoodNote, foodTypesFrom, normalizeTimeLocal, weekdayName } from "@/lib/store-pitch";
@@ -111,19 +112,26 @@ export async function POST(request: Request) {
     }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
 
     if (!asSteward) {
-      await deliverOwnerAttention(
-        composePickupAttention({
-          org: name,
-          contactName,
-          contactPhone: phone,
-          address: [str(body.address), str(body.city) || pantry.city, str(body.state) || pantry.state].filter(Boolean).join(", "),
-          whenIso: null,
-          windowText: whenLine || hoursText,
-          what: [foods.join(", "), concernNote, str(body.notes)].filter(Boolean).join(" · ") || pickupMode.replace(/_/g, " "),
-          reviewUrl: ownerDeskUrl("/run/pickups")
-        }),
-        sendPlainEmail
-      );
+      const notice = composePickupAttention({
+        org: name,
+        contactName,
+        contactPhone: phone,
+        address: [str(body.address), str(body.city) || pantry.city, str(body.state) || pantry.state].filter(Boolean).join(", "),
+        whenIso: null,
+        windowText: whenLine || hoursText,
+        what: [foods.join(", "), concernNote, str(body.notes)].filter(Boolean).join(" · ") || pickupMode.replace(/_/g, " "),
+        reviewUrl: ownerDeskUrl("/run/pickups")
+      });
+      await deliverPickupNotice({
+        notice: "new",
+        pickupKind: "store_collect",
+        scheduledFor: null,
+        weekday: weekday != null ? String(weekday) : null,
+        pantryId: pantry.id,
+        pickupId: null,
+        subject: notice.subject,
+        text: notice.text
+      }).catch(() => ({ ok: false }));
     }
 
     return ok({
