@@ -1,12 +1,24 @@
 /**
  * Owner attention mail for a new pantry desk.
- * Recipient is the super admin. This app has no owner-notification env var
- * (PLENTY_SUPER_ADMIN_EMAILS only grants access). One address, defaulted.
+ * APP_ENGINE_OWNER_EMAIL is the notice recipient only. It does not grant the pantry desk.
+ * When it is unset, the notice goes to the super admin.
  */
-export const OWNER_ATTENTION_EMAIL = "lincoln@unitedundergod.org";
+export const OWNER_ATTENTION_FALLBACK = "lincoln@unitedundergod.org";
 
-/** Live pantry desk. Owner mail points at production even from a preview host. */
-export const OWNER_REVIEW_URL = "https://plenty.unitedundergod.org/run";
+const PRODUCTION_ORIGIN = "https://plenty.unitedundergod.org";
+
+export function ownerAttentionEmail() {
+  const configured = (process.env.APP_ENGINE_OWNER_EMAIL || "").trim().toLowerCase();
+  if (configured.includes("@") && !/[\s,;]/.test(configured)) return configured;
+  return OWNER_ATTENTION_FALLBACK;
+}
+
+/** Admin desk link. APP_PUBLIC_URL on production; the live host when a preview has no public URL. */
+export function ownerReviewUrl() {
+  const fromEnv = (process.env.APP_PUBLIC_URL || "").trim().replace(/\/$/, "");
+  const origin = fromEnv.startsWith("http") ? fromEnv : PRODUCTION_ORIGIN;
+  return `${origin}/run`;
+}
 
 export type MailSender = (to: string, subject: string, text: string) => Promise<{ ok: boolean; error: string }>;
 
@@ -66,9 +78,9 @@ export function composeOwnerPantrySignupNotice(input: OwnerPantrySignupInput): O
     `Phone: ${line(input.phone)}`,
     `Location: ${locationLine(input.address, input.city, input.state)}`,
     `Signed up: ${line(input.signedUpAt)}`,
-    `Review: ${OWNER_REVIEW_URL}`
+    `Review: ${ownerReviewUrl()}`
   ].join("\n");
-  return { to: OWNER_ATTENTION_EMAIL, subject, text };
+  return { to: ownerAttentionEmail(), subject, text };
 }
 
 export async function deliverOwnerPantrySignupNotice(

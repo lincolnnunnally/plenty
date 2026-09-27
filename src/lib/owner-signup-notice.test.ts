@@ -2,15 +2,32 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  OWNER_ATTENTION_EMAIL,
-  OWNER_REVIEW_URL,
+  OWNER_ATTENTION_FALLBACK,
   composeOwnerPantrySignupNotice,
   deliverOwnerPantrySignupNotice,
+  ownerAttentionEmail,
   ownerNoticeFailureReason,
+  ownerReviewUrl,
   withOwnerPantrySignupNotice,
   type MailSender,
   type OwnerPantrySignupInput
 } from "./owner-signup-notice.ts";
+
+function withoutOwnerEnv(run: () => Promise<void> | void) {
+  const previousOwner = process.env.APP_ENGINE_OWNER_EMAIL;
+  const previousPublic = process.env.APP_PUBLIC_URL;
+  delete process.env.APP_ENGINE_OWNER_EMAIL;
+  delete process.env.APP_PUBLIC_URL;
+  const finish = () => {
+    if (previousOwner === undefined) delete process.env.APP_ENGINE_OWNER_EMAIL;
+    else process.env.APP_ENGINE_OWNER_EMAIL = previousOwner;
+    if (previousPublic === undefined) delete process.env.APP_PUBLIC_URL;
+    else process.env.APP_PUBLIC_URL = previousPublic;
+  };
+  return Promise.resolve()
+    .then(run)
+    .finally(finish);
+}
 
 const signup: OwnerPantrySignupInput = {
   kind: "pantry",
@@ -34,22 +51,38 @@ function sent() {
 }
 
 test("pantry signup emails the owner with the signup fields", async () => {
-  const { calls, send } = sent();
-  const result = await deliverOwnerPantrySignupNotice(signup, send);
-  assert.equal(result.ok, true);
-  assert.equal(result.skipped, false);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].to, OWNER_ATTENTION_EMAIL);
-  assert.equal(calls[0].to, "lincoln@unitedundergod.org");
-  assert.equal(calls[0].subject, "New food pantry signup needs your attention: qa-delete-me- Lyons Pantry");
-  assert.match(calls[0].text, /Pantry: qa-delete-me- Lyons Pantry/);
-  assert.match(calls[0].text, /Contact: Ada Steward/);
-  assert.match(calls[0].text, /Email: ada@example.com/);
-  assert.match(calls[0].text, /Phone: 912-555-0100/);
-  assert.match(calls[0].text, /Location: 12 Main St, Lyons, GA/);
-  assert.match(calls[0].text, /Signed up: 2026-09-27T09:30:00.000Z/);
-  assert.match(calls[0].text, new RegExp(`Review: ${OWNER_REVIEW_URL.replace(/[.]/g, "\\.")}`));
-  assert.equal(OWNER_REVIEW_URL, "https://plenty.unitedundergod.org/run");
+  await withoutOwnerEnv(async () => {
+    const { calls, send } = sent();
+    const result = await deliverOwnerPantrySignupNotice(signup, send);
+    assert.equal(result.ok, true);
+    assert.equal(result.skipped, false);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].to, ownerAttentionEmail());
+    assert.equal(calls[0].to, OWNER_ATTENTION_FALLBACK);
+    assert.equal(calls[0].to, "lincoln@unitedundergod.org");
+    assert.equal(calls[0].subject, "New food pantry signup needs your attention: qa-delete-me- Lyons Pantry");
+    assert.match(calls[0].text, /Pantry: qa-delete-me- Lyons Pantry/);
+    assert.match(calls[0].text, /Contact: Ada Steward/);
+    assert.match(calls[0].text, /Email: ada@example.com/);
+    assert.match(calls[0].text, /Phone: 912-555-0100/);
+    assert.match(calls[0].text, /Location: 12 Main St, Lyons, GA/);
+    assert.match(calls[0].text, /Signed up: 2026-09-27T09:30:00.000Z/);
+    assert.match(calls[0].text, /Review: https:\/\/plenty\.unitedundergod\.org\/run/);
+    assert.equal(ownerReviewUrl(), "https://plenty.unitedundergod.org/run");
+  });
+});
+
+test("recipient and review link follow the production owner env vars", async () => {
+  await withoutOwnerEnv(async () => {
+    process.env.APP_ENGINE_OWNER_EMAIL = "owner@example.com";
+    process.env.APP_PUBLIC_URL = "https://plenty.unitedundergod.org/";
+    const { calls, send } = sent();
+    await deliverOwnerPantrySignupNotice(signup, send);
+    assert.equal(calls[0].to, "owner@example.com");
+    assert.match(calls[0].text, /Review: https:\/\/plenty\.unitedundergod\.org\/run/);
+    process.env.APP_ENGINE_OWNER_EMAIL = "not-an-email";
+    assert.equal(ownerAttentionEmail(), "lincoln@unitedundergod.org");
+  });
 });
 
 test("church claim uses the same pantry desk, so the owner is emailed", async () => {
