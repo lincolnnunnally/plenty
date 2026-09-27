@@ -1,7 +1,9 @@
 import { fail, ok, readJson, requireDeskPantry, requireStewardFor, requireUser, str } from "@/lib/api";
+import { defaultPantryDestination } from "@/lib/db/pickup-desk";
 import { addPickup, getDefaultPantry, getHousehold, getPickup, householdForUser, listVolunteers, patchPickup, setPickupStatus } from "@/lib/db/queries";
-import { notifyCrew, notifyPeople, sendPlainEmail, sendSms } from "@/lib/notify";
-import { deliverOwnerAttention, ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
+import { ownerDeskUrl } from "@/lib/owner-signup-notice";
+import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { composePickupAttention } from "@/lib/pickup-watch";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +29,18 @@ export async function POST(request: Request) {
       if (str(body.address) && !str(body.status)) {
         const address = str(body.address);
         const when = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
+        const pounds = str(body.pounds) ? Number(str(body.pounds)) : undefined;
+        const current = await getPickup(str(body.id), pantry.id);
         await patchPickup(str(body.id), {
           address,
           notes: str(body.notes) || undefined,
           scheduledFor: when,
-          windowText: str(body.windowText) || undefined
+          windowText: str(body.windowText) || undefined,
+          destAllyId: body.destAllyId !== undefined ? str(body.destAllyId) || null : undefined,
+          destLocationId: body.destLocationId !== undefined ? str(body.destLocationId) || null : undefined,
+          destNote: current?.kind === "household_delivery" ? address : body.destNote !== undefined ? str(body.destNote) : undefined,
+          itemsText: body.itemsText !== undefined ? str(body.itemsText) : undefined,
+          pounds: pounds !== undefined && Number.isFinite(pounds) ? pounds : undefined
         });
         const crew = await listVolunteers(pantry.id);
         const assigned = str(body.assignedUserId);
@@ -107,10 +116,15 @@ export async function POST(request: Request) {
       ? (steward.error ? mine?.id : str(body.householdId) || mine?.id) || null
       : null;
   try {
+    const scheduledFor = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
+    const pantryDest = kind === "household_delivery" ? { destLocationId: null, destNote: address } : str(body.destNote)
+      ? { destLocationId: str(body.destLocationId) || null, destNote: str(body.destNote) }
+      : await defaultPantryDestination(pantry);
+    const pounds = str(body.pounds) ? Number(str(body.pounds)) : null;
     const pickup = await addPickup({
       pantryId: pantry.id,
       kind,
-      scheduledFor: str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null,
+      scheduledFor,
       address,
       contactName: str(body.contactName) || user.name,
       contactPhone: str(body.contactPhone),
@@ -119,21 +133,32 @@ export async function POST(request: Request) {
       householdId,
       willBeHome: body.willBeHome === undefined || body.willBeHome === "" ? null : on(body.willBeHome),
       porchLeaveOk: on(body.porchLeaveOk),
-      windowText: str(body.windowText)
+      windowText: str(body.windowText),
+      destAllyId: str(body.destAllyId) || null,
+      destLocationId: pantryDest.destLocationId,
+      destNote: pantryDest.destNote,
+      itemsText: str(body.itemsText) || str(body.notes),
+      pounds: pounds != null && Number.isFinite(pounds) ? pounds : null
     });
-    await deliverOwnerAttention(
-      composePickupAttention({
-        org: pickup.contact_name,
-        contactName: pickup.contact_name,
-        contactPhone: pickup.contact_phone,
-        address: pickup.address,
-        whenIso: pickup.scheduled_for,
-        windowText: pickup.window_text,
-        what: pickup.notes || pickup.kind.replace(/_/g, " "),
-        reviewUrl: ownerDeskUrl("/run/pickups")
-      }),
-      sendPlainEmail
-    );
+    const notice = composePickupAttention({
+      org: pickup.contact_name,
+      contactName: pickup.contact_name,
+      contactPhone: pickup.contact_phone,
+      address: pickup.address,
+      whenIso: pickup.scheduled_for,
+      windowText: pickup.window_text,
+      what: [pickup.items_text || pickup.notes, pickup.pounds ? `${pickup.pounds} lb` : "", pickup.dest_note ? `Take it to ${pickup.dest_note}` : ""].filter(Boolean).join(" · ") || pickup.kind.replace(/_/g, " "),
+      reviewUrl: ownerDeskUrl("/run/pickups")
+    });
+    await deliverPickupNotice({
+      notice: "new",
+      pickupKind: pickup.kind,
+      scheduledFor: pickup.scheduled_for,
+      pantryId: pantry.id,
+      pickupId: pickup.id,
+      subject: notice.subject,
+      text: notice.text
+    }).catch(() => ({ ok: false }));
     if (kind === "household_delivery") {
       const crew = await listVolunteers(pantry.id);
       await notifyCrew({

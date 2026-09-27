@@ -33,20 +33,32 @@ export async function sendSms(to: string, body: string): Promise<{ ok: boolean; 
   return { ok: true, error: "" };
 }
 
-export async function sendPlainEmail(to: string, subject: string, text: string): Promise<{ ok: boolean; error: string }> {
+export async function sendNoticeEmail(input: {
+  to: string[];
+  cc?: string[];
+  subject: string;
+  text: string;
+}): Promise<{ ok: boolean; error: string; id: string }> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return { ok: false, error: "Email sending is not configured." };
-  const html = `<p style="font-family:Georgia,serif;font-size:16px;line-height:1.5;white-space:pre-wrap">${text.replace(/</g, "<")}</p>`;
+  const to = input.to.map((email) => email.trim()).filter(Boolean);
+  const cc = (input.cc || []).map((email) => email.trim()).filter(Boolean);
+  if (!to.length) return { ok: false, error: "No recipient.", id: "" };
+  if (!key) return { ok: false, error: "Email sending is not configured.", id: "" };
+  const html = `<p style="font-family:Georgia,serif;font-size:16px;line-height:1.5;white-space:pre-wrap">${input.text.replace(/</g, "<")}</p>`;
+  const body: Record<string, unknown> = { from: resendFrom(), to, subject: input.subject, html, text: input.text };
+  if (cc.length) body.cc = cc;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: resendFrom(), to: [to], subject, html, text })
+    body: JSON.stringify(body)
   });
-  if (!res.ok) {
-    const payload = (await res.json().catch(() => ({}))) as { message?: string; error?: { message?: string } };
-    return { ok: false, error: payload.error?.message || payload.message || `Resend ${res.status}` };
-  }
-  return { ok: true, error: "" };
+  const payload = (await res.json().catch(() => ({}))) as { id?: string; message?: string; error?: { message?: string } };
+  if (!res.ok) return { ok: false, error: payload.error?.message || payload.message || `Resend ${res.status}`, id: "" };
+  return { ok: true, error: "", id: String(payload.id || "") };
+}
+
+export async function sendPlainEmail(to: string, subject: string, text: string): Promise<{ ok: boolean; error: string; id: string }> {
+  return sendNoticeEmail({ to: [to], subject, text });
 }
 
 export type CrewMember = { email: string | null; phone: string | null; name: string | null; roles: string[]; notes?: string | null };

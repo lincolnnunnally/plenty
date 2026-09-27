@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/owner-signup-notice.test.ts src/lib/pickup-watch.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/owner-signup-notice.test.ts src/lib/pickup-watch.test.ts src/lib/pickup-routes.test.ts src/lib/resend-webhook.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

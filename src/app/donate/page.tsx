@@ -169,6 +169,8 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
               <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
               <label className="field"><span>Phone</span><input className="input" name="contactPhone" /></label>
               <label className="field"><span>What to pick up</span><input className="input" name="notes" /></label>
+              <label className="field"><span>Pounds, if you know</span><input className="input" name="pounds" type="number" min="0" step="1" /></label>
+              <label className="field"><span>Deliver to</span><input className="input" name="destNote" placeholder="Leave blank and it comes to the pantry" /></label>
             </PostForm>
           </section>
         </>
