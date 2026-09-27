@@ -2,6 +2,7 @@ import { PostForm } from "@/components/post-form";
 import { listFoodLoads } from "@/lib/db/food-loads";
 import { getDefaultPantrySafe, listStorePartners } from "@/lib/db/queries";
 import { storeDeskPartnerId } from "@/lib/store-card/store-session";
+import { formatEasternWhen } from "@/lib/pickup-watch";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -81,9 +82,9 @@ export default async function StoreManagePage() {
               {howValue(partner) !== "dock_pickup" ? (
                 <label className="check"><input type="checkbox" name="leftover" value="1" /> This is leftover — more food than people came. Please collect it.</label>
               ) : null}
-              <label className="field"><span>Pick up at</span><input className="input" type="datetime-local" name="pickupAt" /></label>
+              <label className="field"><span>Pick up at (Eastern)</span><input className="input" type="datetime-local" name="pickupAt" /></label>
               {howValue(partner) !== "dock_pickup" ? (
-                <label className="field"><span>Hold cannot sit past (cold food)</span><input className="input" type="datetime-local" name="holdUntil" /></label>
+                <label className="field"><span>Hold cannot sit past (Eastern, cold food)</span><input className="input" type="datetime-local" name="holdUntil" /></label>
               ) : null}
               <label className="field"><span>Dry goods</span><input className="input" name="dryQty" placeholder="quantity / what" /></label>
               <label className="field"><span>Refrigerated</span><input className="input" name="refrigeratedQty" /></label>
@@ -104,7 +105,7 @@ export default async function StoreManagePage() {
                   <tbody>
                     {loads.map((l) => (
                       <tr key={l.id}>
-                        <td>{l.pickup_at ? new Date(l.pickup_at).toLocaleString() : "—"}</td>
+                        <td>{l.pickup_at ? formatEasternWhen(l.pickup_at) : "—"}</td>
                         <td>{(l.items || []).map((i) => i.category).join(", ") || "—"}{l.leftover ? " · leftover" : ""}</td>
                         <td>{l.dest_name}{l.route_reason ? ` · ${l.route_reason}` : ""}</td>
                         <td>{l.status}</td>

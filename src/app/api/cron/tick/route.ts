@@ -138,7 +138,7 @@ async function escalateHolds() {
       pantryEmail: pantry.email,
       pantryPhone: pantry.phone,
       subject: `Hold time passed: ${load.partner_name || "a load"}`,
-      text: `${load.partner_name} still needs a destination or pickup.\nHold was ${new Date(load.hold_until).toLocaleString()}.\n${load.route_reason}\nhttps://plenty.unitedundergod.org/run/food`
+      text: `${load.partner_name} still needs a destination or pickup.\nHold was ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}.\n${load.route_reason}\nhttps://plenty.unitedundergod.org/run/food`
     }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
     await updateFoodLoad(load.id, pantry.id, { notes: `${load.notes || ""}\n[hold-alerted]`.trim() });
     pinged.push(load.id);

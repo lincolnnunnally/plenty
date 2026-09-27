@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/queries";
 import { twilioConfigured } from "@/lib/notify";
 import { resendConfigured } from "@/lib/promote/email";
-import { WEEKDAYS, parseMonthWeeks, monthWeeksLabel } from "@/lib/schedule";
+import { WEEKDAYS, easternLocalInput, parseMonthWeeks, monthWeeksLabel } from "@/lib/schedule";
 import { formatEasternWhen, groupPickups, pickupIsOverdue, pickupNeedsScheduling } from "@/lib/pickup-watch";
 import { FOOD_TYPES } from "@/lib/store-pitch";
 import { redirect } from "next/navigation";
@@ -178,7 +178,7 @@ export default async function CalendarPage() {
                         <input type="hidden" name="id" value={p.id} />
                         {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                         <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                        <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                        <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
                         <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
                       </PostForm>
                     </article>
@@ -199,7 +199,7 @@ export default async function CalendarPage() {
                         <input type="hidden" name="id" value={p.id} />
                         {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                         <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                        <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                        <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
                         <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
                       </PostForm>
                     </article>
@@ -221,7 +221,7 @@ export default async function CalendarPage() {
                         <input type="hidden" name="id" value={p.id} />
                         {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                         <label className="field"><span>Go here instead</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                        <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                        <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
                         <label className="field"><span>Note</span><input className="input" name="notes" defaultValue={p.notes} /></label>
                       </PostForm>
                     </article>

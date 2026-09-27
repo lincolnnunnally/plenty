@@ -3,6 +3,8 @@ import { RunNav } from "@/components/run-nav";
 import { requirePantryDesk } from "@/lib/auth/session";
 import { listFoodLoads } from "@/lib/db/food-loads";
 import { listAllies } from "@/lib/db/queries";
+import { formatEasternWhen } from "@/lib/pickup-watch";
+import { easternLocalInput } from "@/lib/schedule";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -56,8 +58,8 @@ export default async function FoodRescuePage() {
               <span>{l.partner_name} · {l.mode.replace("_", " ")}{l.leftover ? " · leftover" : ""} · {l.status}</span>
               <strong>{l.dest_name || "Needs a destination"}</strong>
               <p className="note">{l.route_reason}</p>
-              {l.pickup_at ? <p>Pickup {new Date(l.pickup_at).toLocaleString()}</p> : null}
-              {l.hold_until ? <p className="note">Hold until {new Date(l.hold_until).toLocaleString()}</p> : null}
+              {l.pickup_at ? <p>Pickup {formatEasternWhen(l.pickup_at)}</p> : null}
+              {l.hold_until ? <p className="note">Hold until {formatEasternWhen(l.hold_until)}</p> : null}
               <ul>
                 {(l.items || []).map((i) => (
                   <li key={i.id}>{i.category} · {i.title} {i.quantity}{i.must_use_by ? ` · use by ${i.must_use_by}` : ""}</li>
@@ -85,7 +87,7 @@ export default async function FoodRescuePage() {
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </label>
-                <label className="field"><span>Pickup time</span><input className="input" type="datetime-local" name="pickupAt" defaultValue={l.pickup_at ? l.pickup_at.slice(0, 16) : ""} /></label>
+                <label className="field"><span>Pickup time (Eastern)</span><input className="input" type="datetime-local" name="pickupAt" defaultValue={easternLocalInput(l.pickup_at)} /></label>
               </PostForm>
             </article>
           ))}

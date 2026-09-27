@@ -166,9 +166,12 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
             <PostForm action="/api/pickups" submitLabel="Request a pickup">
               <input type="hidden" name="kind" value="donation_pickup" />
               <label className="field"><span>Pickup address</span><input className="input" name="address" required /></label>
-              <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
+              <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
+              <label className="field"><span>Your name</span><input className="input" name="contactName" defaultValue={user.name} /></label>
               <label className="field"><span>Phone</span><input className="input" name="contactPhone" /></label>
+              <label className="field"><span>Email</span><input className="input" type="email" name="contactEmail" defaultValue={user.email} /></label>
               <label className="field"><span>What to pick up</span><input className="input" name="notes" /></label>
+              <label className="field"><span>Notes</span><input className="input" name="deskNote" /></label>
               <label className="field"><span>Pounds, if you know</span><input className="input" name="pounds" type="number" min="0" step="1" /></label>
               <label className="field"><span>Deliver to</span><input className="input" name="destNote" placeholder="Leave blank and it comes to the pantry" /></label>
             </PostForm>

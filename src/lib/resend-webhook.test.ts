@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   emailStatusFromEvent,
   readResendEmailEvent,
+  rowsForEmailEvent,
   shouldApplyEmailStatus,
   verifyResendWebhook
 } from "./resend-webhook.ts";
@@ -51,6 +52,26 @@ test("Svix verification accepts a fresh signature and rejects a bad one", () => 
   assert.equal(emailStatusFromEvent("email.failed"), "failed");
   assert.equal(emailStatusFromEvent("email.delivery_delayed"), "delayed");
   assert.equal(emailStatusFromEvent("email.sent"), null);
+});
+
+test("a bounce stores the reason and updates only the named recipient", () => {
+  const payload = JSON.stringify({
+    type: "email.bounced",
+    data: {
+      email_id: "email_qa-delete-me",
+      to: "qa-delete-me-crew@example.com",
+      bounce: { type: "Permanent", subType: "Suppressed", message: "mailbox does not exist" }
+    }
+  });
+  const event = readResendEmailEvent(payload);
+  assert.equal(event?.reason, "Permanent · Suppressed · mailbox does not exist");
+  assert.deepEqual(event?.to, ["qa-delete-me-crew@example.com"]);
+  const rows = [
+    { id: "crew", to_email: "qa-delete-me-crew@example.com", status: "accepted" },
+    { id: "lincoln", to_email: "lincoln@unitedundergod.org", status: "accepted" }
+  ];
+  assert.deepEqual(rowsForEmailEvent(rows, "bounced", event?.to || []).map((row) => row.id), ["crew"]);
+  assert.deepEqual(rowsForEmailEvent(rows, "bounced", []), []);
 });
 
 test("delivery status moves forward and does not wipe a bounce", () => {

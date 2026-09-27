@@ -610,17 +610,21 @@ export async function householdByPass(code: string): Promise<Household | null> {
 
 export async function unusedHandling(householdId: string): Promise<Contribution[]> {
   const client = await sb();
-  const { data, error } = await client
-    .from("plenty_contributions")
-    .select(CONTRIB_COLS)
-    .eq("household_id", householdId)
-    .eq("waived", false)
-    .is("visit_id", null)
-    .gt("amount_cents", 0)
-    .in("status", ["received", "pledged"])
-    .order("created_at", { ascending: true });
-  fail(error);
-  return (data as Contribution[]) || [];
+  for (const actor of CONTRIB_ACTOR_COLUMNS) {
+    const { data, error } = await client
+      .from("plenty_contributions")
+      .select(contributionColumns(actor))
+      .eq("household_id", householdId)
+      .eq("waived", false)
+      .is("visit_id", null)
+      .gt("amount_cents", 0)
+      .in("status", ["received", "pledged"])
+      .order("created_at", { ascending: true });
+    if (!error) return ((data as unknown as Record<string, unknown>[]) || []).map(asContribution);
+    if (contributionColumnMissing(error, actor)) continue;
+    fail(error);
+  }
+  return [];
 }
 
 export async function applyHandlingToVisit(householdId: string, visitId: string): Promise<Contribution | null> {
@@ -633,10 +637,22 @@ export async function applyHandlingToVisit(householdId: string, visitId: string)
     .update({ visit_id: visitId, notes: `${credit.notes || ""} applied at pickup`.trim() })
     .eq("id", credit.id)
     .is("visit_id", null)
-    .select(CONTRIB_COLS)
+    .select(contributionColumns("created_by"))
     .maybeSingle();
+  if (error && contributionColumnMissing(error, "created_by")) {
+    const retry = await client
+      .from("plenty_contributions")
+      .update({ visit_id: visitId, notes: `${credit.notes || ""} applied at pickup`.trim() })
+      .eq("id", credit.id)
+      .is("visit_id", null)
+      .select(contributionColumns("user_id"))
+      .maybeSingle();
+    if (retry.error && contributionColumnMissing(retry.error, "user_id")) return credit;
+    fail(retry.error);
+    return retry.data ? asContribution(retry.data as unknown as Record<string, unknown>) : null;
+  }
   fail(error);
-  return (data as Contribution | null) ?? null;
+  return data ? asContribution(data as unknown as Record<string, unknown>) : null;
 }
 
 export async function openDeliveriesForHousehold(pantryId: string, householdId: string): Promise<Pickup[]> {
@@ -1517,7 +1533,38 @@ export type Contribution = {
 const ASSET_COLS = "id, pantry_id, kind, title, description, tenure, donor_user_id, donor_name, status, notes, created_at";
 const HOUR_COLS = "id, pantry_id, user_id, shift_id, hours, worked_on, notes, created_at";
 const HOUR_COLS_WITHOUT_HOURS = "id, pantry_id, user_id, shift_id, worked_on, notes, created_at";
-const CONTRIB_COLS = "id, pantry_id, household_id, user_id, amount_cents, waived, waive_reason, status, notes, visit_id, created_at, timing";
+/** schema.sql names this user_id. The live table was created with created_by, so try that first. */
+const CONTRIB_ACTOR_COLUMNS = ["created_by", "user_id"] as const;
+const CONTRIB_REST = "id, pantry_id, household_id, amount_cents, waived, waive_reason, status, notes, visit_id, created_at, timing";
+
+function contributionColumns(actor: "created_by" | "user_id", extra = "") {
+  return `${CONTRIB_REST}, ${actor}${extra}`;
+}
+
+function asContribution(row: Record<string, unknown>): Contribution {
+  const actor = row.created_by ?? row.user_id;
+  const household = row.plenty_households as { display_name?: string } | { display_name?: string }[] | null | undefined;
+  const name = Array.isArray(household) ? household[0]?.display_name : household?.display_name;
+  return {
+    id: String(row.id),
+    pantry_id: String(row.pantry_id),
+    household_id: row.household_id ? String(row.household_id) : null,
+    user_id: actor ? String(actor) : null,
+    amount_cents: row.amount_cents == null ? null : Number(row.amount_cents),
+    waived: Boolean(row.waived),
+    waive_reason: String(row.waive_reason ?? ""),
+    status: String(row.status ?? ""),
+    notes: String(row.notes ?? ""),
+    visit_id: row.visit_id ? String(row.visit_id) : null,
+    created_at: String(row.created_at ?? ""),
+    timing: String(row.timing ?? ""),
+    household_name: name || undefined
+  };
+}
+
+function contributionColumnMissing(error: { message?: string; code?: string } | null, column: string) {
+  return missingColumn(error as { message: string } | null, "plenty_contributions", column) || schemaGap(error);
+}
 
 function asVolunteerHour(row: Record<string, unknown>): VolunteerHour {
   return {
@@ -1789,10 +1836,9 @@ export async function addContribution(input: {
 }): Promise<Contribution> {
   const client = await sb();
   const status = input.waived ? "waived" : input.amountCents && input.amountCents > 0 ? "received" : "pledged";
-  const { data, error } = await client.from("plenty_contributions").insert({
+  const row = {
     pantry_id: input.pantryId,
     household_id: input.householdId,
-    user_id: input.userId,
     amount_cents: input.waived ? 0 : input.amountCents,
     waived: input.waived,
     waive_reason: input.waiveReason,
@@ -1800,20 +1846,40 @@ export async function addContribution(input: {
     visit_id: input.visitId ?? null,
     timing: input.timing || (input.visitId ? "at_receipt" : "upfront"),
     status: input.status || status
-  }).select(CONTRIB_COLS).single();
-  fail(error);
-  return data as Contribution;
+  };
+  for (const actor of CONTRIB_ACTOR_COLUMNS) {
+    const { data, error } = await client
+      .from("plenty_contributions")
+      .insert({ ...row, [actor]: input.userId })
+      .select(contributionColumns(actor))
+      .single();
+    if (!error) return asContribution(data as unknown as Record<string, unknown>);
+    if (contributionColumnMissing(error, actor)) continue;
+    fail(error);
+  }
+  throw new Error("Could not record the contribution.");
 }
 
 export async function listContributions(pantryId: string): Promise<Contribution[]> {
   const client = await sb();
-  const { data, error } = await client.from("plenty_contributions").select(`${CONTRIB_COLS}, plenty_households(display_name)`).eq("pantry_id", pantryId).order("created_at", { ascending: false }).limit(80);
-  fail(error);
-  return ((data as Array<Contribution & { plenty_households?: { display_name?: string } | { display_name?: string }[] }>) || []).map((row) => {
-    const hh = row.plenty_households;
-    const name = Array.isArray(hh) ? hh[0]?.display_name : hh?.display_name;
-    return { ...row, household_name: name || "—" };
-  });
+  for (const actor of CONTRIB_ACTOR_COLUMNS) {
+    const { data, error } = await client
+      .from("plenty_contributions")
+      .select(`${contributionColumns(actor)}, plenty_households(display_name)`)
+      .eq("pantry_id", pantryId)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    if (!error) {
+      return ((data as unknown as Record<string, unknown>[]) || []).map((row) => {
+        const contribution = asContribution(row);
+        return { ...contribution, household_name: contribution.household_name || "—" };
+      });
+    }
+    if (contributionColumnMissing(error, actor)) continue;
+    console.error("[plenty] contributions skipped");
+    return [];
+  }
+  return [];
 }
 
 export async function visitCountsByHousehold(pantryId: string): Promise<Map<string, { count: number; lastVisit: string | null }>> {

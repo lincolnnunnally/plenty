@@ -7,6 +7,7 @@ import { listFoodLoads } from "@/lib/db/food-loads";
 import { getDefaultPantrySafe, hoursForUser, latestWaiverForUser, listCoverRequests, listShifts, myShiftSignups, userPhone, volunteerForUser } from "@/lib/db/queries";
 import { readLang, t } from "@/lib/i18n";
 import { VOLUNTEER_WAIVER_VERSION } from "@/lib/legal/volunteer-waiver";
+import { formatEasternWhen } from "@/lib/pickup-watch";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -75,7 +76,7 @@ export default async function VolunteerPage() {
               <article className="card" key={load.id}>
                 <span>{load.status}</span>
                 <strong>{load.partner_name || "Store pickup"}</strong>
-                <p>{load.pickup_at ? new Date(load.pickup_at).toLocaleString() : "Time on the board"}</p>
+                <p>{load.pickup_at ? formatEasternWhen(load.pickup_at) : "Time on the board"}</p>
                 <p className="note">To: {load.dest_name || load.dest_note || "Plenty"}{load.route_reason ? ` · ${load.route_reason}` : ""}</p>
               </article>
             ))}

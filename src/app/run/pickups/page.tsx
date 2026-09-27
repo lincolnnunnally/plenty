@@ -14,6 +14,7 @@ import {
   planNoticeRecipients
 } from "@/lib/pickup-routes";
 import { formatEasternWhen, groupPickups, pickupIsOverdue } from "@/lib/pickup-watch";
+import { easternLocalInput } from "@/lib/schedule";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -56,8 +57,13 @@ export default async function PickupsPage() {
         {rows.map((p) => {
           const assignee = p.assigned_user_id ? driverName.get(p.assigned_user_id) || "Assigned" : "Unassigned";
           const matched = matchingRouteEmails(routes.rows, { kind: p.kind, scheduledFor: p.scheduled_for });
-          const recipients = planNoticeRecipients("new", matched);
           const history = mailByPickup.get(p.id) || [];
+          const sentTo = [...new Set(history.map((mail) => mail.to_email.trim().toLowerCase()).filter(Boolean))];
+          const planned = planNoticeRecipients("new", matched).to.map((email) => {
+            const label = routes.rows.find((route) => route.email.trim().toLowerCase() === email)?.label.trim();
+            return label ? `${label} · ${email}` : email;
+          });
+          const recipients = sentTo.length ? sentTo : planned;
           const deliverTo = pickupDeliverLine(p, {
             ally: p.dest_ally_id ? allyName.get(p.dest_ally_id) : "",
             location: p.dest_location_id ? locationName.get(p.dest_location_id) : "",
@@ -73,7 +79,8 @@ export default async function PickupsPage() {
                 <div><dt>When</dt><dd>{formatEasternWhen(p.scheduled_for, p.window_text)}</dd></div>
                 <div><dt>Items</dt><dd>{p.items_text || p.notes || "Not listed"}{p.pounds ? ` · ${p.pounds} lb` : ""}</dd></div>
                 <div><dt>Donor contact</dt><dd>{[p.contact_name, p.contact_phone].filter(Boolean).join(" · ") || "Not listed"}</dd></div>
-                <div><dt>Routed to</dt><dd>{recipients.to.map((email) => routes.rows.find((route) => route.email === email)?.label || email).join(", ")}</dd></div>
+                {p.notes && p.notes !== p.items_text ? <div><dt>Notes</dt><dd>{p.notes}</dd></div> : null}
+                <div><dt>{sentTo.length ? "Sent to" : "Routed to"}</dt><dd>{recipients.join(", ") || "lincoln@unitedundergod.org"}</dd></div>
               </dl>
               {p.kind === "household_delivery" ? (
                 <p className="note">
@@ -81,12 +88,11 @@ export default async function PickupsPage() {
                   {p.porch_leave_ok ? " OK to leave on the porch." : " Do not leave on the porch unless you hear from them."}
                 </p>
               ) : null}
-              {p.notes && p.notes !== p.items_text ? <p>{p.notes}</p> : null}
               {history.length ? (
                 <ul className="mail-log">
                   {history.map((mail) => (
                     <li key={mail.id}>
-                      {mail.kind} · {mail.to_email} · {new Date(mail.created_at).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {mail.status}
+                      {mail.kind} · {mail.to_email} · {new Date(mail.created_at).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {mail.status}{mail.error ? ` · ${mail.error}` : ""}
                     </li>
                   ))}
                 </ul>
@@ -97,7 +103,7 @@ export default async function PickupsPage() {
                 <input type="hidden" name="id" value={p.id} />
                 {p.assigned_user_id ? <input type="hidden" name="assignedUserId" value={p.assigned_user_id} /> : null}
                 <label className="field"><span>{p.kind === "household_delivery" ? "Household address" : "From address"}</span><input className="input" name="address" defaultValue={p.address} required /></label>
-                <label className="field"><span>When</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={p.scheduled_for ? p.scheduled_for.slice(0, 16) : ""} /></label>
+                <label className="field"><span>When (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" defaultValue={easternLocalInput(p.scheduled_for)} /></label>
                 {p.kind === "household_delivery" ? null : (
                   <>
                     <label className="field">
@@ -125,7 +131,7 @@ export default async function PickupsPage() {
                 <PostForm action="/api/pickups" submitLabel="Schedule this">
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="status" value="scheduled" />
-                  <label className="field"><span>Time</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
+                  <label className="field"><span>Time (Eastern)</span><input className="input" type="datetime-local" name="scheduledFor" /></label>
                   {drivers.length ? (
                     <label className="field">
                       <span>Assign a driver</span>
@@ -214,7 +220,7 @@ export default async function PickupsPage() {
         {routes.ready ? (
           <PostForm action="/api/pickup-routes" submitLabel="Add address">
             <label className="field"><span>Email</span><input className="input" type="email" name="email" required /></label>
-            <label className="field"><span>Label</span><input className="input" name="label" placeholder="Tuesday grocery crew" /></label>
+            <label className="field"><span>Label, optional</span><input className="input" name="label" placeholder="Tuesday grocery crew" /></label>
             <label className="field">
               <span>Pickup type</span>
               <select className="input" name="kind" defaultValue="any">

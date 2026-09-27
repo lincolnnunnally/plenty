@@ -5,7 +5,8 @@ import { notifyCrew, notifyPeople, sendSms } from "@/lib/notify";
 import { ownerDeskUrl } from "@/lib/owner-signup-notice";
 import { deliverPickupNotice } from "@/lib/pickup-mail";
 import { pickupDeliverLine } from "@/lib/pickup-routes";
-import { composePickupAttention } from "@/lib/pickup-watch";
+import { composePickupAttention, formatEasternWhen } from "@/lib/pickup-watch";
+import { parseEasternDateTime } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,18 @@ function on(value: unknown) {
   return value === true || value === "true" || value === "on" || value === "yes";
 }
 
+/** Blank stays blank. A filled datetime-local value is Eastern wall time. */
+function easternWhen(value: unknown): string | null | undefined {
+  const text = str(value);
+  if (!text) return null;
+  const iso = parseEasternDateTime(text);
+  if (!iso) return undefined;
+  return iso;
+}
+
 async function pingHousehold(phone: string, when: string | null, extra: string, reachOk = true) {
   if (!phone || !reachOk) return;
-  const time = when ? new Date(when).toLocaleString() : "soon";
+  const time = when ? formatEasternWhen(when) : "soon";
   await sendSms(phone, `Plenty: food is coming ${time}. ${extra} If plans change, call the pantry.`.slice(0, 1500)).catch(() => ({ ok: false, error: "" }));
 }
 
@@ -29,7 +39,8 @@ export async function POST(request: Request) {
     try {
       if (str(body.address) && !str(body.status)) {
         const address = str(body.address);
-        const when = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
+        const when = easternWhen(body.scheduledFor);
+        if (when === undefined) return fail("Enter the pickup time in Eastern time.");
         const pounds =
           body.pounds === undefined
             ? undefined
@@ -71,7 +82,7 @@ export async function POST(request: Request) {
           pantryId: pantry.id,
           people,
           subject: "Plenty pickup location changed",
-          text: `Go here: ${address}\nTake it to: ${deliverTo}\nWhen: ${when ? new Date(when).toLocaleString() : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
+          text: `Go here: ${address}\nTake it to: ${deliverTo}\nWhen: ${when ? formatEasternWhen(when) : "see the board"}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/volunteer`,
           audience: assigned ? "assigned driver" : "pickup"
         });
         if (moved?.kind === "household_delivery") {
@@ -82,7 +93,9 @@ export async function POST(request: Request) {
           message: `Pickup moved. Emailed ${ping.emailed}, texted ${ping.texted}${ping.failed ? `. ${ping.failed} could not be reached.` : "."}`
         });
       }
-      const scheduledFor = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : undefined;
+      const scheduledRaw = str(body.scheduledFor);
+      const scheduledFor = scheduledRaw ? easternWhen(scheduledRaw) : undefined;
+      if (scheduledRaw && scheduledFor === undefined) return fail("Enter the pickup time in Eastern time.");
       await setPickupStatus(str(body.id), str(body.status), {
         assignedUserId: str(body.assignedUserId) || undefined,
         scheduledFor
@@ -96,7 +109,7 @@ export async function POST(request: Request) {
               pantryId: pantry.id,
               people,
               subject: "Plenty pickup assigned to you",
-              text: `A pickup is scheduled.\nWhen: ${scheduledFor ? new Date(scheduledFor).toLocaleString() : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`,
+              text: `A pickup is scheduled.\nWhen: ${scheduledFor ? formatEasternWhen(scheduledFor) : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`,
               audience: "assigned"
             })
           : await notifyCrew({
@@ -104,7 +117,7 @@ export async function POST(request: Request) {
               crew,
               roles: ["pickup", "delivery"],
               subject: "Plenty pickup scheduled",
-              text: `A pickup is on the board.\nWhen: ${scheduledFor ? new Date(scheduledFor).toLocaleString() : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`
+              text: `A pickup is on the board.\nWhen: ${scheduledFor ? formatEasternWhen(scheduledFor) : "see the board"}\nhttps://plenty.unitedundergod.org/volunteer`
             });
         const row = await getPickup(str(body.id), pantry.id);
         if (row?.kind === "household_delivery") {
@@ -137,7 +150,8 @@ export async function POST(request: Request) {
       ? (steward.error ? mine?.id : str(body.householdId) || mine?.id) || null
       : null;
   try {
-    const scheduledFor = str(body.scheduledFor) ? new Date(str(body.scheduledFor)).toISOString() : null;
+    const scheduledFor = easternWhen(body.scheduledFor);
+    if (scheduledFor === undefined) return fail("Enter the pickup time in Eastern time.");
     const pantryDest = kind === "household_delivery" ? { destLocationId: null, destNote: address } : str(body.destNote)
       ? { destLocationId: str(body.destLocationId) || null, destNote: str(body.destNote) }
       : await defaultPantryDestination(pantry);
@@ -148,8 +162,8 @@ export async function POST(request: Request) {
       scheduledFor,
       address,
       contactName: str(body.contactName) || user.name,
-      contactPhone: str(body.contactPhone),
-      notes: str(body.notes),
+      contactPhone: [str(body.contactPhone), str(body.contactEmail)].filter(Boolean).join(" · "),
+      notes: str(body.deskNote) || str(body.notes),
       createdBy: user.id,
       householdId,
       willBeHome: body.willBeHome === undefined || body.willBeHome === "" ? null : on(body.willBeHome),
@@ -190,7 +204,7 @@ export async function POST(request: Request) {
         text: `A household asked for food to be brought to them.\n${address}\n${str(body.windowText)}\n${str(body.notes)}\nhttps://plenty.unitedundergod.org/run/pickups`
       }).catch(() => ({ emailed: 0, texted: 0, failed: 0, detail: "" }));
     }
-    return ok({ message: "Request received. We will confirm a time and make sure someone is coming." });
+    return ok({ id: pickup.id, message: "Request received. We will confirm a time and make sure someone is coming." });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Could not save the request.", 503);
   }

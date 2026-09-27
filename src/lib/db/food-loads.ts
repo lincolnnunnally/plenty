@@ -275,7 +275,7 @@ export async function fulfillLoad(
     contactPhone: store.partnerPhone,
     notes: `${load.leftover ? "Leftover collect" : "Store pickup"} · ${load.dest_note || fallbackDest.destNote || "the pantry"} · ${load.route_reason}`,
     createdBy: null,
-    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString()}` : "",
+    windowText: load.hold_until ? `Hold until ${new Date(load.hold_until).toLocaleString("en-US", { timeZone: "America/New_York" })}` : "",
     destAllyId: load.dest_ally_id,
     destLocationId: load.dest_ally_id ? null : fallbackDest.destLocationId,
     destNote: load.dest_note || fallbackDest.destNote,

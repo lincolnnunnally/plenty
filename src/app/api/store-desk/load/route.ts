@@ -2,6 +2,7 @@ import { fail, ok, readJson, str } from "@/lib/api";
 import { offerFoodLoad } from "@/lib/db/food-loads";
 import { getDefaultPantry, listStorePartners } from "@/lib/db/queries";
 import { storeDeskPartnerId } from "@/lib/store-card/store-session";
+import { parseEasternDateTime } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,10 @@ export async function POST(request: Request) {
   const body = await readJson(request);
   if (!body) return fail("Send a JSON body.");
   const leftover = body.leftover === true || body.leftover === "on" || body.leftover === "1";
-  const pickupAt = str(body.pickupAt) ? new Date(str(body.pickupAt)).toISOString() : null;
-  const holdUntil = str(body.holdUntil) ? new Date(str(body.holdUntil)).toISOString() : null;
+  const pickupAt = str(body.pickupAt) ? parseEasternDateTime(str(body.pickupAt)) : null;
+  const holdUntil = str(body.holdUntil) ? parseEasternDateTime(str(body.holdUntil)) : null;
+  if (str(body.pickupAt) && !pickupAt) return fail("Enter the pickup time in Eastern time.");
+  if (str(body.holdUntil) && !holdUntil) return fail("Enter the hold time in Eastern time.");
   if (!pickupAt && !holdUntil) return fail("Tell us when to pick up, or how long the hold can sit.");
   const items: { category: string; title: string; quantity: string; mustUseBy: string | null }[] = [];
   for (const cat of ["dry", "refrigerated", "frozen", "produce"]) {

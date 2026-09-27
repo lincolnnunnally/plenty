@@ -8,6 +8,72 @@ function hourNorm(h: number) {
   return h === 24 ? 0 : h;
 }
 
+/**
+ * A datetime-local value is America/New_York wall time, including daylight saving.
+ * A value that already carries Z or an offset is an absolute instant and is kept.
+ * Returns a UTC ISO string, or null when the value is empty or not a real Eastern time.
+ */
+export function parseEasternDateTime(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(raw)) {
+    const absolute = new Date(raw);
+    return Number.isNaN(absolute.getTime()) ? null : absolute.toISOString();
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+  if (!match) return null;
+  const [, year, month, day, hh, mm, ss = "00"] = match;
+  const hour = Number(hh);
+  const minute = Number(mm);
+  const second = Number(ss);
+  for (const offset of ["-04:00", "-05:00"]) {
+    const candidate = new Date(`${year}-${month}-${day}T${hh}:${mm}:${ss}${offset}`);
+    if (Number.isNaN(candidate.getTime())) continue;
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).formatToParts(candidate);
+    const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+    const wallHour = hourNorm(Number(get("hour")));
+    if (
+      get("year") === year &&
+      get("month") === month &&
+      get("day") === day &&
+      wallHour === hour &&
+      Number(get("minute")) === minute &&
+      Number(get("second")) === second
+    ) {
+      return candidate.toISOString();
+    }
+  }
+  return null;
+}
+
+/** Value for an input type="datetime-local", shown as America/New_York wall time. */
+export function easternLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(at);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+}
+
 /** Next America/New_York wall-clock occurrence of weekday + HH:MM. */
 export function nextEasternOccurrence(weekday: number, timeLocal: string, now = new Date()): Date {
   const [hhRaw, mmRaw] = timeLocal.split(":").map(Number);
