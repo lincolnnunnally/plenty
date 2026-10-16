@@ -92,7 +92,7 @@ export default async function HomePage() {
 
       <section className="home-section paper">
         <div className="home-wrap home-split">
-          <img src="/home/pantry.jpg" alt={L("homePantryAlt")} loading="lazy" />
+          <img src="/home/pantry.jpg" alt={L("homePantryAlt")} />
           <div>
             <p className="home-eyebrow accent">{L("homeVisitEyebrow")}</p>
             <h2>{L("homeVisitTitle")}</h2>
@@ -127,7 +127,7 @@ export default async function HomePage() {
             <p className="home-lead">{L("homeBandLede")}</p>
             <a className="home-btn" href="/volunteer">{L("homeCardVolCta")}</a>
           </div>
-          <img src="/home/mission.jpg" alt={L("homeBandAlt")} loading="lazy" />
+          <img src="/home/mission.jpg" alt={L("homeBandAlt")} />
         </div>
       </section>
 
