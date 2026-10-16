@@ -185,7 +185,7 @@ textarea.input { min-height: 96px; resize: vertical; }
   .app-drawer { display: block; }
 }
 @media (max-width: 560px) { .app-header-inner { padding: 0 20px; } }
-.app-footer { background: #2a2118; color: #d8ccba; margin-top: 0; padding: 56px 0 40px; font: 400 16px/1.5 var(--font-body); }
+.app-footer { background: #2a2118; color: #d8ccba; margin-top: 64px; padding: 56px 0 40px; font: 400 16px/1.5 var(--font-body); }
 .app-footer-inner { width: min(1160px, 100%); margin: 0 auto; padding: 0 28px; display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 28px; }
 .app-footer .app-brand { color: #fff; }
 .app-footer p { color: #d8ccba; margin: 8px 0 0; font-weight: 400; }
@@ -499,3 +499,4 @@ button.chip {
   .home-cards { grid-template-columns: 1fr; }
   .home-card .home-btn { align-self: stretch; }
 }
+.home-r + .app-footer { margin-top: 0; }
