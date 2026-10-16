@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { readLang, type Lang } from "@/lib/i18n";
 
 export function LangToggle() {
+  const router = useRouter();
   const [lang, setLang] = useState<Lang>("en");
   useEffect(() => {
     const cookie = document.cookie.split("; ").find((c) => c.startsWith("plenty_lang="))?.split("=")[1];
@@ -16,6 +18,8 @@ export function LangToggle() {
     document.cookie = `plenty_lang=${next};path=/;max-age=31536000;SameSite=Lax`;
     document.documentElement.lang = next;
     window.dispatchEvent(new Event("plenty-lang"));
+    // Server-rendered pages (home, header, footer) read the cookie; refresh so they switch too.
+    router.refresh();
   }
 
   return (
