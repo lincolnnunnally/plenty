@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantry, weNeedList } from "@/lib/db/queries";
-import { readLang, t } from "@/lib/i18n";
+import { readLang, t, type MsgKey } from "@/lib/i18n";
 import { HOME_DESCRIPTION, pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -16,74 +16,120 @@ export default async function HomePage() {
   const address = pantry?.address?.trim();
   const lang = readLang((await cookies()).get("plenty_lang")?.value);
 
+  const L = (k: MsgKey) => t(lang, k);
+
   return (
-    <main className="shell">
-      <section className="hero">
-        <p className="eyebrow">Vidalia</p>
-        <h1>{t(lang, "homeTitle")}</h1>
-        <p className="lede">{t(lang, "homeLede")}</p>
-        <div className="action-row">
-          <a className="button primary" href="/need-food">{t(lang, "homeGet")}</a>
-          <a className="button leaf" href="/volunteer">{t(lang, "homeVolunteer")}</a>
-          <a className="button" href="https://unitedundergod.org/food-donors">{t(lang, "homeStores")}</a>
+    <main className="home-r">
+      <section className="home-hero">
+        <img src="/home/hero.jpg" alt={L("homeHeroAlt")} fetchPriority="high" />
+        <div className="home-wrap">
+          <p className="home-eyebrow">{L("homeEyebrow")}</p>
+          <h1>{L("homeTitle")}</h1>
+          <p className="home-hero-lede">{L("homeHeroLede")}</p>
+          <div className="home-ctas">
+            <a className="home-btn" href="/need-food">{L("homeGet")}</a>
+            <a className="home-tlink" href="/volunteer">{L("homeOrVolunteer")}</a>
+          </div>
+          {user ? <p className="home-signed">{L("homeSignedInAs")} {user.name}. <a href="/account">{L("account")}</a></p> : null}
+          {hours || address ? (
+            <p className="home-signed">
+              {hours ? hours : null}
+              {hours && address ? " · " : null}
+              {address ? `${address}${pantry?.city ? `, ${pantry.city}` : ""}` : null}
+            </p>
+          ) : null}
         </div>
-        {user ? <p className="note">Signed in as {user.name}. <a href="/account">Account</a></p> : null}
       </section>
 
-      {hours || address ? (
-        <p className="note" style={{ marginTop: 18 }}>
-          {hours ? hours : null}
-          {hours && address ? " · " : null}
-          {address ? `${address}${pantry?.city ? `, ${pantry.city}` : ""}` : null}
-        </p>
-      ) : null}
-
       {available.length ? (
-        <section className="panel">
-          <h2>This week</h2>
-          <div className="chip-row">
-            {available.slice(0, 12).map((item) => (
-              <span className="chip" key={item.id}>{item.name}</span>
-            ))}
+        <section className="home-section home-tight">
+          <div className="home-wrap">
+            <h2>{L("homeThisWeek")}</h2>
+            <div className="chip-row">
+              {available.slice(0, 12).map((item) => (
+                <span className="chip" key={item.id}>{item.name}</span>
+              ))}
+            </div>
+            <a className="home-btn sm ghost" href="/this-week">{L("homeSeeFood")}</a>
           </div>
-          <a className="button" href="/this-week">See the food</a>
         </section>
       ) : null}
 
-      <div className="grid">
-        <article className="card">
-          <strong>Get food</strong>
-          <p>Register your household. We scan your pass at the line. Handling donation requested — never required.</p>
-          <a className="button primary" href="/need-food">Register / pick up</a>
-        </article>
-        <article className="card">
-          <strong>Volunteer</strong>
-          <p>Pick up at stores, set the line, serve, or deliver. Repeating store pickups land on the board and we text you.</p>
-          <a className="button" href="/volunteer">Take a shift</a>
-        </article>
-        <article className="card">
-          <strong>Grocery stores</strong>
-          <p>New stores sign up once on United Under God for the tax record. Then live here for every pickup.</p>
-          <a className="button" href="https://unitedundergod.org/food-donors">New: sign up on United Under God</a>
-          <a className="button" href="/for-stores">Pickup on Plenty</a>
-        </article>
-        <article className="card">
-          <strong>Give money or space</strong>
-          <p>Card, Cash App, Venmo, Zelle. Pays pickup and the line — not a charge for groceries.</p>
-          <a className="button" href="/donate">Give</a>
-        </article>
-      </div>
+      <section className="home-section">
+        <div className="home-wrap">
+          <p className="home-eyebrow accent">{L("homeWaysEyebrow")}</p>
+          <h2>{L("homeWaysTitle")}</h2>
+          <p className="home-lead">{L("homeWaysLede")}</p>
+          <div className="home-cards">
+            <article className="home-card">
+              <div className="home-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 8h14l-1.5 12h-11z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg></div>
+              <h3>{L("homeCardFoodTitle")}</h3>
+              <p>{L("homeCardFoodBody")}</p>
+              <a className="home-btn sm" href="/need-food">{L("homeCardFoodCta")}</a>
+            </article>
+            <article className="home-card g">
+              <div className="home-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z" /></svg></div>
+              <h3>{L("homeCardVolTitle")}</h3>
+              <p>{L("homeCardVolBody")}</p>
+              <a className="home-btn sm" href="/volunteer">{L("homeCardVolCta")}</a>
+            </article>
+            <article className="home-card">
+              <div className="home-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 9l2-5h14l2 5" /><path d="M4 9h16v11H4z" /><path d="M10 20v-6h4v6" /></svg></div>
+              <h3>{L("homeCardStoreTitle")}</h3>
+              <p>{L("homeCardStoreBody")}</p>
+              <a className="home-btn sm" href="https://unitedundergod.org/food-donors">{L("homeCardStoreCta")}</a>
+              <a className="home-btn sm ghost" href="/for-stores">{L("homeCardStorePickup")}</a>
+            </article>
+            <article className="home-card g">
+              <div className="home-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></svg></div>
+              <h3>{L("homeCardGiveTitle")}</h3>
+              <p>{L("homeCardGiveBody")}</p>
+              <a className="home-btn sm" href="/donate">{L("homeCardGiveCta")}</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="home-section paper">
+        <div className="home-wrap home-split">
+          <img src="/home/pantry.jpg" alt={L("homePantryAlt")} />
+          <div>
+            <p className="home-eyebrow accent">{L("homeVisitEyebrow")}</p>
+            <h2>{L("homeVisitTitle")}</h2>
+            <ol className="home-steps">
+              <li><b>1</b><span>{L("homeStep1")}</span></li>
+              <li><b>2</b><span>{L("homeStep2")}</span></li>
+              <li><b>3</b><span>{L("homeStep3")}</span></li>
+            </ol>
+            <a className="home-btn" href="/need-food">{L("homeGet")}</a>
+          </div>
+        </div>
+      </section>
 
       {needs.length ? (
-        <section className="panel">
-          <h2>We could use</h2>
-          <div className="chip-row">
-            {needs.map((item) => (
-              <span className="chip" key={item.id}>{item.name}</span>
-            ))}
+        <section className="home-section home-tight">
+          <div className="home-wrap">
+            <h2>{L("homeWeCouldUse")}</h2>
+            <div className="chip-row">
+              {needs.map((item) => (
+                <span className="chip" key={item.id}>{item.name}</span>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
+
+      <section className="home-section home-band">
+        <div className="home-wrap home-split">
+          <div>
+            <p className="home-eyebrow">{L("homeBandEyebrow")}</p>
+            <h2>{L("homeBandTitle")}</h2>
+            <p className="home-lead">{L("homeBandLede")}</p>
+            <a className="home-btn" href="/volunteer">{L("homeCardVolCta")}</a>
+          </div>
+          <img src="/home/mission.jpg" alt={L("homeBandAlt")} />
+        </div>
+      </section>
 
       <script
         type="application/ld+json"
