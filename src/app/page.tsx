@@ -2,10 +2,12 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/session";
 import { availableThisWeek, getDefaultPantry, weNeedList } from "@/lib/db/queries";
 import { readLang, t, type MsgKey } from "@/lib/i18n";
-import { HOME_DESCRIPTION, pageMeta } from "@/lib/seo";
+import { HOME_DESCRIPTION, pageMeta, serviceJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta("Free groceries in Vidalia — no income test", HOME_DESCRIPTION);
+export const metadata = pageMeta("Plenty Food Pantry — Free Groceries in Vidalia, GA", HOME_DESCRIPTION, "/", { absoluteTitle: true });
 
 export default async function HomePage() {
   const user = await getCurrentUser().catch(() => null);
@@ -131,24 +133,35 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FoodEstablishment",
-            name: pantry?.name || "Plenty food pantry",
+      <JsonLd
+        data={{
+          ...serviceJsonLd({
+            name: "Free groceries at Plenty food pantry",
             description: HOME_DESCRIPTION,
-            url: "https://plenty.unitedundergod.org/",
-            address: {
-              "@type": "PostalAddress",
-              addressLocality: pantry?.city || "Vidalia",
-              addressRegion: pantry?.state || "GA",
-              postalCode: pantry?.zip || "30474",
-              streetAddress: pantry?.address || undefined
-            },
-            openingHours: hours || undefined
-          })
+            path: "/",
+            serviceType: "Food pantry",
+            audience: "Anyone in Vidalia who needs groceries",
+            free: true
+          }),
+          // Only what a steward has typed in: never a guessed address.
+          ...(address
+            ? {
+                availableChannel: {
+                  "@type": "ServiceChannel",
+                  serviceLocation: {
+                    "@type": "Place",
+                    name: pantry?.name || "Plenty food pantry",
+                    address: {
+                      "@type": "PostalAddress",
+                      streetAddress: address,
+                      addressLocality: pantry?.city || undefined,
+                      addressRegion: pantry?.state || undefined,
+                      postalCode: pantry?.zip || undefined
+                    }
+                  }
+                }
+              }
+            : {})
         }}
       />
     </main>

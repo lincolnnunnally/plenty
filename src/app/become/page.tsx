@@ -2,13 +2,14 @@ import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { HANDOFFS, suggestHandoffs } from "@/lib/handoffs";
 import { pathsForUser } from "@/lib/db/queries";
-import { pageMeta } from "@/lib/seo";
+import { pageMeta, serviceJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(
-  "More help after groceries",
-  "After you get food at the Vidalia food pantry, you can write one next step. Optional. Food is never held back."
-);
+const DESCRIPTION =
+  "After you get food at the Vidalia food pantry, you can ask for more help with work, bills, loneliness or a next step. Optional. Food is never held back.";
+export const metadata = pageMeta("More help after groceries", DESCRIPTION, "/become");
 
 export default async function BecomePage() {
   const user = await getCurrentUser().catch(() => null);
@@ -18,6 +19,7 @@ export default async function BecomePage() {
 
   return (
     <main className="shell">
+      <JsonLd data={serviceJsonLd({ name: "More help after groceries", description: DESCRIPTION, path: "/become", serviceType: "Optional next-step support", audience: "Neighbors who get groceries at Plenty" })} />
       <p className="eyebrow">After groceries</p>
       <h1>More help, if you want it</h1>
       <p className="lede">

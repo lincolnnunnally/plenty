@@ -7,13 +7,15 @@ import { availableThisWeek, effectivePayMethods, getDefaultPantrySafe, household
 import { HANDLING_DONATION } from "@/lib/promote/compose";
 import { passUrl } from "@/lib/pass";
 import { readLang, t } from "@/lib/i18n";
-import { pageMeta } from "@/lib/seo";
+import { pageMeta, serviceJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(
-  "Get free groceries in Vidalia",
-  "Plenty food pantry in Vidalia. Free groceries. No income test. Register, come through the line, or ask for a delivery."
-);
+const TITLE = "Free Groceries in Vidalia, GA — No Income Test";
+const DESCRIPTION =
+  "Get free groceries at the Plenty food pantry in Vidalia, Georgia. No income test. Register once, come through the line with your pass, or ask for a delivery.";
+export const metadata = pageMeta(TITLE, DESCRIPTION, "/need-food");
 
 export default async function NeedFoodPage() {
   const user = await getCurrentUser().catch(() => null);
@@ -31,6 +33,7 @@ export default async function NeedFoodPage() {
 
   return (
     <main className="shell">
+      <JsonLd data={serviceJsonLd({ name: "Free groceries", description: DESCRIPTION, path: "/need-food", serviceType: "Food pantry", audience: "Anyone in Vidalia who needs groceries", free: true })} />
       <p className="eyebrow">{t(lang, "getFood")}</p>
       <h1>{t(lang, "needTitle")}</h1>
       <p className="lede">{t(lang, "needLede")}</p>

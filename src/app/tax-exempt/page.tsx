@@ -5,7 +5,8 @@ import { pageMeta } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "Tax-exempt information",
-  `${LEGAL_NAME} is a 501(c)(3), EIN ${EIN}. Plenty food pantry is a program of United Under God. Gifts of food or money may be tax-deductible to the extent allowed by law.`
+  `${LEGAL_NAME} is a 501(c)(3), EIN ${EIN}. Plenty food pantry is a program of United Under God. Gifts of food or money may be tax-deductible to the extent allowed by law.`,
+  "/tax-exempt"
 );
 
 export default async function TaxExemptPage() {

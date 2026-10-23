@@ -5,15 +5,16 @@ import { PostForm } from "@/components/post-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { effectivePayMethods, getDefaultPantrySafe, getTaxProfile, openOpsNeeds, weNeedList } from "@/lib/db/queries";
 import { readLang, t } from "@/lib/i18n";
-import { pageMeta } from "@/lib/seo";
+import { ORGANIZATION_ID, absoluteUrl, pageMeta } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 import { pickupTimeLabel, resolvePickupTimeZone } from "@/lib/schedule";
 import { stripeConfigured } from "@/lib/stripe-give";
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(
-  "Give to the Vidalia food pantry",
-  "Give by card, Cash App, Venmo, or Zelle. Groceries stay free. Money pays pickup and the line. Grocery stores: throw it away and deduct cost; donate it and you may deduct twice as much."
-);
+const DESCRIPTION =
+  "Give to the Plenty food pantry in Vidalia by card, Cash App, Venmo, or Zelle. Groceries stay free; your gift pays for food pickup and running the line.";
+export const metadata = pageMeta("Give to the Vidalia food pantry", DESCRIPTION, "/donate");
 
 export default async function DonatePage({ searchParams }: { searchParams: Promise<{ cancelled?: string }> }) {
   const { cancelled } = await searchParams;
@@ -29,6 +30,16 @@ export default async function DonatePage({ searchParams }: { searchParams: Promi
 
   return (
     <main className="shell">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "Give to the Vidalia food pantry",
+          description: DESCRIPTION,
+          url: absoluteUrl("/donate"),
+          potentialAction: { "@type": "DonateAction", recipient: { "@id": ORGANIZATION_ID } }
+        }}
+      />
       <p className="eyebrow">{t(lang, "giveTitle")}</p>
       <h1>Food is free. Handling still costs.</h1>
       <p className="lede">{t(lang, "giveLede")}</p>

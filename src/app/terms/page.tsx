@@ -6,7 +6,8 @@ const UPDATED = "September 9, 2026";
 
 export const metadata = {
   title: "Terms of Service",
-  description: "The terms that govern your use of Plenty."
+  description: "The terms that govern your use of Plenty.",
+  alternates: { canonical: "/terms" }
 };
 
 export default function TermsPage() {
