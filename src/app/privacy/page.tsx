@@ -5,7 +5,8 @@ const CONTACT = "lincoln@unitedundergod.org";
 
 export const metadata = {
   title: "Privacy Policy",
-  description: "How Plenty collects, uses, and protects your information."
+  description: "How Plenty collects, uses, and protects your information.",
+  alternates: { canonical: "/privacy" }
 };
 
 export default function PrivacyPage() {

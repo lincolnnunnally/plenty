@@ -19,6 +19,8 @@ const NAV: { href: string; key: MsgKey }[] = [
 const FOOTER: { titleKey: MsgKey; links: { href: string; key: MsgKey }[] }[] = [
   { titleKey: "footFood", links: [
     { href: "/need-food", key: "getFood" },
+    { href: "/this-week", key: "thisWeek" },
+    { href: "/become", key: "footMoreHelp" },
     { href: "/around", key: "navAround" },
     { href: "/serve", key: "footAllied" }
   ] },

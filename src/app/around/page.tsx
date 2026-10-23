@@ -9,13 +9,15 @@ import { ensureToombsStartingPoints, getDefaultPantrySafe, isSteward, listAllies
 import { alliesForOperator } from "@/lib/db/food-loads";
 import { doorPhotoFromNotes } from "@/lib/door-photo";
 import { readLang, t } from "@/lib/i18n";
-import { pageMeta } from "@/lib/seo";
+import { ORGANIZATION_ID, absoluteUrl, pageMeta } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(
-  "Food pantries in Vidalia and Lyons",
-  "Plenty lists food pantries in Toombs County only after someone walks in. Hours are what we saw, not what a directory guessed."
-);
+const AROUND_TITLE = "Food pantries in Vidalia and Lyons";
+const AROUND_DESCRIPTION =
+  "Food pantries in Vidalia, Lyons and Toombs County, Georgia. Plenty lists a pantry only after someone walks in; hours are what we saw, not what a directory guessed.";
+export const metadata = pageMeta(AROUND_TITLE, AROUND_DESCRIPTION, "/around");
 
 async function pin(a: { id: string; name: string; address: string; city: string; state?: string; zip?: string; hours_text?: string; relationship: string }): Promise<MapPlace | null> {
   if (!a.address) return null;
@@ -110,6 +112,16 @@ export default async function AroundPage() {
 
   return (
     <main className="shell">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: AROUND_TITLE,
+          description: AROUND_DESCRIPTION,
+          url: absoluteUrl("/around"),
+          publisher: { "@id": ORGANIZATION_ID }
+        }}
+      />
       <p className="eyebrow">{t(lang, "aroundEyebrow")}</p>
       <h1>{t(lang, "aroundTitle")}</h1>
       <p className="lede">{t(lang, "aroundLede")}</p>

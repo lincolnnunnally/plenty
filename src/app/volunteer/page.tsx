@@ -9,13 +9,14 @@ import { readLang, t } from "@/lib/i18n";
 import { VOLUNTEER_WAIVER_VERSION } from "@/lib/legal/volunteer-waiver";
 import { formatEasternWhen } from "@/lib/pickup-watch";
 import { resolvePickupTimeZone } from "@/lib/schedule";
-import { pageMeta } from "@/lib/seo";
+import { pageMeta, serviceJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(
-  "Volunteer at the Vidalia food pantry",
-  "Pick up donated food, set up, serve the line, or deliver. Repeating store pickups land here."
-);
+const DESCRIPTION =
+  "Volunteer at the Plenty food pantry in Vidalia, Georgia: pick up donated food from stores, set up, serve the line, or deliver groceries. Take a shift.";
+export const metadata = pageMeta("Volunteer at the Vidalia food pantry", DESCRIPTION, "/volunteer");
 
 export default async function VolunteerPage() {
   const user = await getCurrentUser().catch(() => null);
@@ -37,6 +38,7 @@ export default async function VolunteerPage() {
 
   return (
     <main className="shell">
+      <JsonLd data={serviceJsonLd({ name: "Volunteer shifts at Plenty food pantry", description: DESCRIPTION, path: "/volunteer", serviceType: "Volunteer opportunities", audience: "People who want to volunteer at a food pantry" })} />
       <p className="eyebrow">{t(lang, "volunteer")}</p>
       <h1>{t(lang, "volTitle")}</h1>
       <p className="lede">{t(lang, "volLede")}</p>

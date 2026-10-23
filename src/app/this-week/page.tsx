@@ -7,7 +7,8 @@ import { pageMeta } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export const metadata = pageMeta(
   "This week's food at the Vidalia pantry",
-  "See what groceries the Plenty food pantry in Vidalia, Georgia is giving out this week, including photos of items in this week's bags."
+  "See what groceries the Plenty food pantry in Vidalia, Georgia is giving out this week, including photos of items in this week's bags.",
+  "/this-week"
 );
 
 export default async function ThisWeekPage() {

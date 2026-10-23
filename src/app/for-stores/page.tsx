@@ -3,15 +3,20 @@ import { PrintButton } from "@/components/print-button";
 import { StoreCalculator } from "@/components/store-calculator";
 import { StorePitchCase, StorePitchIntro } from "@/components/store-pitch";
 import { EIN, LEGAL_NAME } from "@/lib/legal/org";
-import { FOOD_TYPES, STORE_CONCERNS, STORE_DESCRIPTION, STORE_TITLE, WEEKDAYS } from "@/lib/store-pitch";
-import { pageMeta } from "@/lib/seo";
+import { FOOD_TYPES, STORE_CONCERNS, WEEKDAYS } from "@/lib/store-pitch";
+import { pageMeta, serviceJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMeta(STORE_TITLE, STORE_DESCRIPTION);
+const DESCRIPTION =
+  "Grocery stores, warehouses and farms: donate unsold food to the Plenty food pantry in Vidalia and you may deduct up to twice its cost. We pick it up.";
+export const metadata = pageMeta("Donate Unsold Groceries in Vidalia: Store Pickup", DESCRIPTION, "/for-stores");
 
 export default function ForStoresPage() {
   return (
     <main className="shell">
+      <JsonLd data={serviceJsonLd({ name: "Food donation pickup for grocery stores", description: DESCRIPTION, path: "/for-stores", serviceType: "Surplus food donation pickup", audience: "Grocery stores, warehouses and farms" })} />
       <p className="eyebrow">Grocery stores · warehouses · farms</p>
       <StorePitchIntro einLine={`EIN ${EIN} · ${LEGAL_NAME} · 501(c)(3) · Plenty is the pantry program`} />
       <p className="lede" style={{ marginTop: 8 }}>
